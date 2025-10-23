@@ -1,0 +1,18 @@
+{
+	"name": "@handlebar/examples-ai-sdk-v5",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {},
+	"dependencies": {
+		"@ai-sdk/openai": "^2.0.54",
+		"@handlebar/ai-sdk-v5": "workspace:*",
+		"ai": "^5.0.80",
+		"zod": "^4.1.12"
+	}
+}

@@ -1,0 +1,26 @@
+name: Pull request checks
+on:
+  pull_request:
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    name: CI checks
+    steps:
+      - uses: oven-sh/setup-bun@v2
+      - name: Install deps
+        run: |
+          bun i && bun run --filter '@handlebar/core' build && bun run --filter '!@handlebar/core' build
+      - name: Lint
+        run: |
+          bun run lint
+      - name: Test
+        run: |
+          bun run test

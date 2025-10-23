@@ -1,0 +1,8 @@
+.env
+**/.env*/*
+.env.local
+ROADMAP.PRIVATE.md
+
+**/build/*
+**/dist/*
+node_modules/

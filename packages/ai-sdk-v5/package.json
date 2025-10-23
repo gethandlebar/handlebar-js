@@ -1,0 +1,21 @@
+{
+	"name": "@handlebar/ai-sdk-v5",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"license": "GPL-3.0-only",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build.ts && tsc -p tsconfig.json"
+	},
+	"dependencies": {
+		"@handlebar/core": "^0.0.1"
+	},
+	"peerDependencies": {
+		"ai": "^5.0.80"
+	}
+}
