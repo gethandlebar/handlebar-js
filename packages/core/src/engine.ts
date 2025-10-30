@@ -1,3 +1,4 @@
+import type { AuditBus } from "./audit/bus";
 import type {
 	AuditSink,
 	CustomCheck,
@@ -83,7 +84,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 	public governanceLog: GovernanceLog<T>[] = [];
 
-	constructor(cfg: GovernanceConfig<T>, audit?: AuditSink<T>) {
+	constructor(cfg: GovernanceConfig<T>, audit?: AuditSink<T>, public bus?: AuditBus) {
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
 		this.rules = cfg.rules ?? [];
 		this.defaultUncategorised = cfg.defaultUncategorised ?? "allow";

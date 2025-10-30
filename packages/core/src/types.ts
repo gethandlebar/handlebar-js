@@ -2,6 +2,9 @@ export type UserCategory = string;
 export type ToolName = string;
 export type ToolCategory = string;
 
+export type ISO8601 = string; // date string
+export type Id = string;
+
 export type DecisionEffect = "allow" | "block";
 export type DecisionCode =
 	| "ALLOWED"
