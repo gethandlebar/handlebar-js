@@ -112,6 +112,16 @@ Please refer to [CONTRIBUTING.md][root_contributing]
 for ways you can help,
 and guidelines.
 
+## License
+
+This SDK
+is currently licensed under the Apache License 2.0.
+You’re free to use and distribute it in accordance with that license.
+
+As Handlebar evolves, future versions of this SDK may be released under different terms.
+All existing Apache-licensed versions will remain open and usable under Apache-2.0.
+Please refer to the [root license](../LICENSE) for the full license.
+
 ## About Handlebar
 
 Find out more at https://gethandlebar.com
