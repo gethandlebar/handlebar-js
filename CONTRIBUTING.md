@@ -10,8 +10,8 @@ but a lot of feedback to gather.
 There are a number of ways you can help us develop Handlebar
 into your ideal AI governance system.
 
-- The simplest way is to out the SDKs in this repository!
-- **All** feedback on design, utility, feature requests, bugs and so on is welcome and very much appreciated (so long as you're respectful). Please open an issue in this repository, or if you prefer to talk to us directly...
+- The simplest way is to try out the SDKs in this repository!
+- **All** feedback on design, utility, feature requests, bugs and so on is welcome and very much appreciated (so long as you're respectful). Please [open an issue][issue] in this repository, or if you prefer to talk to us directly...
 - [Join the Discord community][discord] to chat ideas, governance, AI, or just come hang out
 - If you want to see how [Handlebar] can help your company with AI governance, please [book a call][calendar]
 
