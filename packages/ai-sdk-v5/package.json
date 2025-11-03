@@ -19,5 +19,4 @@
 		"ai": "^5.0.80"
 	},
 	"keywords": ["llm", "agent", "agentic", "ai", "sdk", "governance", "tool-calling", "mcp", "vercel"]
-
 }
