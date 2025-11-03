@@ -14,10 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     name: CI checks
     steps:
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - name: Install deps
         run: |
-          bun i && bun run --filter '@handlebar/core' build && bun run --filter '!@handlebar/core' build
+          bun install --frozen-lockfile
+          bun run --filter '@handlebar/core' build
+          bun run --filter '!@handlebar/core' build
       - name: Lint
         run: |
           bun run lint
