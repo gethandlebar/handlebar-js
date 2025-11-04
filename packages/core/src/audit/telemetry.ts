@@ -47,7 +47,7 @@ class TelemetrySingleton {
 	}
 
 	bus(): AuditBus | null {
-    this.init();
+		this.init();
 		return this._bus;
 	}
 

@@ -4,8 +4,8 @@ import {
 	emit,
 	type GovernanceConfig,
 	GovernanceEngine,
-    type RunContext,
-    withRunContext,
+	type RunContext,
+	withRunContext,
 } from "@handlebar/core";
 import {
 	Experimental_Agent as Agent,
@@ -62,7 +62,7 @@ export class HandlebarAgent<
 	private inner: Agent<ToolSet, Ctx, Memory>;
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
 	private runCtx: RunContext;
-  private runStarted = false;
+	private runStarted = false;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
 		const { tools = {} as ToolSet, governance, ...rest } = opts;
@@ -145,32 +145,36 @@ export class HandlebarAgent<
 	}
 
 	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
-    return withRunContext(
-      { runId: this.runCtx.runId, userCategory: this.runCtx.userCategory, stepIndex: this.runCtx.stepIndex },
-      async () => {
-        if (!this.runStarted) {
-          this.runStarted = true;
-          // TODO: get types on emit data.
-     			emit("run.started", {
-      				agent: { framework: "ai-sdk" },
-      				adapter: { name: "@handlebar/ai-sdk-v5" },
-     			});
-        }
+		return withRunContext(
+			{
+				runId: this.runCtx.runId,
+				userCategory: this.runCtx.userCategory,
+				stepIndex: this.runCtx.stepIndex,
+			},
+			async () => {
+				if (!this.runStarted) {
+					this.runStarted = true;
+					// TODO: get types on emit data.
+					emit("run.started", {
+						agent: { framework: "ai-sdk" },
+						adapter: { name: "@handlebar/ai-sdk-v5" },
+					});
+				}
 
-        return await fn();
-      }
-    );
-  }
+				return await fn();
+			},
+		);
+	}
 
 	generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
-	  return this.withRun(() => this.inner.generate(...a));
+		return this.withRun(() => this.inner.generate(...a));
 	}
 
 	stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
-	  return this.withRun(() => this.inner.stream(...a));
+		return this.withRun(() => this.inner.stream(...a));
 	}
 
 	respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
-	  return this.withRun(() => this.inner.respond(...a));
+		return this.withRun(() => this.inner.respond(...a));
 	}
 }
