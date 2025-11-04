@@ -4,6 +4,7 @@ import {
 	emit,
 	type GovernanceConfig,
 	GovernanceEngine,
+    withRunContext,
 } from "@handlebar/core";
 import {
 	Experimental_Agent as Agent,
@@ -164,10 +165,4 @@ export class HandlebarAgent<
 	respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
 		return this.inner.respond(...a);
 	}
-}
-function withRunContext(
-	arg0: { runId: any; userCategory: any; stepIndex: any },
-	arg1: () => void,
-) {
-	throw new Error("Function not implemented.");
 }
