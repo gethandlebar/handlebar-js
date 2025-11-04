@@ -17,3 +17,10 @@ export function withRunContext<T>(ctx: RunCtx, fn: () => T): T {
 export function getRunContext(): RunCtx | undefined {
   return als.getStore();
 }
+
+export function setDecisionId(id: string | undefined) {
+  const ctx = als.getStore(); if (ctx) ctx.decisionId = id;
+}
+export function incStep() {
+  const ctx = als.getStore(); if (ctx) ctx.stepIndex = (ctx.stepIndex ?? 0) + 1;
+}
