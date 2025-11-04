@@ -90,16 +90,18 @@ export class HandlebarAgent<
 			if (!t.execute) {
 				return t;
 			}
+
 			const exec = t.execute.bind(t);
+
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 					if (engine.shouldBlock(decision)) {
 						const err = new Error(decision.reason ?? "Blocked by Handlebar");
-						(err as any).decision = decision;
 						throw err;
 					}
+
 					try {
 						const start = Date.now();
 						const res = await exec(args as never, options);
@@ -111,6 +113,7 @@ export class HandlebarAgent<
 							args,
 							res,
 						);
+
 						return res as never;
 					} catch (e) {
 						await engine.afterTool(
@@ -128,7 +131,7 @@ export class HandlebarAgent<
 		});
 
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
-			...(rest as any),
+			...(rest),
 			tools: wrapped,
 		});
 		this.governance = engine;
