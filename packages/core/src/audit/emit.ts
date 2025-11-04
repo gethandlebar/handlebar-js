@@ -5,7 +5,7 @@ import { Telemetry } from "./telemetry";
 import type { AuditEvent } from "./types";
 
 
-const now = (): ISO8601 => new Date().toISOString();
+const now = (): ISO8601 => new Date().toISOString(); // TODO: move to utils.
 
 // TODO: generic typing of audit event data
 export function emit(kind: AuditEvent["kind"], data: any, extras?: Partial<AuditEvent>) {

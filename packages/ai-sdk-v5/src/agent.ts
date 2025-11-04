@@ -1,6 +1,7 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
+	emit,
 	type GovernanceConfig,
 	GovernanceEngine,
 } from "@handlebar/core";
@@ -47,8 +48,7 @@ type HandlebarAgentOpts<
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
 		userCategory?: string;
-		// optional quick categories: { toolName: string[] }
-		categories?: Record<string, string[]>;
+		categories?: Record<string, string[]>; // tool categories.
 	};
 };
 
@@ -81,9 +81,22 @@ export class HandlebarAgent<
 			},
 		);
 
+		const runId = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 		const runCtx = engine.createRunContext(
-			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
+			runId,
 			governance?.userCategory ?? "unknown", // TODO: allow undefined / empty array
+		);
+
+		withRunContext(
+      { runId: runCtx.runId, userCategory: runCtx.userCategory, stepIndex: runCtx.stepIndex },
+      () => {
+        // TODO: get types on emit data.
+        emit("run.started", {
+          agent: { framework: "ai-sdk" },
+          adapter: { name: "@handlebar/ai-sdk-v5", },
+        });
+        // TODO: proceed with agent loop; beforeTool/afterTool to run under ALS
+      }
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
@@ -146,4 +159,7 @@ export class HandlebarAgent<
 	respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
 		return this.inner.respond(...a);
 	}
+}
+function withRunContext(arg0: { runId: any; userCategory: any; stepIndex: any; }, arg1: () => void) {
+    throw new Error("Function not implemented.");
 }
