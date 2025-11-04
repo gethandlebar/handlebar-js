@@ -87,7 +87,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 	public governanceLog: GovernanceLog<T>[] = [];
 
-	constructor(cfg: GovernanceConfig<T>, audit?: AuditSink<T>, public bus?: AuditBus) {
+	constructor(
+		cfg: GovernanceConfig<T>,
+		audit?: AuditSink<T>,
+		public bus?: AuditBus,
+	) {
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
 		this.rules = cfg.rules ?? [];
 		this.defaultUncategorised = cfg.defaultUncategorised ?? "allow";
@@ -160,11 +164,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		toolName: string,
 		args: unknown,
 	): Promise<Decision> {
-  	const runCtx = getRunContext();
-    const localStep = runCtx?.stepIndex ?? 0;
-    const t0 = performance.now();
-    // const decisionId = genId();
-    // setDecisionId(decisionId);
+		const runCtx = getRunContext();
+		const localStep = runCtx?.stepIndex ?? 0;
+		const t0 = performance.now();
+		// const decisionId = genId();
+		// setDecisionId(decisionId);
 
 		const tool = this.getTool(toolName);
 		const call: ToolCall<T> = { tool, args } as ToolCall<T>;
@@ -193,14 +197,23 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		decision = await this.decideByRules(ctx, call);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
-		emit("tool.decision", {
-      tool: { name: toolName, categories: this.getTool(toolName).categories },
-      decision: { effect: decision.effect, code: decision.code, ruleId: decision.ruleId, reason: decision.reason },
-      counters: { ...ctx.counters },
-      latencyMs: millisecondsSince(t0),
-    }, { stepIndex: localStep }); // TODO: include decision ID in log.
+		emit(
+			"tool.decision",
+			{
+				tool: { name: toolName, categories: this.getTool(toolName).categories },
+				decision: {
+					effect: decision.effect,
+					code: decision.code,
+					ruleId: decision.ruleId,
+					reason: decision.reason,
+				},
+				counters: { ...ctx.counters },
+				latencyMs: millisecondsSince(t0),
+			},
+			{ stepIndex: localStep },
+		); // TODO: include decision ID in log.
 
-    return finalDecision;
+		return finalDecision;
 	}
 
 	private _finaliseDecision(
@@ -230,9 +243,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		result: unknown,
 		error?: unknown,
 	) {
-  	const runCtx = getRunContext();
-    const localStep = runCtx?.stepIndex ?? 0;
-    const decisionId = runCtx?.decisionId;
+		const runCtx = getRunContext();
+		const localStep = runCtx?.stepIndex ?? 0;
+		const decisionId = runCtx?.decisionId;
 		const tool = this.getTool(toolName);
 
 		const tr: ToolResult<T> = {
@@ -256,19 +269,25 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		// TODO: remove old audit fn.
 		this.audit?.onResult?.(ctx, tr);
 
-    const errorAsError = error instanceof Error ? error : null;
-		emit("tool.result", {
-      tool: { name: toolName, categories: this.getTool(toolName).categories },
-      outcome: error ? "error" : "success",
-      durationMs: executionTimeMS,
-      inputBytes: undefined, // TODO: remove bytes
-      outputBytes: undefined,
-      counters: { ...ctx.counters },
-      error: errorAsError ? { name: errorAsError.name, message: errorAsError.message } : undefined
-  }, { stepIndex: localStep, decisionId });
+		const errorAsError = error instanceof Error ? error : null;
+		emit(
+			"tool.result",
+			{
+				tool: { name: toolName, categories: this.getTool(toolName).categories },
+				outcome: error ? "error" : "success",
+				durationMs: executionTimeMS,
+				inputBytes: undefined, // TODO: remove bytes
+				outputBytes: undefined,
+				counters: { ...ctx.counters },
+				error: errorAsError
+					? { name: errorAsError.name, message: errorAsError.message }
+					: undefined,
+			},
+			{ stepIndex: localStep, decisionId },
+		);
 
-    // setDecisionId(undefined);
-    incStep();
+		// setDecisionId(undefined);
+		incStep();
 
 		// TODO: need to block if post-tool decision.
 	}

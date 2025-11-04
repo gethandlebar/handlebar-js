@@ -81,22 +81,27 @@ export class HandlebarAgent<
 			},
 		);
 
-		const runId = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+		const runId =
+			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 		const runCtx = engine.createRunContext(
 			runId,
 			governance?.userCategory ?? "unknown", // TODO: allow undefined / empty array
 		);
 
 		withRunContext(
-      { runId: runCtx.runId, userCategory: runCtx.userCategory, stepIndex: runCtx.stepIndex },
-      () => {
-        // TODO: get types on emit data.
-        emit("run.started", {
-          agent: { framework: "ai-sdk" },
-          adapter: { name: "@handlebar/ai-sdk-v5", },
-        });
-        // TODO: proceed with agent loop; beforeTool/afterTool to run under ALS
-      }
+			{
+				runId: runCtx.runId,
+				userCategory: runCtx.userCategory,
+				stepIndex: runCtx.stepIndex,
+			},
+			() => {
+				// TODO: get types on emit data.
+				emit("run.started", {
+					agent: { framework: "ai-sdk" },
+					adapter: { name: "@handlebar/ai-sdk-v5" },
+				});
+				// TODO: proceed with agent loop; beforeTool/afterTool to run under ALS
+			},
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
@@ -144,7 +149,7 @@ export class HandlebarAgent<
 		});
 
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
-			...(rest),
+			...rest,
 			tools: wrapped,
 		});
 		this.governance = engine;
@@ -160,6 +165,9 @@ export class HandlebarAgent<
 		return this.inner.respond(...a);
 	}
 }
-function withRunContext(arg0: { runId: any; userCategory: any; stepIndex: any; }, arg1: () => void) {
-    throw new Error("Function not implemented.");
+function withRunContext(
+	arg0: { runId: any; userCategory: any; stepIndex: any },
+	arg1: () => void,
+) {
+	throw new Error("Function not implemented.");
 }
