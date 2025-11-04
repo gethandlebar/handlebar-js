@@ -4,6 +4,7 @@ import {
 	emit,
 	type GovernanceConfig,
 	GovernanceEngine,
+    type RunContext,
     withRunContext,
 } from "@handlebar/core";
 import {
@@ -60,6 +61,9 @@ export class HandlebarAgent<
 > {
 	private inner: Agent<ToolSet, Ctx, Memory>;
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
+	private runCtx: RunContext;
+  private runStarted = false;
+  private runEnded = false;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
 		const { tools = {} as ToolSet, governance, ...rest } = opts;
@@ -87,22 +91,6 @@ export class HandlebarAgent<
 		const runCtx = engine.createRunContext(
 			runId,
 			governance?.userCategory ?? "unknown", // TODO: allow undefined / empty array
-		);
-
-		withRunContext(
-			{
-				runId: runCtx.runId,
-				userCategory: runCtx.userCategory,
-				stepIndex: runCtx.stepIndex,
-			},
-			() => {
-				// TODO: get types on emit data.
-				emit("run.started", {
-					agent: { framework: "ai-sdk" },
-					adapter: { name: "@handlebar/ai-sdk-v5" },
-				});
-				// TODO: proceed with agent loop; beforeTool/afterTool to run under ALS
-			},
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
@@ -154,15 +142,52 @@ export class HandlebarAgent<
 			tools: wrapped,
 		});
 		this.governance = engine;
+		this.runCtx = runCtx;
 	}
 
+	// withRunContext(
+	// 	{
+	// 		runId: runCtx.runId,
+	// 		userCategory: runCtx.userCategory,
+	// 		stepIndex: runCtx.stepIndex,
+	// 	},
+	// 	() => {
+	// 		// TODO: get types on emit data.
+	// 		emit("run.started", {
+	// 			agent: { framework: "ai-sdk" },
+	// 			adapter: { name: "@handlebar/ai-sdk-v5" },
+	// 		});
+	// 		// TODO: proceed with agent loop; beforeTool/afterTool to run under ALS
+	// 	},
+	// );
+
+	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
+    return withRunContext(
+      { runId: this.runCtx.runId, userCategory: this.runCtx.userCategory, stepIndex: this.runCtx.stepIndex },
+      async () => {
+        if (!this.runStarted) {
+          this.runStarted = true;
+          // TODO: get types on emit data.
+     			emit("run.started", {
+      				agent: { framework: "ai-sdk" },
+      				adapter: { name: "@handlebar/ai-sdk-v5" },
+     			});
+        }
+
+        return await fn();
+      }
+    );
+  }
+
 	generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
-		return this.inner.generate(...a);
+	  return this.withRun(() => this.inner.generate(...a));
 	}
+
 	stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
-		return this.inner.stream(...a);
+	  return this.withRun(() => this.inner.stream(...a));
 	}
+
 	respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
-		return this.inner.respond(...a);
+	  return this.withRun(() => this.inner.respond(...a));
 	}
 }
