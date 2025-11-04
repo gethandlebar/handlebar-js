@@ -4,11 +4,13 @@ import type { AuditEvent } from "./types";
 export function ConsoleSink(mode: "pretty" | "json" = "json"): AuditSink {
 	return {
 		write(e) {
-			if (mode === "json") console.log(JSON.stringify(e));
-			else
+			if (mode === "json") {
+				console.log(JSON.stringify(e));
+			} else {
 				console.log(
 					`[${e.kind}] run=${e.runId} step=${e.stepIndex ?? "-"} ${e.data ? "" : ""}`,
 				);
+			}
 		},
 	};
 }

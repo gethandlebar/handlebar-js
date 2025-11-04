@@ -63,7 +63,6 @@ export class HandlebarAgent<
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
 	private runCtx: RunContext;
   private runStarted = false;
-  private runEnded = false;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
 		const { tools = {} as ToolSet, governance, ...rest } = opts;
@@ -144,22 +143,6 @@ export class HandlebarAgent<
 		this.governance = engine;
 		this.runCtx = runCtx;
 	}
-
-	// withRunContext(
-	// 	{
-	// 		runId: runCtx.runId,
-	// 		userCategory: runCtx.userCategory,
-	// 		stepIndex: runCtx.stepIndex,
-	// 	},
-	// 	() => {
-	// 		// TODO: get types on emit data.
-	// 		emit("run.started", {
-	// 			agent: { framework: "ai-sdk" },
-	// 			adapter: { name: "@handlebar/ai-sdk-v5" },
-	// 		});
-	// 		// TODO: proceed with agent loop; beforeTool/afterTool to run under ALS
-	// 	},
-	// );
 
 	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
     return withRunContext(

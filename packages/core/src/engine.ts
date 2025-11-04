@@ -186,6 +186,23 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			if (check.before) {
 				const d = await check.before(ctx, call);
 				if (d && d.effect === "block") {
+				  // TODO: refactor emit process to reduce calls.
+  				emit(
+  					"tool.decision",
+  					{
+  						tool: { name: toolName, categories: this.getTool(toolName).categories },
+  						decision: {
+  							effect: d.effect,
+  							code: d.code,
+  							ruleId: d.ruleId,
+  							reason: d.reason,
+  						},
+  						counters: { ...ctx.counters },
+  						latencyMs: millisecondsSince(t0),
+  					},
+  					{ stepIndex: localStep },
+  				); // TODO: include decision ID in log.
+
 					return this._finaliseDecision(ctx, call, {
 						...d,
 						code: d.code ?? "BLOCKED_CUSTOM",
