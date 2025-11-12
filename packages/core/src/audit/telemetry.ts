@@ -25,7 +25,7 @@ class TelemetrySingleton {
 		const apiKey = opts?.apiKey ?? process.env.HANDLEBAR_API_KEY;
 
 		// TODO: remove default console log before publish.
-		const defaults = opts?.defaultSinks ?? (apiKey ? ["http"] : ["console"]);
+		const defaults = opts?.defaultSinks ?? (endpoint ? ["http"] : ["console"]);
 
 		const sinks: AuditSink[] = [];
 		if (defaults.includes("console")) {
@@ -34,7 +34,7 @@ class TelemetrySingleton {
 
 		if (defaults.includes("http") && endpoint) {
 			const headers = {
-				Authorization: apiKey ? `Bearer ${apiKey}` : "",
+				// Authorization: apiKey ? `Bearer ${apiKey}` : "", // No auth on Handlebar-lens yet
 				...(opts?.headers ?? {}),
 			};
 			sinks.push(HttpSink(endpoint, headers));
