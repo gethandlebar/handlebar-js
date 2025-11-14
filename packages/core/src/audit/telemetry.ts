@@ -22,7 +22,7 @@ class TelemetrySingleton {
 		this._bus = createAuditBus();
 
 		const endpoint = opts?.endpoint ?? process.env.HANDLEBAR_ENDPOINT;
-		const apiKey = opts?.apiKey ?? process.env.HANDLEBAR_API_KEY;
+		// const apiKey = opts?.apiKey ?? process.env.HANDLEBAR_API_KEY;
 
 		// TODO: remove default console log before publish.
 		const defaults = opts?.defaultSinks ?? (endpoint ? ["http"] : ["console"]);
