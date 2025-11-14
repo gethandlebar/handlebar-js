@@ -76,13 +76,6 @@ export class HandlebarAgent<
 
 		const engine = new GovernanceEngine<ToCoreTool<ToolSet>>(
 			{ tools: toolMeta, ...governance },
-			{
-				onDecision: (_ctx, _call, _d) => {
-					if (governance?.verbose) {
-						// TODO: what to do with onDecision here??
-					}
-				},
-			},
 		);
 
 		const runId =

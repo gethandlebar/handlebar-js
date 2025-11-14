@@ -2,7 +2,6 @@ import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
 import { emit } from "./audit/emit";
 import type {
-	AuditSink,
 	CustomCheck,
 	Decision,
 	DecisionEffect,
@@ -81,7 +80,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private defaultUncategorised: DecisionEffect;
 	private sequence?: SequencePolicy;
 	private checks: CustomCheck<T>[];
-	private audit?: AuditSink<T>;
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
 
@@ -89,7 +87,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 	constructor(
 		cfg: GovernanceConfig<T>,
-		audit?: AuditSink<T>,
 		public bus?: AuditBus,
 	) {
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
@@ -97,7 +94,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		this.defaultUncategorised = cfg.defaultUncategorised ?? "allow";
 		this.sequence = cfg.sequence;
 		this.checks = cfg.checks ?? [];
-		this.audit = audit;
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
 	}
@@ -248,8 +244,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			);
 		}
 
-		// TODO: generalise these log updates. Overridden by audit context?
-		this.audit?.onDecision?.(ctx, call, decision);
 		this.governanceLog.push({ tool: call, decision, when: "before" });
 
 		return decision;
@@ -286,9 +280,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		// TODO: do something with breach
 		this.executionTimeBreach(executionTimeMS, tool.name);
 
-		// TODO: remove old audit fn.
-		this.audit?.onResult?.(ctx, tr);
-
 		const errorAsError = error instanceof Error ? error : null;
 		emit(
 			"tool.result",
@@ -296,8 +287,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				tool: { name: toolName, categories: this.getTool(toolName).categories },
 				outcome: error ? "error" : "success",
 				durationMs: executionTimeMS,
-				inputBytes: undefined, // TODO: remove bytes
-				outputBytes: undefined,
 				counters: { ...ctx.counters },
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }

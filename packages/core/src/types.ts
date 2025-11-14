@@ -103,11 +103,3 @@ export interface GovernanceConfig<T extends Tool = Tool> {
 	mode?: "monitor" | "enforce";
 	verbose?: boolean;
 }
-
-/**
- * @deprecated - replaced by `AuditSink` in `./audit/sinks`
- */
-export interface AuditSink<T extends Tool = Tool> {
-	onDecision?(ctx: RunContext<T>, call: ToolCall<T>, decision: Decision): void;
-	onResult?(ctx: RunContext<T>, result: ToolResult<T>): void;
-}
