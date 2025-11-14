@@ -74,9 +74,10 @@ export class HandlebarAgent<
 			}),
 		);
 
-		const engine = new GovernanceEngine<ToCoreTool<ToolSet>>(
-			{ tools: toolMeta, ...governance },
-		);
+		const engine = new GovernanceEngine<ToCoreTool<ToolSet>>({
+			tools: toolMeta,
+			...governance,
+		});
 
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
