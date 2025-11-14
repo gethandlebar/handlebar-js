@@ -2,6 +2,9 @@ export type UserCategory = string;
 export type ToolName = string;
 export type ToolCategory = string;
 
+export type ISO8601 = string; // date string
+export type Id = string;
+
 export type DecisionEffect = "allow" | "block";
 export type DecisionCode =
 	| "ALLOWED"
@@ -99,9 +102,4 @@ export interface GovernanceConfig<T extends Tool = Tool> {
 	initialCounters?: Record<string, number>;
 	mode?: "monitor" | "enforce";
 	verbose?: boolean;
-}
-
-export interface AuditSink<T extends Tool = Tool> {
-	onDecision?(ctx: RunContext<T>, call: ToolCall<T>, decision: Decision): void;
-	onResult?(ctx: RunContext<T>, result: ToolResult<T>): void;
 }

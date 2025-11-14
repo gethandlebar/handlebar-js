@@ -13,7 +13,7 @@ Short-term roadmap:
   - [X] rule category
 - [X] Tool ordering + execution time checks
 - [X] custom checks for rules (numeric tracking; boolean evaluation)
-- [ ] Audit telemetry + consumers
+- [X] Audit telemetry + consumers
 - [ ] Agent lockdown + human-in-the-loop actions
 
 ### Roadmap

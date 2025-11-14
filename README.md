@@ -35,7 +35,7 @@ folder to see the handlebar packages in action.
 Immediate updates:
 - [ ] Other agent frameworks + python frameworks
 - [ ] JSON-to-rule conversion
-- [ ] Audit logs
+- [X] Audit logs
 - [ ] Agent escalations (e.g. human-in-the-loop)
 
 Handlebar is in early development. We have a lot of functionality planned,

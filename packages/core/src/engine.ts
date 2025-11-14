@@ -1,5 +1,7 @@
+import type { AuditBus } from "./audit/bus";
+import { getRunContext, incStep } from "./audit/context";
+import { emit } from "./audit/emit";
 import type {
-	AuditSink,
 	CustomCheck,
 	Decision,
 	DecisionEffect,
@@ -12,6 +14,7 @@ import type {
 	ToolMeta,
 	ToolResult,
 } from "./types";
+import { millisecondsSince } from "./utils";
 
 function evaluateSequencePolicy<T extends Tool>(
 	policy: NonNullable<GovernanceConfig<T>["sequence"]>,
@@ -77,19 +80,20 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private defaultUncategorised: DecisionEffect;
 	private sequence?: SequencePolicy;
 	private checks: CustomCheck<T>[];
-	private audit?: AuditSink<T>;
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
 
 	public governanceLog: GovernanceLog<T>[] = [];
 
-	constructor(cfg: GovernanceConfig<T>, audit?: AuditSink<T>) {
+	constructor(
+		cfg: GovernanceConfig<T>,
+		public bus?: AuditBus,
+	) {
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
 		this.rules = cfg.rules ?? [];
 		this.defaultUncategorised = cfg.defaultUncategorised ?? "allow";
 		this.sequence = cfg.sequence;
 		this.checks = cfg.checks ?? [];
-		this.audit = audit;
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
 	}
@@ -156,6 +160,12 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		toolName: string,
 		args: unknown,
 	): Promise<Decision> {
+		const runCtx = getRunContext();
+		const localStep = runCtx?.stepIndex ?? 0;
+		const t0 = performance.now();
+		// const decisionId = genId();
+		// setDecisionId(decisionId);
+
 		const tool = this.getTool(toolName);
 		const call: ToolCall<T> = { tool, args } as ToolCall<T>;
 
@@ -172,6 +182,26 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			if (check.before) {
 				const d = await check.before(ctx, call);
 				if (d && d.effect === "block") {
+					// TODO: refactor emit process to reduce calls.
+					emit(
+						"tool.decision",
+						{
+							tool: {
+								name: toolName,
+								categories: this.getTool(toolName).categories,
+							},
+							decision: {
+								effect: d.effect,
+								code: d.code,
+								ruleId: d.ruleId,
+								reason: d.reason,
+							},
+							counters: { ...ctx.counters },
+							latencyMs: millisecondsSince(t0),
+						},
+						{ stepIndex: localStep },
+					); // TODO: include decision ID in log.
+
 					return this._finaliseDecision(ctx, call, {
 						...d,
 						code: d.code ?? "BLOCKED_CUSTOM",
@@ -181,7 +211,25 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		decision = await this.decideByRules(ctx, call);
-		return this._finaliseDecision(ctx, call, decision);
+		const finalDecision = this._finaliseDecision(ctx, call, decision);
+
+		emit(
+			"tool.decision",
+			{
+				tool: { name: toolName, categories: this.getTool(toolName).categories },
+				decision: {
+					effect: decision.effect,
+					code: decision.code,
+					ruleId: decision.ruleId,
+					reason: decision.reason,
+				},
+				counters: { ...ctx.counters },
+				latencyMs: millisecondsSince(t0),
+			},
+			{ stepIndex: localStep },
+		); // TODO: include decision ID in log.
+
+		return finalDecision;
 	}
 
 	private _finaliseDecision(
@@ -195,9 +243,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				`[handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${decision.ruleId ? ` rule=${decision.ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
 			);
 		}
-		this.audit?.onDecision?.(ctx, call, decision);
-		// TODO: generalise this log update.
+
 		this.governanceLog.push({ tool: call, decision, when: "before" });
+
 		return decision;
 	}
 
@@ -209,6 +257,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		result: unknown,
 		error?: unknown,
 	) {
+		const runCtx = getRunContext();
+		const localStep = runCtx?.stepIndex ?? 0;
+		const decisionId = runCtx?.decisionId;
 		const tool = this.getTool(toolName);
 
 		const tr: ToolResult<T> = {
@@ -229,7 +280,23 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		// TODO: do something with breach
 		this.executionTimeBreach(executionTimeMS, tool.name);
 
-		this.audit?.onResult?.(ctx, tr);
+		const errorAsError = error instanceof Error ? error : null;
+		emit(
+			"tool.result",
+			{
+				tool: { name: toolName, categories: this.getTool(toolName).categories },
+				outcome: error ? "error" : "success",
+				durationMs: executionTimeMS,
+				counters: { ...ctx.counters },
+				error: errorAsError
+					? { name: errorAsError.name, message: errorAsError.message }
+					: undefined,
+			},
+			{ stepIndex: localStep, decisionId },
+		);
+
+		// setDecisionId(undefined);
+		incStep();
 
 		// TODO: need to block if post-tool decision.
 	}

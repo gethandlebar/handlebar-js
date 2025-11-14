@@ -16,7 +16,7 @@ Short-term roadmap:
   - [X] rule category
 - [X] Tool ordering + execution time checks
 - [X] custom checks for rules (numeric tracking; boolean evaluation)
-- [ ] Audit telemetry + consumers
+- [X] Audit telemetry + consumers
 - [ ] Agent lockdown + human-in-the-loop actions
 
 ### Roadmap
@@ -35,7 +35,7 @@ See [contributing][root_contributing] for more information.
 Install the package in your codebase
 
 ```bash
-bun i @handlbar/ai-sdk-v5
+bun add @handlbar/ai-sdk-v5
 # or
 npm i @handlebar/ai-sdk-v5
 ```
@@ -59,10 +59,41 @@ const result = await agent.generate({ prompt: "Surprise me" });
 The `HandlebarAgent` agent has the same interface as the ai-sdk's agent class,
 so no further changes are necessary.
 By default, the handlebar agent enforces no governance rules,
-but does collect agent telemetry which can be exported to analyse your agent's behaviour*.
+but does collect agent telemetry which can be exported to analyse your agent's behaviour.
 To get more out of handlebar,
 you can configure rules on tool use and behaviour
 for handlebar to enforce at runtime.
+
+### Audit logs
+
+The `HandlebarAgent` collects audit logs for key events
+in the lifetime of an agent run,
+such as tool usage
+and agent rule evaluations
+(see below for more on Handlebar rules).
+
+You can export the logs to a local dashboard
+with [Handlebar lens][lens_repo],
+our opensource agent manager which is in early development.
+To do so,
+set the endpoint environment variable
+in your system running the `HandlebarAgent` class
+and then run **Handlebar Lens** (refer to [Lens' README][lens_repo] for this).
+Your agents logs will appear in the dashboard.
+
+```bash
+// .env
+HANDLEBAR_ENDPOINT=http://localhost:7071/ingest
+// or use port configured on Handlebar Lens
+```
+
+N.b. Handlebar audit logs and **Lens** are in early and active development.
+Our near-term priorities include:
+
+- Combining audit logs with OTEL for LLMs and agents
+- Search, filtering, and run analysis on **Lens**
+
+### Rules and agent enforcement
 
 ```js
 import { HandlebarAgent } from "@handlebar/core";
@@ -103,8 +134,6 @@ Please refer to [`./examples/`][examples] for a runable demo of [Handlebar]
 applied to an ai sdk agent.\
 N.b. Our developer docs are incoming.
 
-*_telemetry export functionality is WIP._
-
 ## Contributing
 
 We welcome contributions from the community: bug reports, feedback, feature requests.
@@ -131,3 +160,4 @@ Find out more at https://gethandlebar.com
 [root_contributing]: https://github.com/gethandlebar/handlebar-js/blob/main/CONTRIBUTING.md
 [examples]: https://github.com/gethandlebar/handlebar-js/blob/main/examples/ai-sdk-v5/
 [discord_invite]: https://discord.gg/Q6xwvccg
+[lens_repo]: https://github.com/gethandlebar/lens

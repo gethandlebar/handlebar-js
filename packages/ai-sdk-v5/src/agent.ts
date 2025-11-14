@@ -1,8 +1,11 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
+	emit,
 	type GovernanceConfig,
 	GovernanceEngine,
+	type RunContext,
+	withRunContext,
 } from "@handlebar/core";
 import {
 	Experimental_Agent as Agent,
@@ -47,8 +50,7 @@ type HandlebarAgentOpts<
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
 		userCategory?: string;
-		// optional quick categories: { toolName: string[] }
-		categories?: Record<string, string[]>;
+		categories?: Record<string, string[]>; // tool categories.
 	};
 };
 
@@ -59,6 +61,8 @@ export class HandlebarAgent<
 > {
 	private inner: Agent<ToolSet, Ctx, Memory>;
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
+	private runCtx: RunContext;
+	private runStarted = false;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
 		const { tools = {} as ToolSet, governance, ...rest } = opts;
@@ -70,19 +74,15 @@ export class HandlebarAgent<
 			}),
 		);
 
-		const engine = new GovernanceEngine<ToCoreTool<ToolSet>>(
-			{ tools: toolMeta, ...governance },
-			{
-				onDecision: (_ctx, _call, _d) => {
-					if (governance?.verbose) {
-						// TODO: what to do with onDecision here??
-					}
-				},
-			},
-		);
+		const engine = new GovernanceEngine<ToCoreTool<ToolSet>>({
+			tools: toolMeta,
+			...governance,
+		});
 
+		const runId =
+			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 		const runCtx = engine.createRunContext(
-			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2),
+			runId,
 			governance?.userCategory ?? "unknown", // TODO: allow undefined / empty array
 		);
 
@@ -90,16 +90,18 @@ export class HandlebarAgent<
 			if (!t.execute) {
 				return t;
 			}
+
 			const exec = t.execute.bind(t);
+
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 					if (engine.shouldBlock(decision)) {
 						const err = new Error(decision.reason ?? "Blocked by Handlebar");
-						(err as any).decision = decision;
 						throw err;
 					}
+
 					try {
 						const start = Date.now();
 						const res = await exec(args as never, options);
@@ -111,6 +113,7 @@ export class HandlebarAgent<
 							args,
 							res,
 						);
+
 						return res as never;
 					} catch (e) {
 						await engine.afterTool(
@@ -128,19 +131,44 @@ export class HandlebarAgent<
 		});
 
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
-			...(rest as any),
+			...rest,
 			tools: wrapped,
 		});
 		this.governance = engine;
+		this.runCtx = runCtx;
+	}
+
+	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
+		return withRunContext(
+			{
+				runId: this.runCtx.runId,
+				userCategory: this.runCtx.userCategory,
+				stepIndex: this.runCtx.stepIndex,
+			},
+			async () => {
+				if (!this.runStarted) {
+					this.runStarted = true;
+					// TODO: get types on emit data.
+					emit("run.started", {
+						agent: { framework: "ai-sdk" },
+						adapter: { name: "@handlebar/ai-sdk-v5" },
+					});
+				}
+
+				return await fn();
+			},
+		);
 	}
 
 	generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
-		return this.inner.generate(...a);
+		return this.withRun(() => this.inner.generate(...a));
 	}
+
 	stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
-		return this.inner.stream(...a);
+		return this.withRun(() => this.inner.stream(...a));
 	}
+
 	respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
-		return this.inner.respond(...a);
+		return this.withRun(() => this.inner.respond(...a));
 	}
 }
