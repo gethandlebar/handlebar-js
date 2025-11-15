@@ -71,8 +71,5 @@ These SDKs defined under [`packages/`](./packages/)
 are currently licensed under the Apache License 2.0.
 You’re free to use and distribute it in accordance with that license.
 
-As Handlebar evolves, future versions of the SDKs may be released under different terms (for example, a more protective source-available license).
-All existing Apache-licensed versions will remain open and usable under Apache-2.0.
-
 [handlebar]: https://www.gethandlebar.com
 [discord_invite]: https://discord.gg/Q6xwvccg

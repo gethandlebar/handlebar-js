@@ -8,15 +8,23 @@ agents from across your organisation.
 ## Short-term roadmap
 
 In the near-term,
-there is a lot to do on this repo!
+there is a lot to do in this repo...
 
 - SDK design is incomplete and needs improvement. (_N.b. the packages are subject to breaking changes at this stage_)
 - Support for other agent building frameworks
-- Agent auditability and tracing
 - More configurability over rules, e.g. follow-on actions from a broken rule
+- Human-in-the-loop interventions
 
 ## Have your say
 
 We welcome all feedback and feature requests!
-Check out the [contributing doc](./CONTRIBUTING.md)
-on how to get in touch.
+
+- [Join the Discord community][discord] to chat ideas, governance, AI, or just come hang out
+- If you want to see how [Handlebar] can help you with AI governance, please [book a call][calendar]
+- If you have specific feature requests or questions, get in touch or open an issue in the repo
+
+
+[handlebar]: https://www.gethandlebar.com
+[discord]: https://discord.gg/Q6xwvccg
+[calendar]: https://calendly.com/arjun-handlebar/30min
+[issue]: https://github.com/handlebarai/handlebar-js/issues/new
