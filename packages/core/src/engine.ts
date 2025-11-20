@@ -1,14 +1,23 @@
+import type {
+	CustomFunctionCondition,
+	ExecutionTimeCondition,
+	MaxCallsCondition,
+	Rule,
+	RuleCondition,
+	SequenceCondition,
+	ToolNameCondition,
+	ToolTagCondition,
+} from "@handlebar/governance-schema";
 import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
 import { emit } from "./audit/emit";
 import type {
+  AppliedAction,
 	CustomCheck,
-	Decision,
-	DecisionEffect,
 	GovernanceConfig,
-	Rule,
+	GovernanceDecision,
+	GovernanceEffect,
 	RunContext,
-	SequencePolicy,
 	Tool,
 	ToolCall,
 	ToolMeta,
@@ -16,69 +25,18 @@ import type {
 } from "./types";
 import { millisecondsSince } from "./utils";
 
-function evaluateSequencePolicy<T extends Tool>(
-	policy: NonNullable<GovernanceConfig<T>["sequence"]>,
-	ctx: RunContext<T>,
-	call: ToolCall<T>,
-): Decision | undefined {
-	if (policy.mustOccurBefore) {
-		for (const r of policy.mustOccurBefore) {
-			if (call.tool.name === r.after) {
-				const hasBefore = ctx.history.some((h) => h.tool.name === r.before);
-				if (!hasBefore) {
-					return {
-						effect: "block",
-						code: "BLOCKED_SEQUENCE",
-						reason: `Requires "${r.before}" before "${r.after}"`,
-					};
-				}
-			}
-		}
-	}
-
-	if (policy.maxCalls) {
-		const max = policy.maxCalls[call.tool.name];
-		if (typeof max === "number") {
-			const used = ctx.history.filter(
-				(h) => h.tool.name === call.tool.name,
-			).length;
-
-			if (used >= max) {
-				return {
-					effect: "block",
-					code: "BLOCKED_LIMIT",
-					reason: `Max calls for "${call.tool.name}" is ${max}`,
-				};
-			}
-		}
-	}
-
-	if (policy.disallowConsecutive?.includes(call.tool.name)) {
-		const last = ctx.history[ctx.history.length - 1];
-
-		if (last?.tool.name === call.tool.name) {
-			return {
-				effect: "block",
-				code: "BLOCKED_SEQUENCE",
-				reason: `No consecutive "${call.tool.name}" calls`,
-			};
-		}
-	}
-
-	return undefined;
-}
-
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
-	decision: Decision;
+	decision: GovernanceDecision;
 	when: "before" | "after";
 };
+
+const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
 
 export class GovernanceEngine<T extends Tool = Tool> {
 	private tools: Map<string, ToolMeta<T>>;
 	private rules: Rule[];
-	private defaultUncategorised: DecisionEffect;
-	private sequence?: SequencePolicy;
+	private defaultUncategorised: GovernanceEffect;
 	private checks: CustomCheck<T>[];
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
@@ -86,13 +44,12 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	public governanceLog: GovernanceLog<T>[] = [];
 
 	constructor(
-		cfg: GovernanceConfig<T>,
+		cfg: Omit<GovernanceConfig<T>, "rules"> & { rules?: Rule[] },
 		public bus?: AuditBus,
 	) {
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
 		this.rules = cfg.rules ?? [];
 		this.defaultUncategorised = cfg.defaultUncategorised ?? "allow";
-		this.sequence = cfg.sequence;
 		this.checks = cfg.checks ?? [];
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
@@ -109,7 +66,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			userCategory,
 			stepIndex: 0,
 			history: [],
-			counters: { ...(initialCounters ?? {}) },
+			counters: {
+				...(initialCounters ?? {}),
+				[TOTAL_DURATION_COUNTER]: 0,
+			},
 			state: new Map(),
 			now,
 		};
@@ -120,14 +80,16 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		if (!t) {
 			throw new Error(`Unknown tool "${name}"`);
 		}
-
 		return t;
 	}
 
 	private async decideByRules(
+		phase: "pre" | "post",
 		ctx: RunContext<T>,
 		call: ToolCall<T>,
-	): Promise<Decision> {
+		executionTimeMS: number | null,
+	): Promise<GovernanceDecision> {
+		// TODO: no tool categories should not have a default response. instead, it should be on no matching rules.
 		if (
 			(!call.tool.categories || call.tool.categories.length === 0) &&
 			this.defaultUncategorised === "block"
@@ -135,72 +97,310 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			return {
 				effect: "block",
 				code: "BLOCKED_UNCATEGORISED",
+				matchedRuleIds: [],
+				appliedActions: [],
 				reason: `Tool "${call.tool.name}" has no categories`,
 			};
 		}
 
-		// TODO: allow for superceding rules. e.g. "any" mode vs. "all" mode.
-		for (const rule of this.rules) {
-			if (await rule.when.evaluate(ctx, call)) {
-				const d: Decision = {
-					effect: rule.effect,
-					code: rule.effect === "allow" ? "ALLOWED" : "BLOCKED_RULE",
-					reason: rule.reason,
-					ruleId: rule.id,
-				};
-				return d;
+		const applicable = this.rules.filter(
+			(r) => r.when === phase || r.when === "both",
+		);
+
+		const ordered = [...applicable].sort((a, b) => a.priority - b.priority);
+
+		let decision: Pick<GovernanceDecision, "effect" | "code" | "reason"> | undefined;
+
+		const appliedRules: AppliedAction[] = [];
+    const matchingRules: string[] = [];
+
+		for (const rule of ordered) {
+			const matches = await this.evalCondition(rule.condition, {
+				phase,
+				ctx,
+				call,
+				executionTimeMS,
+			});
+
+      if (!matches) { continue };
+      matchingRules.push(rule.id);
+
+			if (!rule.actions.length) { continue };
+
+			for (const action of rule.actions) {
+        appliedRules.push({
+          ruleId: rule.id,
+          type: action.type,
+        });
+
+				if (action.type === "block") {
+					return {
+						effect: "block",
+						code: "BLOCKED_RULE",
+						appliedActions: appliedRules,
+            matchedRuleIds: appliedRules.map(ar => ar.ruleId),
+					};
+				} else if (action.type === "allow" && decision?.effect !== "block") {
+					decision = {
+						effect: "allow",
+						code: "ALLOWED",
+					};
+					// keep scanning; a later higher-priority rule might block
+				}
 			}
 		}
 
-		return { effect: "allow", code: "ALLOWED" };
+		const finalDecision: GovernanceDecision = {
+  		matchedRuleIds: matchingRules,
+  		appliedActions: appliedRules,
+    ...(decision ?? { effect: "allow", code: "ALLOWED"})
+		}
+
+		return finalDecision;
+	}
+
+	private async evalCondition(
+		cond: RuleCondition,
+		args: {
+			phase: "pre" | "post";
+			ctx: RunContext<T>;
+			call: ToolCall<T>;
+			executionTimeMS: number | null;
+		},
+	): Promise<boolean> {
+		switch (cond.kind) {
+			case "toolName":
+				return this.evalToolName(cond, args.call.tool.name);
+
+			case "toolTag":
+				return this.evalToolTag(
+					cond,
+					args.call.tool.categories ?? [],
+				);
+
+			case "executionTime":
+				// only meaningful post-tool
+				if (args.phase !== "post") return false;
+				return this.evalExecutionTime(cond, args.executionTimeMS, args.ctx);
+
+			case "sequence":
+				return this.evalSequence(cond, args.ctx.history, args.call.tool.name);
+
+			case "maxCalls":
+				return this.evalMaxCalls(cond, args.ctx.history);
+
+			case "custom":
+				return this.evalCustom(cond, args.ctx, args.call);
+
+			case "and":
+				if (!cond.all.length) return true;
+				for (const child of cond.all) {
+					if (!(await this.evalCondition(child, args))) return false;
+				}
+				return true;
+
+			case "or":
+				if (!cond.any.length) return false;
+				for (const child of cond.any) {
+					if (await this.evalCondition(child, args)) return true;
+				}
+				return false;
+
+			case "not":
+				return !(await this.evalCondition(cond.not, args));
+
+			default: {
+				const _exhaustive: never = cond;
+				return false;
+			}
+		}
+	}
+
+	private evalToolName(cond: ToolNameCondition, toolName: string): boolean {
+		const name = toolName.toLowerCase();
+
+		const matchGlob = (value: string, pattern: string): boolean => {
+			const esc = pattern
+				.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&")
+				.replace(/\*/g, ".*");
+			const re = new RegExp(`^${esc}$`, "i");
+			return re.test(value);
+		};
+
+		switch (cond.op) {
+			case "eq":
+				return name === cond.value.toString().toLowerCase();
+			case "neq":
+				return name !== cond.value.toString().toLowerCase();
+			case "contains":
+				return name.includes(cond.value.toString().toLowerCase());
+			case "startsWith":
+				return name.startsWith(cond.value.toString().toLowerCase());
+			case "endsWith":
+				return name.endsWith(cond.value.toString().toLowerCase());
+			case "glob":
+				return matchGlob(name, cond.value as string);
+			case "in":
+				return cond.value.some((v) => matchGlob(name, v as string));
+		}
+	}
+
+	private evalToolTag(cond: ToolTagCondition, tags: string[]): boolean {
+		const lower = tags.map((t) => t.toLowerCase());
+
+		switch (cond.op) {
+			case "has":
+				return lower.includes(cond.tag.toLowerCase());
+			case "anyOf":
+				return cond.tags.some((t) => lower.includes(t.toLowerCase()));
+			case "allOf":
+				return cond.tags.every((t) => lower.includes(t.toLowerCase()));
+		}
+	}
+
+	private evalExecutionTime(
+		cond: ExecutionTimeCondition,
+		executionTimeMS: number | null,
+		ctx: RunContext<T>,
+	): boolean {
+		if (executionTimeMS === null) return false;
+
+		const totalMs = ctx.counters[TOTAL_DURATION_COUNTER] ?? 0;
+
+		const valueMs =
+			cond.scope === "tool"
+				? executionTimeMS
+				: totalMs; // v0: "total" = accumulated in counters
+
+		switch (cond.op) {
+			case "gt":
+				return valueMs > cond.ms;
+			case "gte":
+				return valueMs >= cond.ms;
+			case "lt":
+				return valueMs < cond.ms;
+			case "lte":
+				return valueMs <= cond.ms;
+			case "eq":
+				return valueMs === cond.ms;
+			case "neq":
+				return valueMs !== cond.ms;
+		}
+	}
+
+	private evalSequence(
+		cond: SequenceCondition,
+		history: ToolResult<T>[],
+		currentToolName: string,
+	): boolean {
+		const names = history.map((h) => h.tool.name);
+
+		const matchGlob = (value: string, pattern: string): boolean => {
+			const esc = pattern
+				.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&")
+				.replace(/\*/g, ".*");
+			const re = new RegExp(`^${esc}$`, "i");
+			return re.test(value);
+		};
+
+		if (cond.mustHaveCalled?.length) {
+			for (const pattern of cond.mustHaveCalled) {
+				const found = names.some((n) => matchGlob(n, pattern));
+				if (!found) return false;
+			}
+		}
+
+		if (cond.mustNotHaveCalled?.length) {
+			for (const pattern of cond.mustNotHaveCalled) {
+				const found = names.some((n) => matchGlob(n, pattern));
+				if (found) return false;
+			}
+		}
+
+		return true;
+	}
+
+	private evalMaxCalls(
+		cond: MaxCallsCondition,
+		history: ToolResult<T>[],
+	): boolean {
+		const matchGlob = (value: string, pattern: string): boolean => {
+			const esc = pattern
+				.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&")
+				.replace(/\*/g, ".*");
+			const re = new RegExp(`^${esc}$`, "i");
+			return re.test(value);
+		};
+
+		let count = 0;
+
+		if (cond.selector.by === "toolName") {
+			for (const h of history) {
+				if (cond.selector.patterns.some((p) => matchGlob(h.tool.name, p))) {
+					count++;
+				}
+			}
+		} else {
+			for (const h of history) {
+				const tags = (h.tool.categories ?? []).map((t) => t.toLowerCase());
+				if (
+					cond.selector.tags.some((tag) =>
+						tags.includes(tag.toLowerCase()),
+					)
+				) {
+					count++;
+				}
+			}
+		}
+
+		return count <= cond.max;
+	}
+
+	private async evalCustom(
+		cond: CustomFunctionCondition,
+		ctx: RunContext<T>,
+		call: ToolCall<T>,
+	): Promise<boolean> {
+		// For now, no central registry; user can still use CustomCheck.before
+		return false;
 	}
 
 	async beforeTool(
 		ctx: RunContext<T>,
 		toolName: string,
 		args: unknown,
-	): Promise<Decision> {
+	): Promise<GovernanceDecision> {
 		const runCtx = getRunContext();
 		const localStep = runCtx?.stepIndex ?? 0;
 		const t0 = performance.now();
-		// const decisionId = genId();
-		// setDecisionId(decisionId);
 
 		const tool = this.getTool(toolName);
 		const call: ToolCall<T> = { tool, args } as ToolCall<T>;
 
-		let decision: Decision | undefined;
-
-		if (this.sequence) {
-			decision = evaluateSequencePolicy(this.sequence, ctx, call);
-			if (decision) {
-				return this._finaliseDecision(ctx, call, decision);
-			}
-		}
-
+		// TODO: Need to rework these.
 		for (const check of this.checks) {
 			if (check.before) {
 				const d = await check.before(ctx, call);
 				if (d && d.effect === "block") {
-					// TODO: refactor emit process to reduce calls.
 					emit(
 						"tool.decision",
 						{
 							tool: {
 								name: toolName,
-								categories: this.getTool(toolName).categories,
+								categories: tool.categories,
 							},
 							decision: {
 								effect: d.effect,
 								code: d.code,
-								ruleId: d.ruleId,
 								reason: d.reason,
 							},
+							matchedRuleIds: d.matchedRuleIds,
+							appliedActions: d.appliedActions,
 							counters: { ...ctx.counters },
 							latencyMs: millisecondsSince(t0),
 						},
 						{ stepIndex: localStep },
-					); // TODO: include decision ID in log.
+					);
 
 					return this._finaliseDecision(ctx, call, {
 						...d,
@@ -210,24 +410,25 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
-		decision = await this.decideByRules(ctx, call);
+		const decision = await this.decideByRules("pre", ctx, call, null);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
 		emit(
 			"tool.decision",
 			{
-				tool: { name: toolName, categories: this.getTool(toolName).categories },
+				tool: { name: toolName, categories: tool.categories },
 				decision: {
 					effect: decision.effect,
 					code: decision.code,
-					ruleId: decision.ruleId,
 					reason: decision.reason,
 				},
+				matchedRuleIds: decision.matchedRuleIds,
+				appliedActions: decision.appliedActions,
 				counters: { ...ctx.counters },
 				latencyMs: millisecondsSince(t0),
 			},
 			{ stepIndex: localStep },
-		); // TODO: include decision ID in log.
+		);
 
 		return finalDecision;
 	}
@@ -235,12 +436,13 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private _finaliseDecision(
 		ctx: RunContext<T>,
 		call: ToolCall<T>,
-		decision: Decision,
-	): Decision {
+		decision: GovernanceDecision,
+	): GovernanceDecision {
 		if (this.verbose) {
 			const tag = decision.effect === "allow" ? "✅" : "⛔";
+			const ruleId = decision.appliedActions[decision.appliedActions.length - 1]?.ruleId;
 			console.log(
-				`[handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${decision.ruleId ? ` rule=${decision.ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
+				`[handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${ruleId ? ` rule=${ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
 			);
 		}
 
@@ -268,8 +470,14 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			result,
 			error,
 		} as ToolResult<T>;
+
 		ctx.history.push(tr);
 		ctx.stepIndex += 1;
+
+		if (executionTimeMS !== null) {
+			ctx.counters[TOTAL_DURATION_COUNTER] =
+				(ctx.counters[TOTAL_DURATION_COUNTER] ?? 0) + executionTimeMS;
+		}
 
 		for (const check of this.checks) {
 			if (check.after) {
@@ -277,16 +485,26 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
-		// TODO: do something with breach
-		this.executionTimeBreach(executionTimeMS, tool.name);
+		const postDecision = await this.decideByRules(
+			"post",
+			ctx,
+			{ tool, args } as ToolCall<T>,
+			executionTimeMS,
+		);
+
+		if (postDecision.effect === "block" && this.verbose) {
+			console.warn(
+				`[handlebar] ⛔ post-tool rule would block "${toolName}" (not enforced yet).`,
+			);
+		}
 
 		const errorAsError = error instanceof Error ? error : null;
 		emit(
 			"tool.result",
 			{
-				tool: { name: toolName, categories: this.getTool(toolName).categories },
+				tool: { name: toolName, categories: tool.categories },
 				outcome: error ? "error" : "success",
-				durationMs: executionTimeMS,
+				durationMs: executionTimeMS ?? undefined,
 				counters: { ...ctx.counters },
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }
@@ -295,33 +513,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			{ stepIndex: localStep, decisionId },
 		);
 
-		// setDecisionId(undefined);
 		incStep();
-
-		// TODO: need to block if post-tool decision.
 	}
 
-	executionTimeBreach(
-		executionTimeMS: number | null,
-		toolName: string,
-	): boolean {
-		if (executionTimeMS === null) {
-			return false;
-		}
-
-		const limits = this.sequence?.executionLimitsMS;
-		if (!limits) {
-			return false;
-		}
-
-		if (!limits[toolName]) {
-			return false;
-		}
-
-		return executionTimeMS > limits[toolName];
-	}
-
-	shouldBlock(decision: Decision) {
+	shouldBlock(decision: GovernanceDecision) {
 		return this.mode === "enforce" && decision.effect === "block";
 	}
 }

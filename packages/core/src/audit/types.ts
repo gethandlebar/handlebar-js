@@ -1,4 +1,4 @@
-import type { DecisionCode, DecisionEffect, Id, ISO8601 } from "../types";
+import type { AppliedAction, GovernanceCode, GovernanceEffect, Id, ISO8601 } from "../types";
 
 export type AuditEvent =
 	| RunStartedEvent
@@ -6,6 +6,10 @@ export type AuditEvent =
 	| ToolResultEvent
 	| RunEndedEvent
 	| ErrorEvent;
+
+export type AuditEventByKind = {
+  [E in AuditEvent as E["kind"]]: E
+};
 
 /** Common to all audit events */
 export interface AuditEnvelope<TKind extends string, TData> {
@@ -54,12 +58,13 @@ export type ToolDecisionEvent = AuditEnvelope<
 	{
 		tool: { name: string; categories?: string[] };
 		decision: {
-			effect: DecisionEffect;
-			code: DecisionCode;
-			ruleId?: string; // blocking/allowing rule (first match)
-			reason?: string;
-		};
-		matchedRuleIds?: string[]; // rules whose predicates evaluated true
+					effect: GovernanceEffect;
+					code: GovernanceCode;
+					reason?: string;
+				};
+		matchedRuleIds: string[]; // All rules whose conditions evaluated true for this call.
+		appliedActions: AppliedAction[]; // Concrete actions the engine derived from the rules.
+
 		proof?: RuleProofNode; // optional compact decision tree
 		counters?: Record<string, number>;
 		argsMeta?: {

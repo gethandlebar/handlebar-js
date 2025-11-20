@@ -1,18 +1,14 @@
 {
 	"name": "@handlebar/core",
 	"version": "0.0.3",
-	"type": "module",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
-	"types": "./dist/index.d.ts",
-	"license": "Apache-2.0",
+	"devDependencies": {
+		"@handlebar/governance-schema": "workspace:*"
+	},
 	"files": [
 		"dist"
 	],
-	"scripts": {
-		"build": "bun run build.ts && tsc -p tsconfig.json",
-		"test": "bun test"
-	},
 	"keywords": [
 		"llm",
 		"agent",
@@ -22,5 +18,15 @@
 		"governance",
 		"tool-calling",
 		"mcp"
-	]
+	],
+	"license": "Apache-2.0",
+	"scripts": {
+		"build": "bun run build.ts && tsc -p tsconfig.json",
+		"test": "bun test"
+	},
+	"type": "module",
+	"types": "./dist/index.d.ts",
+	"dependencies": {
+		"zod": "^4.1.12"
+	}
 }

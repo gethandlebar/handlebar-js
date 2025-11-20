@@ -1,0 +1,31 @@
+{
+	"name": "@handlebar/governance-schema",
+	"version": "0.0.1",
+	"private": false,
+	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"license": "Apache-2.0",
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "bun run build.ts && tsc -p tsconfig.json",
+		"test": "bun test"
+	},
+	"keywords": [
+		"llm",
+		"agent",
+		"agentic",
+		"ai",
+		"sdk",
+		"governance",
+		"tool-calling",
+		"mcp",
+		"handlebar"
+	],
+	"dependencies": {
+		"zod": "^4.1.12"
+	}
+}
