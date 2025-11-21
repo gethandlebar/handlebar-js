@@ -1,5 +1,7 @@
+import { z } from "zod";
 
 export type GovernanceEffect = "allow" | "block";
+type RuleAction = "allow" | "block" | "notify" | "log" | "hitl";
 export type GovernanceCode =
 	| "BLOCKED_UNCATEGORISED"
 	| "BLOCKED_RULE"
@@ -7,23 +9,17 @@ export type GovernanceCode =
 	| "ALLOWED"
 	| "NO_OP";
 
-export type GovernanceDecision = {
-	effect: GovernanceEffect;
+export const AppliedActionSchema = z.object({
+  type: z.custom<RuleAction>(),
+  ruleId: z.uuidv7(),
+});
+export const GovernanceDecisionSchema = z.object({
+  effect: z.custom<GovernanceEffect>(),
+  code: z.custom<GovernanceCode>(),
+  matchedRuleIds: z.array(z.uuidv7()),
+  appliedActions: z.array(AppliedActionSchema),
+  reason: z.optional(z.string()),
+})
 
-	/** which rules matched */
-	matchedRuleIds: string[];
-
-	/** which actions were applied (allow, block, notify, etc.) */
-	appliedActions: AppliedAction[];
-
-	/** any human-readable summary for logs */
-	reason?: string;
-
-	/** engine-internal code for telemetry */
-	code: GovernanceCode;
-};
-
-export type AppliedAction = {
-	type: "allow" | "block" | "notify" | "log" | "hitl";
-	ruleId: string;
-};
+export type GovernanceDecision = z.infer<typeof GovernanceDecisionSchema>;
+export type AppliedAction = z.infer<typeof AppliedActionSchema>;

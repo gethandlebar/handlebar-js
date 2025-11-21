@@ -1,4 +1,4 @@
-import type { AuditEvent } from "./types";
+import type { AuditEvent } from "@handlebar/governance-schema";
 
 export interface AuditSink {
 	init?(): Promise<void> | void;

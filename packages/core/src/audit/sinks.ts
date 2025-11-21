@@ -1,5 +1,5 @@
+import type { AuditEvent } from "@handlebar/governance-schema";
 import type { AuditSink } from "./bus";
-import type { AuditEvent } from "./types";
 
 export function ConsoleSink(mode: "pretty" | "json" = "json"): AuditSink {
 	return {
