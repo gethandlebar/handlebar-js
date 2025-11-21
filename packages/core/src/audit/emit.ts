@@ -1,15 +1,14 @@
-import type { Id, ISO8601 } from "../types";
-import type { AuditBus } from "./bus";
+import type {
+	AuditEvent,
+	AuditEventByKind,
+} from "@handlebar/governance-schema";
+import { now } from "../utils";
 import { getRunContext } from "./context";
 import { Telemetry } from "./telemetry";
-import type { AuditEvent } from "./types";
 
-const now = (): ISO8601 => new Date().toISOString(); // TODO: move to utils.
-
-// TODO: generic typing of audit event data
-export function emit(
-	kind: AuditEvent["kind"],
-	data: any,
+export function emit<K extends AuditEvent["kind"]>(
+	kind: K,
+	data: AuditEventByKind[K]["data"],
 	extras?: Partial<AuditEvent>,
 ) {
 	const ctx = getRunContext();

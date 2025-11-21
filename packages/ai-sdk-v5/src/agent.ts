@@ -50,7 +50,7 @@ type HandlebarAgentOpts<
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
 		userCategory?: string;
-		categories?: Record<string, string[]>; // tool categories.
+		categories?: Record<string, string[]>; // tool categories by name
 	};
 };
 
@@ -61,7 +61,7 @@ export class HandlebarAgent<
 > {
 	private inner: Agent<ToolSet, Ctx, Memory>;
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
-	private runCtx: RunContext;
+	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
@@ -81,15 +81,14 @@ export class HandlebarAgent<
 
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
+
 		const runCtx = engine.createRunContext(
 			runId,
-			governance?.userCategory ?? "unknown", // TODO: allow undefined / empty array
+			governance?.userCategory ?? "unknown", // TODO: allow undefined user ID/category
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) {
-				return t;
-			}
+			if (!t.execute) return t;
 
 			const exec = t.execute.bind(t);
 
@@ -97,8 +96,11 @@ export class HandlebarAgent<
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
+
 					if (engine.shouldBlock(decision)) {
-						const err = new Error(decision.reason ?? "Blocked by Handlebar");
+						const err = new Error(
+							decision.reason ?? "Blocked by Handlebar governance",
+						);
 						throw err;
 					}
 
@@ -106,6 +108,7 @@ export class HandlebarAgent<
 						const start = Date.now();
 						const res = await exec(args as never, options);
 						const end = Date.now();
+
 						await engine.afterTool(
 							runCtx,
 							String(name),
@@ -148,7 +151,7 @@ export class HandlebarAgent<
 			async () => {
 				if (!this.runStarted) {
 					this.runStarted = true;
-					// TODO: get types on emit data.
+
 					emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
