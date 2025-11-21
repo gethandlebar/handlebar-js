@@ -44,7 +44,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	public governanceLog: GovernanceLog<T>[] = [];
 
 	constructor(
-		cfg: Omit<GovernanceConfig<T>, "rules"> & { rules?: Rule[] },
+		cfg: GovernanceConfig<T>,
 		public bus?: AuditBus,
 	) {
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
