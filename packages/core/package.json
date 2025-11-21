@@ -3,9 +3,6 @@
 	"version": "0.0.3",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
-	"devDependencies": {
-		"@handlebar/governance-schema": "workspace:*"
-	},
 	"files": [
 		"dist"
 	],
@@ -27,6 +24,7 @@
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"dependencies": {
-		"zod": "^4.1.12"
+		"zod": "^4.1.12",
+		"@handlebar/governance-schema": "workspace:*"
 	}
 }

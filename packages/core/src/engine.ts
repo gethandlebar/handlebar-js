@@ -208,11 +208,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 			case "not":
 				return !(await this.evalCondition(cond.not, args));
-
-			default: {
-				const _exhaustive: never = cond;
-				return false;
-			}
 		}
 	}
 
