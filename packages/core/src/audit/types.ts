@@ -1,7 +1,5 @@
+import type { AppliedAction, GovernanceCode, GovernanceEffect } from "@handlebar/governance-schema";
 import type {
-	AppliedAction,
-	GovernanceCode,
-	GovernanceEffect,
 	Id,
 	ISO8601,
 } from "../types";
