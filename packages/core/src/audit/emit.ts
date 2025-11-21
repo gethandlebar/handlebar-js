@@ -4,8 +4,8 @@ import { Telemetry } from "./telemetry";
 import type { AuditEvent, AuditEventByKind } from "./types";
 
 export function emit<K extends AuditEvent["kind"]>(
-  kind: K,
-  data: AuditEventByKind[K]["data"],
+	kind: K,
+	data: AuditEventByKind[K]["data"],
 	extras?: Partial<AuditEvent>,
 ) {
 	const ctx = getRunContext();

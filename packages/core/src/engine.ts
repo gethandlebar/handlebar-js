@@ -12,7 +12,7 @@ import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
 import { emit } from "./audit/emit";
 import type {
-  AppliedAction,
+	AppliedAction,
 	CustomCheck,
 	GovernanceConfig,
 	GovernanceDecision,
@@ -109,10 +109,12 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 		const ordered = [...applicable].sort((a, b) => a.priority - b.priority);
 
-		let decision: Pick<GovernanceDecision, "effect" | "code" | "reason"> | undefined;
+		let decision:
+			| Pick<GovernanceDecision, "effect" | "code" | "reason">
+			| undefined;
 
 		const appliedRules: AppliedAction[] = [];
-    const matchingRules: string[] = [];
+		const matchingRules: string[] = [];
 
 		for (const rule of ordered) {
 			const matches = await this.evalCondition(rule.condition, {
@@ -122,23 +124,27 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				executionTimeMS,
 			});
 
-      if (!matches) { continue };
-      matchingRules.push(rule.id);
+			if (!matches) {
+				continue;
+			}
+			matchingRules.push(rule.id);
 
-			if (!rule.actions.length) { continue };
+			if (!rule.actions.length) {
+				continue;
+			}
 
 			for (const action of rule.actions) {
-        appliedRules.push({
-          ruleId: rule.id,
-          type: action.type,
-        });
+				appliedRules.push({
+					ruleId: rule.id,
+					type: action.type,
+				});
 
 				if (action.type === "block") {
 					return {
 						effect: "block",
 						code: "BLOCKED_RULE",
 						appliedActions: appliedRules,
-            matchedRuleIds: appliedRules.map(ar => ar.ruleId),
+						matchedRuleIds: appliedRules.map((ar) => ar.ruleId),
 					};
 				} else if (action.type === "allow" && decision?.effect !== "block") {
 					decision = {
@@ -151,10 +157,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		const finalDecision: GovernanceDecision = {
-  		matchedRuleIds: matchingRules,
-  		appliedActions: appliedRules,
-    ...(decision ?? { effect: "allow", code: "ALLOWED"})
-		}
+			matchedRuleIds: matchingRules,
+			appliedActions: appliedRules,
+			...(decision ?? { effect: "allow", code: "ALLOWED" }),
+		};
 
 		return finalDecision;
 	}
@@ -173,10 +179,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				return this.evalToolName(cond, args.call.tool.name);
 
 			case "toolTag":
-				return this.evalToolTag(
-					cond,
-					args.call.tool.categories ?? [],
-				);
+				return this.evalToolTag(cond, args.call.tool.categories ?? []);
 
 			case "executionTime":
 				// only meaningful post-tool
@@ -262,10 +265,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 		const totalMs = ctx.counters[TOTAL_DURATION_COUNTER] ?? 0;
 
-		const valueMs =
-			cond.scope === "tool"
-				? executionTimeMS
-				: totalMs; // v0: "total" = accumulated in counters
+		const valueMs = cond.scope === "tool" ? executionTimeMS : totalMs; // v0: "total" = accumulated in counters
 
 		switch (cond.op) {
 			case "gt":
@@ -339,9 +339,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			for (const h of history) {
 				const tags = (h.tool.categories ?? []).map((t) => t.toLowerCase());
 				if (
-					cond.selector.tags.some((tag) =>
-						tags.includes(tag.toLowerCase()),
-					)
+					cond.selector.tags.some((tag) => tags.includes(tag.toLowerCase()))
 				) {
 					count++;
 				}
@@ -435,7 +433,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	): GovernanceDecision {
 		if (this.verbose) {
 			const tag = decision.effect === "allow" ? "✅" : "⛔";
-			const ruleId = decision.appliedActions[decision.appliedActions.length - 1]?.ruleId;
+			const ruleId =
+				decision.appliedActions[decision.appliedActions.length - 1]?.ruleId;
 			console.log(
 				`[handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${ruleId ? ` rule=${ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
 			);

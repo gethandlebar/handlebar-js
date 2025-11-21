@@ -15,19 +15,21 @@ export type RuleWhen = "pre" | "post" | "both";
  * This can be stored as JSONB or constructed/transmitted over the wire.
  */
 export const RuleConfigSchema = z.object({
-  priority: z.number().min(0),
-  when: z.custom<RuleWhen>(),
-  condition: z.custom<RuleCondition>(),
-  actions: z.array(z.custom<RuleAction>()),
+	priority: z.number().min(0),
+	when: z.custom<RuleWhen>(),
+	condition: z.custom<RuleCondition>(),
+	actions: z.array(z.custom<RuleAction>()),
 });
 
 /**
  * Rule object coming from API.
  */
-export const RuleSchema = z.object({
-  id: z.uuid({ version: "v7" }),
-  policy_id: z.uuid({ version: "v7" }),
-}).and(RuleConfigSchema);
+export const RuleSchema = z
+	.object({
+		id: z.uuid({ version: "v7" }),
+		policy_id: z.uuid({ version: "v7" }),
+	})
+	.and(RuleConfigSchema);
 
 export type RuleConfig = z.infer<typeof RuleConfigSchema>;
 export type Rule = z.infer<typeof RuleSchema>;

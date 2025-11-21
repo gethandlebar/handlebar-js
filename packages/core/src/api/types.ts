@@ -1,4 +1,4 @@
 export type ApiConfig = {
-  apiEndpoint?: string;
-  apiKey?: string;
-}
+	apiEndpoint?: string;
+	apiKey?: string;
+};

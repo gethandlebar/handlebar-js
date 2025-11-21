@@ -1,4 +1,10 @@
-import type { AppliedAction, GovernanceCode, GovernanceEffect, Id, ISO8601 } from "../types";
+import type {
+	AppliedAction,
+	GovernanceCode,
+	GovernanceEffect,
+	Id,
+	ISO8601,
+} from "../types";
 
 export type AuditEvent =
 	| RunStartedEvent
@@ -8,7 +14,7 @@ export type AuditEvent =
 	| ErrorEvent;
 
 export type AuditEventByKind = {
-  [E in AuditEvent as E["kind"]]: E
+	[E in AuditEvent as E["kind"]]: E;
 };
 
 /** Common to all audit events */
@@ -58,10 +64,10 @@ export type ToolDecisionEvent = AuditEnvelope<
 	{
 		tool: { name: string; categories?: string[] };
 		decision: {
-					effect: GovernanceEffect;
-					code: GovernanceCode;
-					reason?: string;
-				};
+			effect: GovernanceEffect;
+			code: GovernanceCode;
+			reason?: string;
+		};
 		matchedRuleIds: string[]; // All rules whose conditions evaluated true for this call.
 		appliedActions: AppliedAction[]; // Concrete actions the engine derived from the rules.
 

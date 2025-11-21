@@ -80,8 +80,7 @@ export class HandlebarAgent<
 		});
 
 		const runId =
-			globalThis.crypto?.randomUUID?.() ??
-			Math.random().toString(36).slice(2);
+			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
 		const runCtx = engine.createRunContext(
 			runId,
@@ -96,11 +95,7 @@ export class HandlebarAgent<
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
-					const decision = await engine.beforeTool(
-						runCtx,
-						String(name),
-						args,
-					);
+					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					if (engine.shouldBlock(decision)) {
 						const err = new Error(
