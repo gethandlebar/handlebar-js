@@ -10,16 +10,16 @@ export type GovernanceCode =
 	| "NO_OP";
 
 export const AppliedActionSchema = z.object({
-  type: z.custom<RuleAction>(),
-  ruleId: z.uuidv7(),
+	type: z.custom<RuleAction>(),
+	ruleId: z.uuidv7(),
 });
 export const GovernanceDecisionSchema = z.object({
-  effect: z.custom<GovernanceEffect>(),
-  code: z.custom<GovernanceCode>(),
-  matchedRuleIds: z.array(z.uuidv7()),
-  appliedActions: z.array(AppliedActionSchema),
-  reason: z.optional(z.string()),
-})
+	effect: z.custom<GovernanceEffect>(),
+	code: z.custom<GovernanceCode>(),
+	matchedRuleIds: z.array(z.uuidv7()),
+	appliedActions: z.array(AppliedActionSchema),
+	reason: z.optional(z.string()),
+});
 
 export type GovernanceDecision = z.infer<typeof GovernanceDecisionSchema>;
 export type AppliedAction = z.infer<typeof AppliedActionSchema>;

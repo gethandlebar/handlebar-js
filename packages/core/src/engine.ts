@@ -1,5 +1,5 @@
 import type {
-    AppliedAction,
+	AppliedAction,
 	CustomFunctionCondition,
 	ExecutionTimeCondition,
 	GovernanceDecision,

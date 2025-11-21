@@ -1,4 +1,8 @@
-import type { GovernanceDecision, GovernanceEffect, Rule } from "@handlebar/governance-schema";
+import type {
+	GovernanceDecision,
+	GovernanceEffect,
+	Rule,
+} from "@handlebar/governance-schema";
 
 export type Id = string;
 export type ISO8601 = string; // date string

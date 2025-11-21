@@ -1,4 +1,7 @@
-import type { AuditEvent, AuditEventByKind } from "@handlebar/governance-schema";
+import type {
+	AuditEvent,
+	AuditEventByKind,
+} from "@handlebar/governance-schema";
 import { now } from "../utils";
 import { getRunContext } from "./context";
 import { Telemetry } from "./telemetry";
