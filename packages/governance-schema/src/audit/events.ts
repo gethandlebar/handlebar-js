@@ -1,8 +1,8 @@
-import type { AppliedAction, GovernanceCode, GovernanceEffect } from "@handlebar/governance-schema";
-import type {
-	Id,
-	ISO8601,
-} from "../types";
+import z from "zod";
+import type { AppliedAction, GovernanceCode, GovernanceEffect } from "./governance-actions";
+
+type Id = string;
+export type ISO8601 = string; // date string
 
 export type AuditEvent =
 	| RunStartedEvent
@@ -10,6 +10,9 @@ export type AuditEvent =
 	| ToolResultEvent
 	| RunEndedEvent
 	| ErrorEvent;
+
+export const AuditEventSchema = z.custom<AuditEvent>();
+
 
 export type AuditEventByKind = {
 	[E in AuditEvent as E["kind"]]: E;

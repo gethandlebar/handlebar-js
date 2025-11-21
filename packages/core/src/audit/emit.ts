@@ -1,7 +1,7 @@
+import type { AuditEvent, AuditEventByKind } from "@handlebar/governance-schema";
 import { now } from "../utils";
 import { getRunContext } from "./context";
 import { Telemetry } from "./telemetry";
-import type { AuditEvent, AuditEventByKind } from "./types";
 
 export function emit<K extends AuditEvent["kind"]>(
 	kind: K,
