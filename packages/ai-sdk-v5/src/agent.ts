@@ -149,9 +149,11 @@ export class HandlebarAgent<
 				stepIndex: this.runCtx.stepIndex,
 			},
 			async () => {
+			  console.log(`In run context ${this.runCtx.runId}`)
 				if (!this.runStarted) {
 					this.runStarted = true;
 
+					console.log("ran emit run.started")
 					emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
