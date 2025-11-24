@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "handlebar",
@@ -20,6 +21,7 @@
       "dependencies": {
         "@ai-sdk/openai": "^2.0.54",
         "@handlebar/ai-sdk-v5": "workspace:*",
+        "@handlebar/core": "workspace:*",
         "ai": "^5.0.80",
         "zod": "^4.1.12",
       },
@@ -38,10 +40,8 @@
       "name": "@handlebar/core",
       "version": "0.0.3",
       "dependencies": {
-        "zod": "^4.1.12",
-      },
-      "devDependencies": {
         "@handlebar/governance-schema": "workspace:*",
+        "zod": "^4.1.12",
       },
     },
     "packages/governance-schema": {
