@@ -2,7 +2,6 @@ import type {
 	AuditEvent,
 	AuditEventByKind,
 } from "@handlebar/governance-schema";
-import { now } from "../utils";
 import { getRunContext } from "./context";
 import { Telemetry } from "./telemetry";
 
@@ -20,7 +19,7 @@ export function emit<K extends AuditEvent["kind"]>(
 	const event: AuditEvent = {
 		schema: "handlebar.audit.v1",
 		kind,
-		ts: now(),
+		ts: new Date(),
 		runId: ctx.runId,
 		stepIndex: ctx.stepIndex,
 		decisionId: ctx.decisionId,

@@ -43,12 +43,15 @@ export function HttpSink(
 ): AuditSink {
 	return {
 		async write(e: AuditEvent) {
+		  console.debug(`In write event ${endpoint}`);
 			// fire and forget
 			fetch(endpoint, {
 				method: "POST",
 				headers: { "content-type": "application/json", ...headers },
-				body: JSON.stringify(e),
-			}).catch(() => {});
+				body: JSON.stringify([e]),
+			}).catch((e) => {
+				console.error(`Error firing audit events to ${endpoint}: ${e}`);
+			});
 		},
 	};
 }

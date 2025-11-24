@@ -41,6 +41,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
 
+	/**
+	 * @deprecated - Superceded by audit log
+	 */
 	public governanceLog: GovernanceLog<T>[] = [];
 
 	constructor(

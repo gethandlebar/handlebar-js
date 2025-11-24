@@ -12,7 +12,11 @@ const ToolMetaSchema = z.object({
 // Common to all audit events.
 const AuditEnvelopeSchema = z.object({
 	schema: z.literal("handlebar.audit.v1"),
-	ts: z.date(),
+	ts: z.preprocess((v) => {
+    if (v instanceof Date) { return v };
+    if (typeof v === "string" || typeof v === "number") { return new Date(v); }
+    return v;
+  }, z.date()),
 	runId: z.string(),
 	stepIndex: z.number().min(0).optional(),
 	decisionId: z.string().optional(),
