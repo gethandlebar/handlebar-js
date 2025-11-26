@@ -143,7 +143,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				});
 
 				if (action.type === "block") {
-				  console.log(`Blocking ${call.tool.name}`)
 					return {
 						effect: "block",
 						code: "BLOCKED_RULE",
@@ -406,7 +405,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		const decision = await this.decideByRules("pre", ctx, call, null);
-    console.log("Decision: " + call.tool.name + ";" + decision.code + "; " + decision.matchedRuleIds.join(", ") + "; " + decision.appliedActions[0]?.ruleId);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
     console.debug(`[Handlebar] ${toolName} ${decision.code}`);
@@ -438,7 +436,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			const ruleId =
 				decision.appliedActions[decision.appliedActions.length - 1]?.ruleId;
 			console.log(
-				`[handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${ruleId ? ` rule=${ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
+				`[Handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${ruleId ? ` rule=${ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
 			);
 		}
 
@@ -490,7 +488,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 		if (postDecision.effect === "block" && this.verbose) {
 			console.warn(
-				`[handlebar] ⛔ post-tool rule would block "${toolName}" (not enforced yet).`,
+				`[Handlebar] ⛔ post-tool rule would block "${toolName}" (not enforced yet).`,
 			);
 		}
 

@@ -16,7 +16,6 @@ export function emit<K extends AuditEvent["kind"]>(
 		return;
 	}
 
-	console.log(`EMITTING ${kind} - ${JSON.stringify(data)}`)
 	const event: AuditEvent = {
 		schema: "handlebar.audit.v1",
 		kind,
