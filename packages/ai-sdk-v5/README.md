@@ -97,21 +97,28 @@ Our near-term priorities include:
 
 ```js
 import { HandlebarAgent } from "@handlebar/core";
-import { Pred, type Rule, RuleBuilder } from "@handlebar/core";
-
-const rules: Rule[] = [
-  // Allow usage of tools tagged "pii" if the user category is "admin" or "dpo".
-	new RuleBuilder("allow-pii-read-for-admin-dpo")
-		.when(Pred.and(Pred.toolInCategory("pii"), Pred.userIn(["admin", "dpo"])))
-		.allow("PII read permitted to admin/dpo")
-		.build(),
-
-  // Default block tools tagged with "pii".
-	new RuleBuilder("block-pii-read-otherwise")
-		.when(Pred.and(Pred.toolInCategory("pii")))
-		.block("PII read forbidden for this user")
-		.build(),
-];
+import { and, block, configToRule, maxCalls, rule, sequence, toolName } from "@handlebar/core";
+const rules = [
+	// Block issueRefund requests after the first one.
+	rule.pre({
+		priority: 2,
+		if: maxCalls({
+			selector: { by: "toolName", patterns: ["issueRefund"] },
+			max: 1,
+		}),
+		do: [block()],
+	}),
+  
+	// Only allow issueRefund if humanApproval has been sought.
+	rule.pre({
+		priority: 10,
+		if: and(
+			toolName.eq("issueRefund"),
+			sequence({ mustHaveCalled: ["humanApproval"] }),
+		),
+		do: [block()],
+	}),
+].map(configToRule);
 
 const toolCategories = {
   tool1: ["pii"],

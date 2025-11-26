@@ -21,6 +21,7 @@
 		"@types/minimist": "^1.2.5"
 	},
 	"overrides": {
-		"@handlebar/core": "workspace:*"
+		"@handlebar/core": "workspace:*",
+		"@handlebar/governance-schema": "workspace:*"
 	}
 }

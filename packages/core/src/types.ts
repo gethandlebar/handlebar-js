@@ -1,105 +1,60 @@
-export type UserCategory = string;
-export type ToolName = string;
-export type ToolCategory = string;
+import type {
+	GovernanceDecision,
+	GovernanceEffect,
+	Rule,
+} from "@handlebar/governance-schema";
 
-export type ISO8601 = string; // date string
 export type Id = string;
+export type ISO8601 = string; // date string
 
-export type DecisionEffect = "allow" | "block";
-export type DecisionCode =
-	| "ALLOWED"
-	| "BLOCKED_RULE"
-	| "BLOCKED_SEQUENCE"
-	| "BLOCKED_LIMIT"
-	| "BLOCKED_CUSTOM"
-	| "BLOCKED_UNCATEGORISED";
+export type Tool<
+	Name extends string = string,
+	_Args = unknown,
+	_Result = unknown,
+> = {
+	name: Name;
+	categories?: string[];
+};
 
-export interface Decision {
-	effect: DecisionEffect;
-	code: DecisionCode;
-	reason?: string;
-	ruleId?: string;
-}
+export type ToolMeta<T extends Tool = Tool> = T & {
+	// any extra metadata you had here already
+};
 
-export interface Tool<
-	TToolName extends ToolName = ToolName,
-	TArgs = unknown,
-	TResult = unknown,
-> {
-	name: TToolName;
-	args: TArgs;
-	result: TResult;
-}
+export type ToolCall<T extends Tool = Tool> = {
+	tool: ToolMeta<T>;
+	args: unknown;
+};
 
-export interface ToolMeta<T extends Tool = Tool> {
-	name: T["name"];
-	categories: ToolCategory[];
-}
+export type ToolResult<T extends Tool = Tool> = {
+	tool: ToolMeta<T>;
+	args: unknown;
+	result: unknown;
+	error?: unknown;
+};
 
-export type ToolCall<T extends Tool = Tool> = T extends any
-	? {
-			tool: ToolMeta<T>;
-			args: T["args"];
-		}
-	: never;
+export type CustomCheck<T extends Tool = Tool> = {
+	before?: (
+		ctx: RunContext<T>,
+		call: ToolCall<T>,
+	) => Promise<GovernanceDecision | null> | GovernanceDecision | null;
+	after?: (ctx: RunContext<T>, result: ToolResult<T>) => Promise<void> | void;
+};
 
-export type ToolResult<T extends Tool = Tool> = T extends any
-	? {
-			tool: ToolMeta<T>;
-			args: T["args"];
-			result: T["result"];
-			error?: unknown;
-		}
-	: never;
+export type GovernanceConfig<T extends Tool = Tool> = {
+	tools: ToolMeta<T>[];
+	rules?: Rule[];
+	defaultUncategorised?: GovernanceEffect;
+	checks?: CustomCheck<T>[];
+	mode?: "monitor" | "enforce";
+	verbose?: boolean;
+};
 
-export interface RunContext<T extends Tool = Tool> {
+export type RunContext<T extends Tool = Tool> = {
 	runId: string;
-	userCategory: UserCategory;
+	userCategory: string;
 	stepIndex: number;
 	history: ToolResult<T>[];
 	counters: Record<string, number>;
 	state: Map<string, unknown>;
 	now: () => number;
-}
-
-export interface Predicate {
-	id?: string;
-	evaluate(
-		ctx: RunContext<any>,
-		call: ToolCall<any>,
-	): boolean | Promise<boolean>;
-}
-
-export interface Rule {
-	id: string;
-	when: Predicate;
-	effect: DecisionEffect;
-	reason?: string;
-}
-
-export interface SequencePolicy {
-	mustOccurBefore?: Array<{ before: ToolName; after: ToolName }>;
-	maxCalls?: Record<ToolName, number>;
-	executionLimitsMS?: Record<ToolName, number>;
-	disallowConsecutive?: ToolName[];
-}
-
-export interface CustomCheck<T extends Tool = Tool> {
-	id: string;
-	before?: (
-		ctx: RunContext<T>,
-		call: ToolCall<T>,
-	) => Decision | undefined | Promise<Decision | undefined>;
-	after?: (ctx: RunContext<T>, result: ToolResult<T>) => void | Promise<void>;
-}
-
-export interface GovernanceConfig<T extends Tool = Tool> {
-	tools: ToolMeta<T>[];
-	rules?: Rule[];
-	defaultUncategorised?: DecisionEffect;
-	sequence?: SequencePolicy;
-	checks?: CustomCheck<T>[];
-	initialCounters?: Record<string, number>;
-	mode?: "monitor" | "enforce";
-	verbose?: boolean;
-}
+};

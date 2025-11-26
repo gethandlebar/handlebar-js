@@ -20,15 +20,17 @@
       "dependencies": {
         "@ai-sdk/openai": "^2.0.54",
         "@handlebar/ai-sdk-v5": "workspace:*",
+        "@handlebar/core": "workspace:*",
         "ai": "^5.0.80",
         "zod": "^4.1.12",
       },
     },
     "packages/ai-sdk-v5": {
       "name": "@handlebar/ai-sdk-v5",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "dependencies": {
-        "@handlebar/core": "workspace:*",
+        "@handlebar/core": "^0.0.3",
+        "@handlebar/governance-schema": "workspace:*",
       },
       "peerDependencies": {
         "ai": "^5.0.80",
@@ -36,8 +38,23 @@
     },
     "packages/core": {
       "name": "@handlebar/core",
-      "version": "0.0.1",
+      "version": "0.0.3",
+      "dependencies": {
+        "@handlebar/governance-schema": "workspace:*",
+        "zod": "^4.1.12",
+      },
     },
+    "packages/governance-schema": {
+      "name": "@handlebar/governance-schema",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.1.12",
+      },
+    },
+  },
+  "overrides": {
+    "@handlebar/core": "workspace:*",
+    "@handlebar/governance-schema": "workspace:*",
   },
   "packages": {
     "@ai-sdk/gateway": ["@ai-sdk/gateway@2.0.1", "", { "dependencies": { "@ai-sdk/provider": "2.0.0", "@ai-sdk/provider-utils": "3.0.12", "@vercel/oidc": "3.0.3" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-vPVIbnP35ZnayS937XLo85vynR85fpBQWHCdUweq7apzqFOTU2YkUd4V3msebEHbQ2Zro60ZShDDy9SMiyWTqA=="],
@@ -71,6 +88,8 @@
     "@handlebar/core": ["@handlebar/core@workspace:packages/core"],
 
     "@handlebar/examples-ai-sdk-v5": ["@handlebar/examples-ai-sdk-v5@workspace:examples/ai-sdk-v5"],
+
+    "@handlebar/governance-schema": ["@handlebar/governance-schema@workspace:packages/governance-schema"],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
 

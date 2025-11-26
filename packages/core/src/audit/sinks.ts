@@ -1,5 +1,5 @@
+import type { AuditEvent } from "@handlebar/governance-schema";
 import type { AuditSink } from "./bus";
-import type { AuditEvent } from "./types";
 
 export function ConsoleSink(mode: "pretty" | "json" = "json"): AuditSink {
 	return {
@@ -16,6 +16,7 @@ export function ConsoleSink(mode: "pretty" | "json" = "json"): AuditSink {
 }
 
 export function FileSink(path: string): AuditSink {
+	// biome-ignore lint/suspicious/noExplicitAny: WIP. Not in use currently.
 	let fh: any;
 	return {
 		async init() {
@@ -43,12 +44,15 @@ export function HttpSink(
 ): AuditSink {
 	return {
 		async write(e: AuditEvent) {
+			console.debug(`[Handlebar] writing to ${endpoint}`);
 			// fire and forget
 			fetch(endpoint, {
 				method: "POST",
 				headers: { "content-type": "application/json", ...headers },
-				body: JSON.stringify(e),
-			}).catch(() => {});
+				body: JSON.stringify([e]),
+			}).catch((e) => {
+				console.error(`Error firing audit events to ${endpoint}: ${e}`);
+			});
 		},
 	};
 }

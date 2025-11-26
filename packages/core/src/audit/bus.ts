@@ -1,4 +1,4 @@
-import type { AuditEvent } from "./types";
+import type { AuditEvent } from "@handlebar/governance-schema";
 
 export interface AuditSink {
 	init?(): Promise<void> | void;
@@ -28,7 +28,8 @@ export function createAuditBus(): AuditBus {
 			for (const s of sinks) {
 				try {
 					void s.write(e);
-				} catch (_) {
+				} catch (e) {
+					console.error(`Sink write error: ${e}`);
 					/* don't throw from telemetry */
 				}
 			}

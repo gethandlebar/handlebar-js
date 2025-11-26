@@ -34,7 +34,7 @@ folder to see the handlebar packages in action.
 
 Immediate updates:
 - [ ] Other agent frameworks + python frameworks
-- [ ] JSON-to-rule conversion
+- [X] JSON-to-rule conversion
 - [X] Audit logs
 - [ ] Agent escalations (e.g. human-in-the-loop)
 

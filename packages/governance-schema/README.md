@@ -1,22 +1,10 @@
-# Handlebar Core
+# Handlebar Governance Schema
 
-Core, framework-agnostic logic for building [Handlebar] governance into your agents.
+Schemas and types for [Handlebar] rules.
 
 _Note: This package in early development and the interface is subject to change._
 
-## Features
-
-Short-term roadmap:
-
-- [X] Rule engine for allow/block tools, based on:
-  - [X] user category
-  - [X] rule category
-- [X] Tool ordering + execution time checks
-- [X] custom checks for rules (numeric tracking; boolean evaluation)
-- [X] Audit telemetry + consumers
-- [ ] Agent lockdown + human-in-the-loop actions
-
-### Roadmap
+## Roadmap
 
 Handlebar is in early development. We have a lot of functionality planned,
 but need your feedback on what you need to help you build better agents.
@@ -29,13 +17,9 @@ See [contributing][root_contributing] for more ways to get in touch and help.
 
 ## Getting started
 
-The core package should be used alongside a framework-specific Handlebar SDK,
+This package should be used alongside a framework-specific Handlebar SDK,
 such as [ai-sdk-v5](https://github.com/gethandlebar/handlebar-js/blob/main/packages/ai-sdk-v5/).
 Refer to that package's README for more information.
-
-`@handlebar/core` exposes core primitives for building rules and a governance runtime.
-In particular, it defines "rules" to enforcing tool-use behaviour based on information like
-a tool's category, the user on who's behalf the agent is acting, and tool use parameters.
 
 Please refer to [`./examples/`][examples] for a runable demo of [Handlebar]
 applied to an ai sdk agent.
