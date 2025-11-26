@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "handlebar",
@@ -31,6 +30,7 @@
       "version": "0.0.3",
       "dependencies": {
         "@handlebar/core": "^0.0.3",
+        "@handlebar/governance-schema": "workspace:*",
       },
       "peerDependencies": {
         "ai": "^5.0.80",
@@ -54,6 +54,7 @@
   },
   "overrides": {
     "@handlebar/core": "workspace:*",
+    "@handlebar/governance-schema": "workspace:*",
   },
   "packages": {
     "@ai-sdk/gateway": ["@ai-sdk/gateway@2.0.1", "", { "dependencies": { "@ai-sdk/provider": "2.0.0", "@ai-sdk/provider-utils": "3.0.12", "@vercel/oidc": "3.0.3" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-vPVIbnP35ZnayS937XLo85vynR85fpBQWHCdUweq7apzqFOTU2YkUd4V3msebEHbQ2Zro60ZShDDy9SMiyWTqA=="],
