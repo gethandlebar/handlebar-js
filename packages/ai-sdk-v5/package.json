@@ -1,6 +1,6 @@
 {
 	"name": "@handlebar/ai-sdk-v5",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"type": "module",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
@@ -13,8 +13,8 @@
 		"build": "bun run build.ts && tsc -p tsconfig.json"
 	},
 	"dependencies": {
-		"@handlebar/core": "^0.0.3",
-		"@handlebar/governance-schema": "workspace:*"
+		"@handlebar/core": "0.0.4",
+		"@handlebar/governance-schema": "0.0.1"
 	},
 	"peerDependencies": {
 		"ai": "^5.0.80"

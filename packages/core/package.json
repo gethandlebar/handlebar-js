@@ -1,6 +1,6 @@
 {
 	"name": "@handlebar/core",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
 	"files": [
@@ -25,6 +25,6 @@
 	"types": "./dist/index.d.ts",
 	"dependencies": {
 		"zod": "^4.1.12",
-		"@handlebar/governance-schema": "workspace:*"
+		"@handlebar/governance-schema": "0.0.1"
 	}
 }
