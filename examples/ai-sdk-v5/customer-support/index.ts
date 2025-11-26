@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { HandlebarAgent } from "@handlebar/ai-sdk-v5";
-import { and, block, configToRule, maxCalls, type RuleConfig, rule, sequence, toolName, toolTag } from "@handlebar/governance-schema";
+import { and, block, configToRule, maxCalls, rule, sequence, toolName } from "@handlebar/core";
+import type { RuleConfig } from "@handlebar/governance-schema";
 import { stepCountIs } from "ai";
 import dotenv from "dotenv";
 import minimist from "minimist";

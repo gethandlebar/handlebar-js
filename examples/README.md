@@ -25,16 +25,8 @@ This example demonstrates using Handlebar for:
 
 Run `bun run examples/ai-sdk-v5/customer-support/index.ts` to see it in action.
 
-Firstly,
-this example has a block rule on fetching PII data/tools
-unless the user is an admin.
-By default, running the script should see the agent blocked from accessing PII and unable to continue.
-To allow execution, run the script with the flag `--admin`, which sets the user's role to "admin",
-therefore not being blocked by the Handlebar rule we set.
+To view audit logs, connect to the opensource dashboard, [`Lens`][lens],
+or get in touch with us at `contact@gethandlebar.com`
+to get access to the Handlebar platform (currently in beta).
 
-Secondly,
-we don't really want to blindly refund without getting human approval.
-Running with the flag `--approval` will add a _sequence_ check,
-in particular that the "refund" tool cannot be invoked before the "humanApproval" tool.
-With this enacted, the agent is blocked from rushing straight refund,
-which redirects it instead to requesting human approval and updating the user's ticket status.
+[lens]: https://github.com/gethandlebar/lens

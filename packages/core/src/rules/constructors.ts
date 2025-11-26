@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { RuleAction } from "./action.types";
-import type { Glob, JSONValue, RuleCondition } from "./condition.types";
-import type { Rule, RuleConfig, RuleWhen } from "./rule.types";
+import type { Glob, JSONValue, Rule, RuleAction, RuleCondition, RuleConfig, RuleWhen } from "@handlebar/governance-schema";
 
 export const and = (...all: RuleCondition[]): RuleCondition => ({
   kind: "and",
@@ -56,7 +54,6 @@ export const toolName = {
   }),
 };
 
-// ---- tool tags ----
 export const toolTag = {
   has: (tag: string): RuleCondition => ({
     kind: "toolTag",
@@ -75,7 +72,6 @@ export const toolTag = {
   }),
 };
 
-// ---- execution time ----
 export const execTime = {
   gt: (scope: "tool" | "total", ms: number): RuleCondition => ({
     kind: "executionTime",
@@ -103,7 +99,6 @@ export const execTime = {
   }),
 };
 
-// ---- sequence ----
 export const sequence = (opts: {
   mustHaveCalled?: Glob[];
   mustNotHaveCalled?: Glob[];
