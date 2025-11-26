@@ -40,11 +40,11 @@ const rules: RuleConfig[] = [
   //   if: and(toolTag.anyOf(["pii"])),
   //   then: [block()],
   // }),
-  rule.pre({
-    priority: 1,
-    if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
-    then: [block()],
-  }),
+  // rule.pre({
+  //   priority: 1,
+  //   if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
+  //   then: [block()],
+  // }),
   rule.pre({
     priority: 2,
     if: maxCalls({ selector: { by: "toolName", patterns: ["issueRefund"] }, max: 1 }),

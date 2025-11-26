@@ -143,6 +143,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				});
 
 				if (action.type === "block") {
+				  console.log(`Blocking ${call.tool.name}`)
 					return {
 						effect: "block",
 						code: "BLOCKED_RULE",
@@ -304,18 +305,18 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		if (cond.mustHaveCalled?.length) {
 			for (const pattern of cond.mustHaveCalled) {
 				const found = names.some((n) => matchGlob(n, pattern));
-				if (!found) return false;
+        if (!found) { return true; }
 			}
 		}
 
 		if (cond.mustNotHaveCalled?.length) {
 			for (const pattern of cond.mustNotHaveCalled) {
 				const found = names.some((n) => matchGlob(n, pattern));
-				if (found) return false;
+				if (found) { return true; }
 			}
 		}
 
-		return true;
+		return false;
 	}
 
 	private evalMaxCalls(
@@ -349,7 +350,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
-		return count <= cond.max;
+		return count >= cond.max;
 	}
 
 	private async evalCustom(
@@ -405,8 +406,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		const decision = await this.decideByRules("pre", ctx, call, null);
+    console.log("Decision: " + call.tool.name + ";" + decision.code + "; " + decision.matchedRuleIds.join(", ") + "; " + decision.appliedActions[0]?.ruleId);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
+    console.debug(`[Handlebar] ${toolName} ${decision.code}`);
 		emit(
 			"tool.decision",
 			{
