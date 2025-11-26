@@ -11,8 +11,7 @@
 		"dist"
 	],
 	"scripts": {
-		"build": "bun run build.ts && tsc -p tsconfig.json",
-		"test": "bun test"
+		"build": "bun run build.ts && tsc -p tsconfig.json"
 	},
 	"keywords": [
 		"llm",
