@@ -37,7 +37,7 @@ class TelemetrySingleton {
 				Authorization: apiKey ? `Bearer ${apiKey}` : "",
 				...(opts?.headers ?? {}),
 			};
-      console.debug(`[Handlebar] Adding HTTP sink to ${endpoint}`);
+			console.debug(`[Handlebar] Adding HTTP sink to ${endpoint}`);
 			sinks.push(HttpSink(endpoint, headers));
 		}
 

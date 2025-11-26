@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/correctness/noUnusedImports: WIP */
 import { RuleSchema } from "@handlebar/governance-schema";
 import type z from "zod";
 import type { ApiConfig } from "./types";

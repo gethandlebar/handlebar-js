@@ -29,7 +29,7 @@ export function createAuditBus(): AuditBus {
 				try {
 					void s.write(e);
 				} catch (e) {
-          console.error(`Sink write error: ${e}`);
+					console.error(`Sink write error: ${e}`);
 					/* don't throw from telemetry */
 				}
 			}

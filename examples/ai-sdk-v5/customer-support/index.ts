@@ -1,6 +1,14 @@
 import { openai } from "@ai-sdk/openai";
 import { HandlebarAgent } from "@handlebar/ai-sdk-v5";
-import { and, block, configToRule, maxCalls, rule, sequence, toolName } from "@handlebar/core";
+import {
+	and,
+	block,
+	configToRule,
+	maxCalls,
+	rule,
+	sequence,
+	toolName,
+} from "@handlebar/core";
 import type { RuleConfig } from "@handlebar/governance-schema";
 import { stepCountIs } from "ai";
 import dotenv from "dotenv";
@@ -22,45 +30,39 @@ import {
 
 dotenv.config();
 
-// const rules: Rule[] = [
-// 	new RuleBuilder("allow-pii-read-for-admin-dpo")
-// 		.when(Pred.and(Pred.toolInCategory("pii"), Pred.userIn(["admin", "dpo"])))
-// 		.allow("PII read permitted to admin/dpo")
-// 		.build(),
-
-// 	// Fallback: if pii.read and not matched above, block
-// 	new RuleBuilder("block-pii-read-otherwise")
-// 		.when(Pred.and(Pred.toolInCategory("pii")))
-// 		.block("PII read forbidden for this user")
-// 		.build(),
-// ];
-
 const rules: RuleConfig[] = [
-  // rule.pre({
-  //   priority: 0,
-  //   if: and(toolTag.anyOf(["pii"])),
-  //   then: [block()],
-  // }),
-  // rule.pre({
-  //   priority: 1,
-  //   if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
-  //   then: [block()],
-  // }),
-  rule.pre({
-    priority: 2,
-    if: maxCalls({ selector: { by: "toolName", patterns: ["issueRefund"] }, max: 1 }),
-    then: [block()],
-  }),
-  rule.pre({
-    priority: 10,
-    if: and(
-      toolName.eq("issueRefund"),
-      sequence({ mustHaveCalled: ["humanApproval"] }),
-    ),
-    then: [block()],
-  })
-];
+	// rule.pre({
+	//   priority: 0,
+	//   if: and(toolTag.anyOf(["pii"])),
+	//   then: [block()],
+	// }),
 
+	// rule.pre({
+	//   priority: 1,
+	//   if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
+	//   then: [block()],
+	// }),
+
+	// Block issueRefund requests after the first one.
+	rule.pre({
+		priority: 2,
+		if: maxCalls({
+			selector: { by: "toolName", patterns: ["issueRefund"] },
+			max: 1,
+		}),
+		do: [block()],
+	}),
+
+	// Only allow issueRefund if humanApproval has been sought.
+	rule.pre({
+		priority: 10,
+		if: and(
+			toolName.eq("issueRefund"),
+			sequence({ mustHaveCalled: ["humanApproval"] }),
+		),
+		do: [block()],
+	}),
+];
 
 const system = `
 You are a support assistant solving user issues.
@@ -116,22 +118,6 @@ const agent = new HandlebarAgent({
 		userCategory,
 		categories: toolCategories,
 		rules: rules.map(configToRule), // Adds IDs to rules to match expected schema.
-		// sequence: {
-		// 	mustOccurBefore: paymentSequence
-		// 		? [
-		// 				{
-		// 					before: "humanApproval",
-		// 					after: "issueRefund",
-		// 				},
-		// 			]
-		// 		: [],
-		// 	maxCalls: {
-		// 		issueRefund: 1,
-		// 		getUserProfile: 1,
-		// 	},
-		// },
-		// rules,
-		// checks: [refundValue],
 	},
 });
 
@@ -149,7 +135,7 @@ console.log(
 
 const govLog = agent.governance.governanceLog
 	.map((l) => {
-    const ruleIds = l.decision.matchedRuleIds.join("; ");
+		const ruleIds = l.decision.matchedRuleIds.join("; ");
 		return `${l.tool.tool.name}: ${l.decision.effect} ${ruleIds} ${l.decision.reason}`;
 	})
 	.join("\n");

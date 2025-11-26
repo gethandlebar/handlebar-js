@@ -304,14 +304,18 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		if (cond.mustHaveCalled?.length) {
 			for (const pattern of cond.mustHaveCalled) {
 				const found = names.some((n) => matchGlob(n, pattern));
-        if (!found) { return true; }
+				if (!found) {
+					return true;
+				}
 			}
 		}
 
 		if (cond.mustNotHaveCalled?.length) {
 			for (const pattern of cond.mustNotHaveCalled) {
 				const found = names.some((n) => matchGlob(n, pattern));
-				if (found) { return true; }
+				if (found) {
+					return true;
+				}
 			}
 		}
 
@@ -407,7 +411,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const decision = await this.decideByRules("pre", ctx, call, null);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
-    console.debug(`[Handlebar] ${toolName} ${decision.code}`);
+		console.debug(`[Handlebar] ${toolName} ${decision.code}`);
 		emit(
 			"tool.decision",
 			{

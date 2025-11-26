@@ -16,6 +16,7 @@ export function ConsoleSink(mode: "pretty" | "json" = "json"): AuditSink {
 }
 
 export function FileSink(path: string): AuditSink {
+	// biome-ignore lint/suspicious/noExplicitAny: WIP. Not in use currently.
 	let fh: any;
 	return {
 		async init() {
@@ -43,7 +44,7 @@ export function HttpSink(
 ): AuditSink {
 	return {
 		async write(e: AuditEvent) {
-		  console.debug(`[Handlebar] writing to ${endpoint}`);
+			console.debug(`[Handlebar] writing to ${endpoint}`);
 			// fire and forget
 			fetch(endpoint, {
 				method: "POST",

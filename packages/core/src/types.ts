@@ -9,8 +9,8 @@ export type ISO8601 = string; // date string
 
 export type Tool<
 	Name extends string = string,
-	Args = unknown,
-	Result = unknown,
+	_Args = unknown,
+	_Result = unknown,
 > = {
 	name: Name;
 	categories?: string[];
