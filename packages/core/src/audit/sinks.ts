@@ -43,7 +43,7 @@ export function HttpSink(
 ): AuditSink {
 	return {
 		async write(e: AuditEvent) {
-		  console.debug(`In write event ${endpoint}`);
+		  console.debug(`[Handlebar] writing to ${endpoint}`);
 			// fire and forget
 			fetch(endpoint, {
 				method: "POST",

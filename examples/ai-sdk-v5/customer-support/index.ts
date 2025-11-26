@@ -1,5 +1,6 @@
 import { openai } from "@ai-sdk/openai";
-import { HandlebarAgent, type HandlebarCheck } from "@handlebar/ai-sdk-v5";
+import { HandlebarAgent } from "@handlebar/ai-sdk-v5";
+import { and, block, configToRule, maxCalls, type RuleConfig, rule, sequence, toolName, toolTag } from "@handlebar/governance-schema";
 import { stepCountIs } from "ai";
 import dotenv from "dotenv";
 import minimist from "minimist";
@@ -32,6 +33,33 @@ dotenv.config();
 // 		.block("PII read forbidden for this user")
 // 		.build(),
 // ];
+
+const rules: RuleConfig[] = [
+  // rule.pre({
+  //   priority: 0,
+  //   if: and(toolTag.anyOf(["pii"])),
+  //   then: [block()],
+  // }),
+  rule.pre({
+    priority: 1,
+    if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
+    then: [block()],
+  }),
+  rule.pre({
+    priority: 2,
+    if: maxCalls({ selector: { by: "toolName", patterns: ["issueRefund"] }, max: 1 }),
+    then: [block()],
+  }),
+  rule.pre({
+    priority: 10,
+    if: and(
+      toolName.eq("issueRefund"),
+      sequence({ mustHaveCalled: ["humanApproval"] }),
+    ),
+    then: [block()],
+  })
+];
+
 
 const system = `
 You are a support assistant solving user issues.
@@ -86,6 +114,7 @@ const agent = new HandlebarAgent({
 	governance: {
 		userCategory,
 		categories: toolCategories,
+		rules: rules.map(configToRule), // Adds IDs to rules to match expected schema.
 		// sequence: {
 		// 	mustOccurBefore: paymentSequence
 		// 		? [

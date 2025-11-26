@@ -112,7 +112,6 @@ export const sequence = (opts: {
   ...opts,
 });
 
-// ---- max calls ----
 export const maxCalls = (opts: {
   selector:
     | { by: "toolName"; patterns: Glob[] }
@@ -124,18 +123,15 @@ export const maxCalls = (opts: {
   max: opts.max,
 });
 
-// ---- custom ----
 export const custom = (name: string, args?: JSONValue): RuleCondition => ({
   kind: "custom",
   name,
   args,
 });
 
-// ---- actions ----
 export const block = (): RuleAction => ({ type: "block" });
 export const allow = (): RuleAction => ({ type: "allow" });
 
-// ---- rule helpers ----
 type BaseRuleInput = {
   priority: number;
   if: RuleCondition;
