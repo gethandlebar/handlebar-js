@@ -37,10 +37,6 @@ Refer to that package's README for more information.
 In particular, it defines "rules" to enforcing tool-use behaviour based on information like
 a tool's category, the user on who's behalf the agent is acting, and tool use parameters.
 
-- `Pred` (predicate): Define rules from atomic predicates — or, not, when, and, etc.
-- `RuleBuilder`: To construct a verifiable agent rule.
-- `GovernanceEngine`: Which validates rules against the runtime agent context.
-
 Please refer to [`./examples/`][examples] for a runable demo of [Handlebar]
 applied to an ai sdk agent.
 
