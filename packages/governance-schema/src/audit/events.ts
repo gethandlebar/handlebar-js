@@ -95,7 +95,7 @@ const ToolIdentitySchema = z.object({
 const ToolArgsSchema = z.record(z.string(), z.unknown())
 
 export const HitlMetaSchema = z.object({
-  pendingActionId: z.string().optional(), // PK on hitl action.
+  hitlActionId: z.string().optional(), // PK on hitl action.
   fingerprint: z.string().optional(), // Typically agent+tool+args hash
   status: z.enum(["none", "pending", "approved", "denied"]).optional(), // "none" for generated client-side without server acknowledgement.
 });

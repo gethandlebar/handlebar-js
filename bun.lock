@@ -27,10 +27,10 @@
     },
     "packages/ai-sdk-v5": {
       "name": "@handlebar/ai-sdk-v5",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
-        "@handlebar/core": "^0.0.3",
-        "@handlebar/governance-schema": "workspace:*",
+        "@handlebar/core": "0.0.4",
+        "@handlebar/governance-schema": "0.0.1",
       },
       "peerDependencies": {
         "ai": "^5.0.80",
@@ -38,15 +38,15 @@
     },
     "packages/core": {
       "name": "@handlebar/core",
-      "version": "0.0.3",
+      "version": "0.0.4",
       "dependencies": {
-        "@handlebar/governance-schema": "workspace:*",
+        "@handlebar/governance-schema": "0.0.1",
         "zod": "^4.1.12",
       },
     },
     "packages/governance-schema": {
       "name": "@handlebar/governance-schema",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "zod": "^4.1.12",
       },
