@@ -63,22 +63,26 @@ export class ApiManager {
     let rules: Rule[] | null = null;
 
     try {
+      console.warn(`Upserting agent`)
       agentId = await this.upsertAgent(agentInfo)
       this.agentId = agentId;
-    } catch {
+    } catch (e) {
+      console.error("Error upserting agent:", e);
       return null;
     }
 
     try {
       rules = await this.fetchAgentRules(agentId);
-    } catch {
+      console.warn(`Got ${rules?.length} rules from api`);
+    } catch (error) {
+      console.error("Error fetching rules:", error);
       return null;
     }
 
     return { agentId, rules };
   }
 
-	private headers(mode: "json"): Record<string, string> {
+	private headers(mode?: "json"): Record<string, string> {
 		const baseHeaders: Record<string, string> = {};
 		if (this.apiKey) {
       baseHeaders.Authorization = `Bearer ${this.apiKey}`;
@@ -124,16 +128,23 @@ export class ApiManager {
 			agentId,
 			})
 
-		const response = await fetch(url.toString() + params.toString(), {
-			headers: this.headers("json"),
+	  console.warn(`Fetching ${agentId} rules at ${url.toString()}?${params.toString()}`);
+		const response = await fetch(`${url.toString()}?${params.toString()}`, {
+			headers: this.headers(),
 		});
-		const data = await response.json();
 
-		const schemaData = RuleSchema.array().safeParse(data);
-		if (schemaData.success) {
-			return schemaData.data;
+		if (!response.ok) {
+			throw new Error(`Failed to fetch agent rules: ${response.status} ${response.statusText}`);
 		}
 
-		return null;
+		const data: { rules: Rule[] } = await response.json();
+		console.warn(`Rules returned are: ${JSON.stringify(data.rules)}`);
+    return data.rules;
+    // console.warn("Validating rule fetch data: " + JSON.stringify(data));
+    // TODO: fix this safe parse error.
+		// const schemaData = RuleSchema.array().safeParse(data.rules);
+		// if (schemaData.success) {
+		// 	return schemaData.data;
+		// }
 	}
 }

@@ -68,12 +68,13 @@ export class GovernanceEngine<T extends Tool = Tool> {
     description?: string;
     tags?: string[];
 	}): Promise<string | null> {
+    console.warn("initing agent rules");
     const output = await this.api.initialiseAgent(agentConfig);
     if (!output) {
       return null;
     }
 
-    console.log(JSON.stringify(output.rules ?? []))
+    console.warn("Got rules from api: " + JSON.stringify(output.rules ?? []))
     this.rules.push(...output.rules ?? []);
     return output.agentId;
 	}
