@@ -53,6 +53,7 @@
     },
   },
   "overrides": {
+    "@handlebar/ai-sdk-v5": "workspace:*",
     "@handlebar/core": "workspace:*",
     "@handlebar/governance-schema": "workspace:*",
   },
