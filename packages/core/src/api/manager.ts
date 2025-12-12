@@ -1,6 +1,12 @@
 import { type Rule, RuleSchema } from "@handlebar/governance-schema";
 import type { ApiConfig } from "./types";
 
+type HitlResponse = {
+				hitlId: string,
+				status: "pending" | "approved" | "denied",
+				pre_existing: boolean,
+}
+
 export class ApiManager {
 	private useApi: boolean;
 	private apiKey: string | undefined;
@@ -15,6 +21,32 @@ export class ApiManager {
 		this.apiKey = config.apiKey ?? process.env.HANDLEBAR_API_KEY;
 		this.useApi = this.apiEndpoint !== undefined && this.apiKey !== undefined;
     this.agentId = agentId;
+	}
+
+	public async queryHitl(runId: string, ruleId: string, toolName: string, toolArgs: Record<string, unknown>): Promise<HitlResponse | null> {
+		if (!this.useApi || !this.agentId) {
+			return null;
+		}
+
+		const url = new URL("/v1/audit/hitl", this.apiEndpoint);
+		try {
+		  console.log("Querying hitl for runId:", runId, " rule: ", ruleId);
+			const response = await fetch(url.toString(), {
+			method: "POST",
+			headers: this.headers("json"),
+			body: JSON.stringify({ agentId: this.agentId, ruleId, runId, tool: { name: toolName, args: toolArgs } }),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to query HITL status: ${response.status}`);
+			}
+
+			const data: HitlResponse = await response.json();
+      return data;
+		} catch (error) {
+			console.error("Error querying HITL status:", error);
+			return null;
+		}
 	}
 
   public async initialiseAgent(agentInfo: {
