@@ -83,7 +83,7 @@ Your agents logs will appear in the dashboard.
 
 ```bash
 // .env
-HANDLEBAR_ENDPOINT=http://localhost:7071/ingest
+HANDLEBAR_API_ENDPOINT=http://localhost:7071
 // or use port configured on Handlebar Lens
 ```
 
