@@ -11,6 +11,7 @@ import type {
 	ToolNameCondition,
 	ToolTagCondition,
 } from "@handlebar/governance-schema";
+import { ApiManager } from "./api/manager";
 import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
 import { emit } from "./audit/emit";
@@ -40,6 +41,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private checks: CustomCheck<T>[];
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
+  private api: ApiManager;
 
 	/**
 	 * @deprecated - Superceded by audit log
@@ -56,6 +58,23 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		this.checks = cfg.checks ?? [];
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
+
+    this.api = new ApiManager({});
+	}
+
+	public async initAgentRules(agentConfig: {
+    slug: string;
+    name?: string;
+    description?: string;
+    tags?: string[];
+	}): Promise<string | null> {
+    const output = await this.api.initialiseAgent(agentConfig);
+    if (!output) {
+      return null;
+    }
+
+    this.rules.push(...output.rules ?? []);
+    return output.agentId;
 	}
 
 	createRunContext(
