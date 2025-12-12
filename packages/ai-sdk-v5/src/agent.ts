@@ -52,6 +52,12 @@ type HandlebarAgentOpts<
 		userCategory?: string;
 		categories?: Record<string, string[]>; // tool categories by name
 	};
+	agent?: {
+    slug: string;
+    name?: string;
+    description?: string;
+    tags?: string[];
+	}
 };
 
 export class HandlebarAgent<
@@ -64,8 +70,16 @@ export class HandlebarAgent<
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
+  private hasInitialisedEngine = false;
+  private agentConfig: {
+    slug: string;
+    name?: string;
+    description?: string;
+    tags?: string[];
+  } | undefined;
+
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
-		const { tools = {} as ToolSet, governance, ...rest } = opts;
+		const { tools = {} as ToolSet, governance, agent, ...rest } = opts;
 
 		const toolMeta = (Object.keys(tools) as Array<keyof ToolSet & string>).map(
 			(name) => ({
@@ -139,6 +153,17 @@ export class HandlebarAgent<
 		});
 		this.governance = engine;
 		this.runCtx = runCtx;
+    this.agentConfig = agent;
+	}
+
+	public async initEngine() {
+  	if (this.hasInitialisedEngine) {
+      return;
+  	}
+
+    // TODO: generate consistent placeholder slug based on machine.
+    await this.governance.initAgentRules(this.agentConfig ?? { slug: "temp-placeholder-slug-bucket"})
+    this.hasInitialisedEngine = true;
 	}
 
 	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
@@ -163,15 +188,18 @@ export class HandlebarAgent<
 		);
 	}
 
-	generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
+	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
+    await this.initEngine();
 		return this.withRun(() => this.inner.generate(...a));
 	}
 
-	stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
+	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
+    await this.initEngine();
 		return this.withRun(() => this.inner.stream(...a));
 	}
 
-	respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+	async respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+    await this.initEngine();
 		return this.withRun(() => this.inner.respond(...a));
 	}
 }

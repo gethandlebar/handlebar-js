@@ -73,6 +73,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
       return null;
     }
 
+    console.log(JSON.stringify(output.rules ?? []))
     this.rules.push(...output.rules ?? []);
     return output.agentId;
 	}
