@@ -29,6 +29,7 @@ export class ApiManager {
 		}
 
 		const url = new URL("/v1/audit/hitl", this.apiEndpoint);
+		console.warn(`POSTING to ${url.toString()}`);
 		try {
 		  console.log("Querying hitl for runId:", runId, " rule: ", ruleId);
 			const response = await fetch(url.toString(), {

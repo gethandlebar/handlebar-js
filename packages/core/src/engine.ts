@@ -117,7 +117,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	 */
 	private async evaluateHitl(ruleId: string, ctx: RunContext<T>, call: ToolCall<T>): Promise<"hitl" | "block" | "allow"> {
     const apiResponse = await this.api.queryHitl(ctx.runId, ruleId, call.tool.name, call.args as Record<string, unknown>) // TODO: sort typing of args.
-
+    console.warn(`evaluateHITL: ${apiResponse?.pre_existing} ${apiResponse?.status}`);
     if (!apiResponse) {
       return "hitl";
     }
@@ -191,10 +191,14 @@ export class GovernanceEngine<T extends Tool = Tool> {
 					type: action.type,
 				});
 
+        console.warn(`Initial action: ${action.type}`);
         let actionType = action.type;
         if (actionType === "hitl") {
+
+          console.warn(`Initial action is HITL; retrying`);
           // Trigger or match a HITL request
           actionType = await this.evaluateHitl(rule.id, ctx, call);
+          console.warn(`New action is: ${actionType}`);
         }
 
 				if (actionType === "block") {
