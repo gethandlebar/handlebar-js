@@ -70,13 +70,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
     description?: string;
     tags?: string[];
 	}): Promise<string | null> {
-    console.warn("initing agent rules");
     const output = await this.api.initialiseAgent(agentConfig);
     if (!output) {
       return null;
     }
 
-    console.warn("Got rules from api: " + JSON.stringify(output.rules ?? []))
     this.rules.push(...output.rules ?? []);
     return output.agentId;
 	}
@@ -131,7 +129,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	 */
 	private async evaluateHitl(ruleId: string, ctx: RunContext<T>, call: ToolCall<T>): Promise<"hitl" | "block" | "allow"> {
     const apiResponse = await this.api.queryHitl(ctx.runId, ruleId, call.tool.name, call.args as Record<string, unknown>) // TODO: sort typing of args.
-    console.warn(`evaluateHITL: ${apiResponse?.pre_existing} ${apiResponse?.status}`);
     if (!apiResponse) {
       return "hitl";
     }
@@ -169,7 +166,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const matchingRules: string[] = [];
 
 		for (const rule of ordered) {
-			console.warn(`Evaluating rule ${JSON.stringify(rule)}`)
 			const matches = await this.evalCondition(rule.condition, {
 				phase,
 				ctx,
@@ -192,14 +188,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 					type: action.type,
 				});
 
-        console.warn(`Initial action: ${action.type}`);
         let actionType = action.type;
         if (actionType === "hitl") {
 
-          console.warn(`Initial action is HITL; retrying`);
           // Trigger or match a HITL request
           actionType = await this.evaluateHitl(rule.id, ctx, call);
-          console.warn(`New action is: ${actionType}`);
         }
 
 				if (actionType === "block") {
@@ -226,7 +219,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
-		console.warn(`decideByRules result: ${decision?.code ?? "ALLOWED"}`)
 		const finalDecision: GovernanceDecision = {
 			matchedRuleIds: matchingRules,
 			appliedActions: appliedRules,
@@ -476,7 +468,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
-    console.warn(`About to decide by rules PRE for ${toolName}`);
 		const decision = await this.decideByRules("pre", ctx, call, null);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
@@ -508,7 +499,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			const tag = decision.effect === "allow" ? "✅" : "⛔";
 			const ruleId =
 				decision.appliedActions[decision.appliedActions.length - 1]?.ruleId;
-			console.log(
+			console.debug(
 				`[Handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${ruleId ? ` rule=${ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
 			);
 		}

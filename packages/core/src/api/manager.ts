@@ -29,9 +29,7 @@ export class ApiManager {
 		}
 
 		const url = new URL("/v1/audit/hitl", this.apiEndpoint);
-		console.warn(`POSTING to ${url.toString()}`);
 		try {
-		  console.log("Querying hitl for runId:", runId, " rule: ", ruleId);
 			const response = await fetch(url.toString(), {
 			method: "POST",
 			headers: this.headers("json"),
@@ -64,7 +62,6 @@ export class ApiManager {
     let rules: Rule[] | null = null;
 
     try {
-      console.warn(`Upserting agent`)
       agentId = await this.upsertAgent(agentInfo)
       this.agentId = agentId;
     } catch (e) {
@@ -74,7 +71,7 @@ export class ApiManager {
 
     try {
       rules = await this.fetchAgentRules(agentId);
-      console.warn(`Got ${rules?.length} rules from api`);
+      console.debug(`Got Handlebar ${rules?.length} rules from api`);
     } catch (error) {
       console.error("Error fetching rules:", error);
       return null;
@@ -129,7 +126,6 @@ export class ApiManager {
 			agentId,
 			})
 
-	  console.warn(`Fetching ${agentId} rules at ${url.toString()}?${params.toString()}`);
 		const response = await fetch(`${url.toString()}?${params.toString()}`, {
 			headers: this.headers(),
 		});
@@ -139,9 +135,7 @@ export class ApiManager {
 		}
 
 		const data: { rules: Rule[] } = await response.json();
-		console.warn(`Rules returned are: ${JSON.stringify(data.rules)}`);
     return data.rules;
-    // console.warn("Validating rule fetch data: " + JSON.stringify(data));
     // TODO: fix this safe parse error.
 		// const schemaData = RuleSchema.array().safeParse(data.rules);
 		// if (schemaData.success) {

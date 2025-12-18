@@ -108,7 +108,6 @@ export class HandlebarAgent<
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
-          console.warn(`Executing ${name} beforeTool`);
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					if (engine.shouldBlock(decision)) {
@@ -161,8 +160,8 @@ export class HandlebarAgent<
       return;
   	}
 
-    // TODO: generate consistent placeholder slug based on machine.
-    await this.governance.initAgentRules(this.agentConfig ?? { slug: "temp-placeholder-slug-bucket"})
+    // TODO: generate consistent placeholder slug.
+    await this.governance.initAgentRules(this.agentConfig ?? { slug: "temp-placeholder-agent-slug"})
     this.hasInitialisedEngine = true;
 	}
 
