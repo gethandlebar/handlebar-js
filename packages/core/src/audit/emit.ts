@@ -6,6 +6,7 @@ import { getRunContext } from "./context";
 import { Telemetry } from "./telemetry";
 
 export function emit<K extends AuditEvent["kind"]>(
+  agentId: string,
 	kind: K,
 	data: AuditEventByKind[K]["data"],
 	extras?: Partial<AuditEvent>,
@@ -28,5 +29,5 @@ export function emit<K extends AuditEvent["kind"]>(
 		...(extras ?? {}),
 	} as AuditEvent;
 
-	Telemetry.bus()?.emit(event);
+	Telemetry.bus()?.emit(agentId, event);
 }

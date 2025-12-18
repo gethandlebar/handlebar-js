@@ -1,5 +1,7 @@
 import type {
 	AppliedAction,
+	AuditEvent,
+	AuditEventByKind,
 	CustomFunctionCondition,
 	ExecutionTimeCondition,
 	GovernanceDecision,
@@ -12,9 +14,9 @@ import type {
 	ToolTagCondition,
 } from "@handlebar/governance-schema";
 import { ApiManager } from "./api/manager";
+import { emit } from "./audit";
 import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
-import { emit } from "./audit/emit";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -98,6 +100,18 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			now,
 		};
 	}
+
+	public emit<K extends AuditEvent["kind"]>(
+		kind: K,
+		data: AuditEventByKind[K]["data"],
+		extras?: Partial<AuditEvent>,
+	): void {
+  if (!this.api.agentId) {
+    return;
+  }
+
+  emit(this.api.agentId, kind, data, extras);
+}
 
 	getTool(name: string) {
 		const t = this.tools.get(name);
@@ -436,7 +450,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			if (check.before) {
 				const d = await check.before(ctx, call);
 				if (d && d.effect === "block") {
-					emit(
+					this.emit(
 						"tool.decision",
 						{
 							tool: {
@@ -467,7 +481,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
 		console.debug(`[Handlebar] ${toolName} ${decision.code}`);
-		emit(
+		this.emit(
 			"tool.decision",
 			{
 				tool: { name: toolName, categories: tool.categories },
@@ -552,7 +566,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		const errorAsError = error instanceof Error ? error : null;
-		emit(
+		this.emit(
 			"tool.result",
 			{
 				tool: { name: toolName, categories: tool.categories },

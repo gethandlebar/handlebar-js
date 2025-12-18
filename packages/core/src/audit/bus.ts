@@ -2,13 +2,13 @@ import type { AuditEvent } from "@handlebar/governance-schema";
 
 export interface AuditSink {
 	init?(): Promise<void> | void;
-	write(event: AuditEvent): Promise<void> | void;
+	write(agentId: string, event: AuditEvent): Promise<void> | void;
 	flush?(): Promise<void> | void;
 	close?(): Promise<void> | void;
 }
 
 export interface AuditBus {
-	emit(event: AuditEvent): void; // fire-and-forget
+	emit(agentId: string, event: AuditEvent): void; // fire-and-forget
 	use(...sinks: AuditSink[]): void; // register sinks
 	shutdown(): Promise<void>; // flush & close
 }
@@ -21,13 +21,13 @@ export function createAuditBus(): AuditBus {
 		use(...s) {
 			sinks.push(...s);
 		},
-		emit(e) {
+		emit(agentId, e) {
 			if (closed) {
 				return;
 			}
 			for (const s of sinks) {
 				try {
-					void s.write(e);
+					void s.write(agentId, e);
 				} catch (e) {
 					console.error(`Sink write error: ${e}`);
 					/* don't throw from telemetry */

@@ -1,7 +1,6 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
-	emit,
 	type GovernanceConfig,
 	GovernanceEngine,
 	type RunContext,
@@ -178,7 +177,7 @@ export class HandlebarAgent<
 				if (!this.runStarted) {
 					this.runStarted = true;
 
-					emit("run.started", {
+					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 					});

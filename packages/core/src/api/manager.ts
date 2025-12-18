@@ -1,4 +1,4 @@
-import { type Rule, RuleSchema } from "@handlebar/governance-schema";
+import type { Rule } from "@handlebar/governance-schema";
 import type { ApiConfig } from "./types";
 
 type HitlResponse = {
@@ -11,7 +11,7 @@ export class ApiManager {
 	private useApi: boolean;
 	private apiKey: string | undefined;
 	private apiEndpoint: string;
-  private agentId: string | undefined;
+  public agentId: string | undefined;
 
 	constructor(config: ApiConfig, agentId?: string) {
 		this.apiEndpoint =
