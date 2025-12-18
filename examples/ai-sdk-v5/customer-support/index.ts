@@ -114,6 +114,9 @@ const agent = new HandlebarAgent({
 	model,
 	tools,
 	stopWhen: stepCountIs(10),
+	agent: {
+		slug: "customer-support",
+	},
 	governance: {
 		userCategory,
 		categories: toolCategories,

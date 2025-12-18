@@ -1,5 +1,7 @@
 import type {
 	AppliedAction,
+	AuditEvent,
+	AuditEventByKind,
 	CustomFunctionCondition,
 	ExecutionTimeCondition,
 	GovernanceDecision,
@@ -11,9 +13,10 @@ import type {
 	ToolNameCondition,
 	ToolTagCondition,
 } from "@handlebar/governance-schema";
+import { ApiManager } from "./api/manager";
+import { emit } from "./audit";
 import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
-import { emit } from "./audit/emit";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -40,6 +43,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private checks: CustomCheck<T>[];
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
+	private api: ApiManager;
 
 	/**
 	 * @deprecated - Superceded by audit log
@@ -56,6 +60,23 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		this.checks = cfg.checks ?? [];
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
+
+		this.api = new ApiManager({});
+	}
+
+	public async initAgentRules(agentConfig: {
+		slug: string;
+		name?: string;
+		description?: string;
+		tags?: string[];
+	}): Promise<string | null> {
+		const output = await this.api.initialiseAgent(agentConfig);
+		if (!output) {
+			return null;
+		}
+
+		this.rules.push(...(output.rules ?? []));
+		return output.agentId;
 	}
 
 	createRunContext(
@@ -78,34 +99,67 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		};
 	}
 
+	public emit<K extends AuditEvent["kind"]>(
+		kind: K,
+		data: AuditEventByKind[K]["data"],
+		extras?: Partial<AuditEvent>,
+	): void {
+		if (!this.api.agentId) {
+			return;
+		}
+
+		emit(this.api.agentId, kind, data, extras);
+	}
+
 	getTool(name: string) {
 		const t = this.tools.get(name);
 		if (!t) {
 			throw new Error(`Unknown tool "${name}"`);
 		}
 		return t;
+	} /**
+	 * With a HITL rule hit, query the API to check for an existing, matching HITL request.
+	 *
+	 * Querying the API with the triggered API rule will try to match on existing or create a HITL request
+	 * if none exists.
+	 * If there is an existing, matching request (server should return ID and status), we convert the HITL
+	 * action into a new action: on "pending" or "blocked" we convert to "blocked" action client side;
+	 * if the HITL request has "approved" then the client side also approves.
+	 */
+	private async evaluateHitl(
+		ruleId: string,
+		ctx: RunContext<T>,
+		call: ToolCall<T>,
+	): Promise<"hitl" | "block" | "allow"> {
+		const apiResponse = await this.api.queryHitl(
+			ctx.runId,
+			ruleId,
+			call.tool.name,
+			call.args as Record<string, unknown>,
+		); // TODO: sort typing of args.
+		if (!apiResponse) {
+			return "hitl";
+		}
+
+		if (apiResponse.pre_existing) {
+			if (apiResponse.status === "approved") {
+				return "allow";
+			}
+
+			return "block";
+		}
+
+		// If pre_existing=false, i.e. HITL request generated as part of this rule break,
+		// we must return "hitl" for appropriate auditing to propagate.
+		return "hitl";
 	}
 
-	private async decideByRules(
+	public async decideByRules(
 		phase: "pre" | "post",
 		ctx: RunContext<T>,
 		call: ToolCall<T>,
 		executionTimeMS: number | null,
 	): Promise<GovernanceDecision> {
-		// TODO: no tool categories should not have a default response. instead, it should be on no matching rules.
-		if (
-			(!call.tool.categories || call.tool.categories.length === 0) &&
-			this.defaultUncategorised === "block"
-		) {
-			return {
-				effect: "block",
-				code: "BLOCKED_UNCATEGORISED",
-				matchedRuleIds: [],
-				appliedActions: [],
-				reason: `Tool "${call.tool.name}" has no categories`,
-			};
-		}
-
 		const applicable = this.rules.filter(
 			(r) => r.when === phase || r.when === "both",
 		);
@@ -142,14 +196,27 @@ export class GovernanceEngine<T extends Tool = Tool> {
 					type: action.type,
 				});
 
-				if (action.type === "block") {
+				let actionType = action.type;
+				if (actionType === "hitl") {
+					// Trigger or match a HITL request
+					actionType = await this.evaluateHitl(rule.id, ctx, call);
+				}
+
+				if (actionType === "block") {
 					return {
 						effect: "block",
 						code: "BLOCKED_RULE",
 						appliedActions: appliedRules,
 						matchedRuleIds: appliedRules.map((ar) => ar.ruleId),
 					};
-				} else if (action.type === "allow" && decision?.effect !== "block") {
+				} else if (actionType === "hitl") {
+					return {
+						effect: "hitl",
+						code: "BLOCKED_HITL_REQUESTED",
+						appliedActions: appliedRules,
+						matchedRuleIds: appliedRules.map((ar) => ar.ruleId),
+					};
+				} else if (actionType === "allow" && decision?.effect !== "block") {
 					decision = {
 						effect: "allow",
 						code: "ALLOWED",
@@ -382,7 +449,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			if (check.before) {
 				const d = await check.before(ctx, call);
 				if (d && d.effect === "block") {
-					emit(
+					this.emit(
 						"tool.decision",
 						{
 							tool: {
@@ -412,7 +479,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
 		console.debug(`[Handlebar] ${toolName} ${decision.code}`);
-		emit(
+		this.emit(
 			"tool.decision",
 			{
 				tool: { name: toolName, categories: tool.categories },
@@ -439,7 +506,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			const tag = decision.effect === "allow" ? "✅" : "⛔";
 			const ruleId =
 				decision.appliedActions[decision.appliedActions.length - 1]?.ruleId;
-			console.log(
+			console.debug(
 				`[Handlebar] ${tag} run=${ctx.runId} step=${ctx.stepIndex} tool=${call.tool.name} decision=${decision.code}${ruleId ? ` rule=${ruleId}` : ""}${decision.reason ? ` reason="${decision.reason}"` : ""}`,
 			);
 		}
@@ -497,7 +564,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		const errorAsError = error instanceof Error ? error : null;
-		emit(
+		this.emit(
 			"tool.result",
 			{
 				tool: { name: toolName, categories: tool.categories },

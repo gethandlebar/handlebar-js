@@ -1,50 +1,157 @@
-/** biome-ignore-all lint/correctness/noUnusedImports: WIP */
-import { RuleSchema } from "@handlebar/governance-schema";
-import type z from "zod";
+import type { Rule } from "@handlebar/governance-schema";
 import type { ApiConfig } from "./types";
+
+type HitlResponse = {
+	hitlId: string;
+	status: "pending" | "approved" | "denied";
+	pre_existing: boolean;
+};
 
 export class ApiManager {
 	private useApi: boolean;
 	private apiKey: string | undefined;
 	private apiEndpoint: string;
+	public agentId: string | undefined;
 
-	constructor(config: ApiConfig) {
+	constructor(config: ApiConfig, agentId?: string) {
 		this.apiEndpoint =
 			config.apiEndpoint ??
 			process.env.HANDLEBAR_API_ENDPOINT ??
-			"http://localhost:8000"; // TODO: default to prod api when live.
+			"https://api.gethandlebar.com";
 		this.apiKey = config.apiKey ?? process.env.HANDLEBAR_API_KEY;
-		this.useApi = this.apiEndpoint !== undefined || this.apiKey !== undefined;
+		this.useApi = this.apiEndpoint !== undefined && this.apiKey !== undefined;
+		this.agentId = agentId;
 	}
 
-	private headers(): Record<string, string> {
-		if (this.apiKey) {
-			return {
-				Authorization: `Bearer ${this.apiKey}`,
-			};
+	public async queryHitl(
+		runId: string,
+		ruleId: string,
+		toolName: string,
+		toolArgs: Record<string, unknown>,
+	): Promise<HitlResponse | null> {
+		if (!this.useApi || !this.agentId) {
+			return null;
 		}
 
-		return {};
+		const url = new URL("/v1/audit/hitl", this.apiEndpoint);
+		try {
+			const response = await fetch(url.toString(), {
+				method: "POST",
+				headers: this.headers("json"),
+				body: JSON.stringify({
+					agentId: this.agentId,
+					ruleId,
+					runId,
+					tool: { name: toolName, args: toolArgs },
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to query HITL status: ${response.status}`);
+			}
+
+			const data: HitlResponse = await response.json();
+			return data;
+		} catch (error) {
+			console.error("Error querying HITL status:", error);
+			return null;
+		}
 	}
 
-	private async fetchAgentRules(
-		agentName: string,
-	): Promise<z.infer<typeof RuleSchema> | null> {
+	public async initialiseAgent(agentInfo: {
+		slug: string;
+		name?: string;
+		description?: string;
+		tags?: string[];
+	}): Promise<{ agentId: string; rules: Rule[] | null } | null> {
 		if (!this.useApi) {
 			return null;
 		}
 
-		const response = await fetch(`${this.apiEndpoint}`, {
-			headers: this.headers(),
-			body: JSON.stringify({ agentName }),
-		});
-		const data = await response.json();
+		let agentId: string;
+		let rules: Rule[] | null = null;
 
-		const schemaData = RuleSchema.safeParse(data);
-		if (schemaData.success) {
-			return schemaData.data;
+		try {
+			agentId = await this.upsertAgent(agentInfo);
+			this.agentId = agentId;
+		} catch (e) {
+			console.error("Error upserting agent:", e);
+			return null;
 		}
 
-		return null;
+		try {
+			rules = await this.fetchAgentRules(agentId);
+			console.debug(`Got Handlebar ${rules?.length} rules from api`);
+		} catch (error) {
+			console.error("Error fetching rules:", error);
+			return null;
+		}
+
+		return { agentId, rules };
+	}
+
+	private headers(mode?: "json"): Record<string, string> {
+		const baseHeaders: Record<string, string> = {};
+		if (this.apiKey) {
+			baseHeaders.Authorization = `Bearer ${this.apiKey}`;
+		}
+
+		if (mode === "json") {
+			baseHeaders["content-type"] = "application/json";
+		}
+
+		return baseHeaders;
+	}
+
+	private async upsertAgent(agentInfo: {
+		slug: string;
+		name?: string;
+		description?: string;
+		tags?: string[];
+	}): Promise<string> {
+		const url = new URL("/v1/agent", this.apiEndpoint);
+
+		try {
+			const response = await fetch(url.toString(), {
+				method: "PUT",
+				headers: this.headers("json"),
+				body: JSON.stringify({
+					slug: agentInfo.slug,
+					name: agentInfo.name,
+					description: agentInfo.description,
+					tags: agentInfo.tags,
+				}),
+			});
+			const data: { agentId: string } = await response.json();
+			return data.agentId; // uuidv7-like
+		} catch (error) {
+			console.error("Error upserting agent:", error);
+			throw error;
+		}
+	}
+
+	private async fetchAgentRules(agentId: string): Promise<Rule[] | null> {
+		const url = new URL("/v1/rules", this.apiEndpoint);
+		const params = new URLSearchParams({
+			agentId,
+		});
+
+		const response = await fetch(`${url.toString()}?${params.toString()}`, {
+			headers: this.headers(),
+		});
+
+		if (!response.ok) {
+			throw new Error(
+				`Failed to fetch agent rules: ${response.status} ${response.statusText}`,
+			);
+		}
+
+		const data: { rules: Rule[] } = await response.json();
+		return data.rules;
+		// TODO: fix this safe parse error.
+		// const schemaData = RuleSchema.array().safeParse(data.rules);
+		// if (schemaData.success) {
+		// 	return schemaData.data;
+		// }
 	}
 }
