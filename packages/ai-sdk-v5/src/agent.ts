@@ -109,6 +109,7 @@ export class HandlebarAgent<
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
+          console.warn(`Executing ${name} beforeTool`);
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					if (engine.shouldBlock(decision)) {

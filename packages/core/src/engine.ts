@@ -135,26 +135,12 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return "hitl";
 	}
 
-	private async decideByRules(
+	public async decideByRules(
 		phase: "pre" | "post",
 		ctx: RunContext<T>,
 		call: ToolCall<T>,
 		executionTimeMS: number | null,
 	): Promise<GovernanceDecision> {
-		// TODO: no tool categories should not have a default response. instead, it should be on no matching rules.
-		if (
-			(!call.tool.categories || call.tool.categories.length === 0) &&
-			this.defaultUncategorised === "block"
-		) {
-			return {
-				effect: "block",
-				code: "BLOCKED_UNCATEGORISED",
-				matchedRuleIds: [],
-				appliedActions: [],
-				reason: `Tool "${call.tool.name}" has no categories`,
-			};
-		}
-
 		const applicable = this.rules.filter(
 			(r) => r.when === phase || r.when === "both",
 		);
@@ -169,6 +155,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const matchingRules: string[] = [];
 
 		for (const rule of ordered) {
+			console.warn(`Evaluating rule ${JSON.stringify(rule)}`)
 			const matches = await this.evalCondition(rule.condition, {
 				phase,
 				ctx,
@@ -225,6 +212,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
+		console.warn(`decideByRules result: ${decision?.code ?? "ALLOWED"}`)
 		const finalDecision: GovernanceDecision = {
 			matchedRuleIds: matchingRules,
 			appliedActions: appliedRules,
@@ -474,6 +462,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 		}
 
+    console.warn(`About to decide by rules PRE for ${toolName}`);
 		const decision = await this.decideByRules("pre", ctx, call, null);
 		const finalDecision = this._finaliseDecision(ctx, call, decision);
 
