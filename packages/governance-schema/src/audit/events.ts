@@ -10,7 +10,7 @@ const ToolMetaSchema = z.object({
 });
 
 // Common to all audit events.
-const AuditEnvelopeSchema = z.object({
+export const AuditEnvelopeSchema = z.object({
 	schema: z.literal("handlebar.audit.v1"),
 	ts: z.preprocess((v) => {
 		if (v instanceof Date) {
