@@ -158,6 +158,22 @@ export class HandlebarAgent<
 
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
+			onStepFinish: async (step) => {
+			  if (rest.onStepFinish) {
+          await rest.onStepFinish(step);
+				}
+
+  			if (step.text.trim()) {
+          this.emitMessage(
+            step.text,
+            "assistant",
+            "output",
+            // tags: ["step_output"],
+          );
+        }
+
+        // TODO: do we need reasoning?
+			},
 			tools: wrapped,
 		});
 		this.governance = engine;

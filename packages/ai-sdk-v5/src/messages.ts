@@ -10,7 +10,7 @@ function aiRoleToHandlebarKind(role: ModelMessage["role"]): Message["kind"] {
    case "user":
      return "input";
    case "assistant":
-     return "observation";
+     return "output";
    case "system":
      return "observation";
    case "tool":
