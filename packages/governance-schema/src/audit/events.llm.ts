@@ -25,7 +25,7 @@ export const MessageKindSchema = z.enum([
 	"thinking",
 ]);
 
-const MessageSchema = z.object({
+export const MessageSchema = z.object({
 	messageId: z.uuidv7(),
 	role: MessageRoleSchema,
 	kind: MessageKindSchema,
