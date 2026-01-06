@@ -6,12 +6,17 @@ import {
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
+import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
 	type Tool,
 	type ToolCallOptions,
 	type ToolSet,
 } from "ai";
+import { uuidv7 } from "uuidv7";
+import type { z } from "zod";
+
+type MessageEvent = z.infer<typeof MessageEventSchema>;
 
 type ToolSetBase = Record<string, Tool<any, any>>;
 
@@ -69,6 +74,7 @@ export class HandlebarAgent<
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
+  private emittedSystemPrompt = false;
 	private hasInitialisedEngine = false;
 	private agentConfig:
 		| {
@@ -191,7 +197,44 @@ export class HandlebarAgent<
 		);
 	}
 
+	private emitMessage(message: string, role: MessageEvent["data"]["role"], kind: MessageEvent["data"]["kind"]) {
+    let truncated = false;
+    let messageFinal = message;
+
+    // TODO: set reasonable limit
+    const messageCharLimit = 10000;
+
+    if (message.length > messageCharLimit) {
+      truncated = true;
+      messageFinal = message.slice(0, messageCharLimit);
+    }
+
+  	this.governance.emit("message.created", {
+        content: messageFinal,
+        contentTruncated: truncated,
+        role,
+        kind,
+        messageId: uuidv7(),
+      });
+	}
+
+	private maybeEmitSystemPrompt(prompt: string) {
+  	if (this.emittedSystemPrompt) {
+      return;
+  	}
+    this.emitMessage(prompt, "system", "observation");
+  	this.emittedSystemPrompt = true;
+  }
+
 	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
+	for (const message of a) {
+    if (message.system) {
+      this.maybeEmitSystemPrompt(message.system);
+    }
+    if (message.prompt) {
+
+    }
+	}
 		await this.initEngine();
 		return this.withRun(() => this.inner.generate(...a));
 	}
