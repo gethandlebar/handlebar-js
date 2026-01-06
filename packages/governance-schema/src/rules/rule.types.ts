@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import type { RuleAction } from "./action.types";
 import type { RuleCondition } from "./condition.types";
 
