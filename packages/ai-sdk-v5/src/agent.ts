@@ -9,12 +9,14 @@ import {
 import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
+	type Prompt,
 	type Tool,
 	type ToolCallOptions,
 	type ToolSet,
 } from "ai";
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
+import { formatPrompt } from "./messages";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -161,6 +163,10 @@ export class HandlebarAgent<
 		this.governance = engine;
 		this.runCtx = runCtx;
 		this.agentConfig = agent;
+
+		if (rest.system) {
+      this.maybeEmitSystemPrompt(rest.system);
+		}
 	}
 
 	public async initEngine() {
@@ -226,21 +232,29 @@ export class HandlebarAgent<
   	this.emittedSystemPrompt = true;
   }
 
-	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
-	for (const message of a) {
-    if (message.system) {
-      this.maybeEmitSystemPrompt(message.system);
+  private emitMessages(prompts: Prompt[]) {
+    for (const prompt of prompts) {
+      const formattedMessages = formatPrompt(prompt);
+      for (const message of formattedMessages) {
+        if (message.role === "system") {
+          this.maybeEmitSystemPrompt(message.content);
+        } else {
+          this.emitMessage(message.content, message.role, message.kind);
+        }
+      }
     }
-    if (message.prompt) {
+  }
 
-    }
-	}
+	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
 		await this.initEngine();
+    this.emitMessages(a);
 		return this.withRun(() => this.inner.generate(...a));
 	}
 
 	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
 		await this.initEngine();
+    this.emitMessages(a);
+		// TODO: emit streamed messages as audit events.
 		return this.withRun(() => this.inner.stream(...a));
 	}
 
