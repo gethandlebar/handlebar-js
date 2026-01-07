@@ -3,6 +3,7 @@ import {
 	type CustomCheck,
 	type GovernanceConfig,
 	GovernanceEngine,
+	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
@@ -169,12 +170,13 @@ export class HandlebarAgent<
 		this.hasInitialisedEngine = true;
 	}
 
-	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
+	private withRun<T>(opts: HandlebarRunOpts, fn: () => Promise<T> | T): Promise<T> | T {
 		return withRunContext(
 			{
 				runId: this.runCtx.runId,
 				userCategory: this.runCtx.userCategory,
 				stepIndex: this.runCtx.stepIndex,
+				enduser: opts.enduser,
 			},
 			async () => {
 				if (!this.runStarted) {
@@ -191,18 +193,18 @@ export class HandlebarAgent<
 		);
 	}
 
-	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
+	async generate(params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
-		return this.withRun(() => this.inner.generate(...a));
+    return this.withRun(handlebarOpts ?? {}, () => this.inner.generate(...params));
 	}
 
-	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
+	async stream(params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
-		return this.withRun(() => this.inner.stream(...a));
+		return this.withRun(handlebarOpts ?? {}, () => this.inner.stream(...params));
 	}
 
-	async respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+	async respond(params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
-		return this.withRun(() => this.inner.respond(...a));
+		return this.withRun(handlebarOpts ?? {}, () => this.inner.respond(...params));
 	}
 }
