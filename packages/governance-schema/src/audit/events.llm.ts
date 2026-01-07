@@ -41,6 +41,6 @@ export const MessageSchema = z.object({
 });
 
 export const MessageEventSchema = AuditEnvelopeSchema.extend({
-  kind: z.literal("message.created"),
+  kind: z.literal("message.raw.created"),
   data: MessageSchema,
 });

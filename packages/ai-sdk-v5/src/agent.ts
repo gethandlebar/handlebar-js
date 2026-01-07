@@ -231,7 +231,7 @@ export class HandlebarAgent<
       messageFinal = message.slice(0, messageCharLimit);
     }
 
-  	this.governance.emit("message.created", {
+  	this.governance.emit("message.raw.created", {
         content: messageFinal,
         contentTruncated: truncated,
         role,
