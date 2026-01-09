@@ -76,6 +76,7 @@ export class HandlebarAgent<
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
+  private systemPrompt: string | undefined = undefined;
   private emittedSystemPrompt = false;
 	private hasInitialisedEngine = false;
 	private agentConfig:
@@ -181,7 +182,7 @@ export class HandlebarAgent<
 		this.agentConfig = agent;
 
 		if (rest.system) {
-      this.maybeEmitSystemPrompt(rest.system);
+      this.systemPrompt = rest.system;
 		}
 	}
 
@@ -212,6 +213,7 @@ export class HandlebarAgent<
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 					});
+          this.maybeEmitSystemPrompt();
 				}
 
 				return await fn();
@@ -240,11 +242,11 @@ export class HandlebarAgent<
       });
 	}
 
-	private maybeEmitSystemPrompt(prompt: string) {
-  	if (this.emittedSystemPrompt) {
+	private maybeEmitSystemPrompt() {
+  	if (this.emittedSystemPrompt || this.systemPrompt === undefined) {
       return;
   	}
-    this.emitMessage(prompt, "system", "observation");
+    this.emitMessage(this.systemPrompt, "system", "observation");
   	this.emittedSystemPrompt = true;
   }
 
@@ -253,7 +255,8 @@ export class HandlebarAgent<
       const formattedMessages = formatPrompt(prompt);
       for (const message of formattedMessages) {
         if (message.role === "system") {
-          this.maybeEmitSystemPrompt(message.content);
+          this.systemPrompt = message.content
+          this.maybeEmitSystemPrompt();
         } else {
           this.emitMessage(message.content, message.role, message.kind);
         }
@@ -263,19 +266,25 @@ export class HandlebarAgent<
 
 	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
 		await this.initEngine();
-    this.emitMessages(a);
-		return this.withRun(() => this.inner.generate(...a));
+    return this.withRun(() => {
+      this.emitMessages(a);
+      return this.inner.generate(...a) });
 	}
 
 	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
 		await this.initEngine();
-    this.emitMessages(a);
 		// TODO: emit streamed messages as audit events.
-		return this.withRun(() => this.inner.stream(...a));
+		return this.withRun(() => {
+      this.emitMessages(a);
+      return this.inner.stream(...a);
+    });
 	}
 
 	async respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
 		await this.initEngine();
-		return this.withRun(() => this.inner.respond(...a));
+		return this.withRun(() => {
+      // this.emitMessages(a); // TODO: fix type error.
+      return this.inner.respond(...a);
+    });
 	}
 }
