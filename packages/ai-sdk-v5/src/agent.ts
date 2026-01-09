@@ -270,6 +270,8 @@ export class HandlebarAgent<
 		}
 	}
 
+	// TODO: fix input signature: this requires users to wrap inputs in an array, vs. doing "...params".
+	// Maybe extend params directly with handlebarOpts?
 	async generate(params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
 		return this.withRun(handlebarOpts ?? {},() => {
