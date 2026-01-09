@@ -120,7 +120,7 @@ const agent = new HandlebarAgent({
 	governance: {
 		userCategory,
 		categories: toolCategories,
-		rules: [],// rules.map(configToRule), // Adds IDs to rules to match expected schema.
+		rules: [], // rules.map(configToRule), // Adds IDs to rules to match expected schema.
 	},
 });
 

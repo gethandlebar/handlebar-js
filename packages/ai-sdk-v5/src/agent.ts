@@ -76,8 +76,8 @@ export class HandlebarAgent<
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
-  private systemPrompt: string | undefined = undefined;
-  private emittedSystemPrompt = false;
+	private systemPrompt: string | undefined = undefined;
+	private emittedSystemPrompt = false;
 	private hasInitialisedEngine = false;
 	private agentConfig:
 		| {
@@ -160,20 +160,20 @@ export class HandlebarAgent<
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
 			onStepFinish: async (step) => {
-			  if (rest.onStepFinish) {
-          await rest.onStepFinish(step);
+				if (rest.onStepFinish) {
+					await rest.onStepFinish(step);
 				}
 
-  			if (step.text.trim()) {
-          this.emitMessage(
-            step.text,
-            "assistant",
-            "output",
-            // tags: ["step_output"],
-          );
-        }
+				if (step.text.trim()) {
+					this.emitMessage(
+						step.text,
+						"assistant",
+						"output",
+						// tags: ["step_output"],
+					);
+				}
 
-        // TODO: do we need reasoning?
+				// TODO: do we need reasoning?
 			},
 			tools: wrapped,
 		});
@@ -182,7 +182,7 @@ export class HandlebarAgent<
 		this.agentConfig = agent;
 
 		if (rest.system) {
-      this.systemPrompt = rest.system;
+			this.systemPrompt = rest.system;
 		}
 	}
 
@@ -213,7 +213,7 @@ export class HandlebarAgent<
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 					});
-          this.maybeEmitSystemPrompt();
+					this.maybeEmitSystemPrompt();
 				}
 
 				return await fn();
@@ -221,70 +221,75 @@ export class HandlebarAgent<
 		);
 	}
 
-	private emitMessage(message: string, role: MessageEvent["data"]["role"], kind: MessageEvent["data"]["kind"]) {
-    let truncated = false;
-    let messageFinal = message;
+	private emitMessage(
+		message: string,
+		role: MessageEvent["data"]["role"],
+		kind: MessageEvent["data"]["kind"],
+	) {
+		let truncated = false;
+		let messageFinal = message;
 
-    // TODO: set reasonable limit
-    const messageCharLimit = 10000;
+		// TODO: set reasonable limit
+		const messageCharLimit = 10000;
 
-    if (message.length > messageCharLimit) {
-      truncated = true;
-      messageFinal = message.slice(0, messageCharLimit);
-    }
+		if (message.length > messageCharLimit) {
+			truncated = true;
+			messageFinal = message.slice(0, messageCharLimit);
+		}
 
-  	this.governance.emit("message.raw.created", {
-        content: messageFinal,
-        contentTruncated: truncated,
-        role,
-        kind,
-        messageId: uuidv7(),
-      });
+		this.governance.emit("message.raw.created", {
+			content: messageFinal,
+			contentTruncated: truncated,
+			role,
+			kind,
+			messageId: uuidv7(),
+		});
 	}
 
 	private maybeEmitSystemPrompt() {
-  	if (this.emittedSystemPrompt || this.systemPrompt === undefined) {
-      return;
-  	}
-    this.emitMessage(this.systemPrompt, "system", "observation");
-  	this.emittedSystemPrompt = true;
-  }
+		if (this.emittedSystemPrompt || this.systemPrompt === undefined) {
+			return;
+		}
+		this.emitMessage(this.systemPrompt, "system", "observation");
+		this.emittedSystemPrompt = true;
+	}
 
-  private emitMessages(prompts: Prompt[]) {
-    for (const prompt of prompts) {
-      const formattedMessages = formatPrompt(prompt);
-      for (const message of formattedMessages) {
-        if (message.role === "system") {
-          this.systemPrompt = message.content
-          this.maybeEmitSystemPrompt();
-        } else {
-          this.emitMessage(message.content, message.role, message.kind);
-        }
-      }
-    }
-  }
+	private emitMessages(prompts: Prompt[]) {
+		for (const prompt of prompts) {
+			const formattedMessages = formatPrompt(prompt);
+			for (const message of formattedMessages) {
+				if (message.role === "system") {
+					this.systemPrompt = message.content;
+					this.maybeEmitSystemPrompt();
+				} else {
+					this.emitMessage(message.content, message.role, message.kind);
+				}
+			}
+		}
+	}
 
 	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
 		await this.initEngine();
-    return this.withRun(() => {
-      this.emitMessages(a);
-      return this.inner.generate(...a) });
+		return this.withRun(() => {
+			this.emitMessages(a);
+			return this.inner.generate(...a);
+		});
 	}
 
 	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
 		await this.initEngine();
 		// TODO: emit streamed messages as audit events.
 		return this.withRun(() => {
-      this.emitMessages(a);
-      return this.inner.stream(...a);
-    });
+			this.emitMessages(a);
+			return this.inner.stream(...a);
+		});
 	}
 
 	async respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
 		await this.initEngine();
 		return this.withRun(() => {
-      // this.emitMessages(a); // TODO: fix type error.
-      return this.inner.respond(...a);
-    });
+			// this.emitMessages(a); // TODO: fix type error.
+			return this.inner.respond(...a);
+		});
 	}
 }

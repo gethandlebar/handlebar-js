@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { AuditEnvelopeSchema } from "./events.base";
 
-export const MessageRoleSchema = z.enum(["system", "developer", "user", "assistant", "tool"]);
-
+export const MessageRoleSchema = z.enum([
+	"system",
+	"developer",
+	"user",
+	"assistant",
+	"tool",
+]);
 
 /**
  * Message "kind" is about how it appears in an agent flow.
@@ -41,6 +46,6 @@ export const MessageSchema = z.object({
 });
 
 export const MessageEventSchema = AuditEnvelopeSchema.extend({
-  kind: z.literal("message.raw.created"),
-  data: MessageSchema,
+	kind: z.literal("message.raw.created"),
+	data: MessageSchema,
 });
