@@ -14,7 +14,8 @@
 	},
 	"dependencies": {
 		"@handlebar/core": "0.0.5",
-		"@handlebar/governance-schema": "0.0.4"
+		"@handlebar/governance-schema": "0.0.6-dev.0",
+		"uuidv7": "^1.1.0"
 	},
 	"peerDependencies": {
 		"ai": "^5.0.80"
