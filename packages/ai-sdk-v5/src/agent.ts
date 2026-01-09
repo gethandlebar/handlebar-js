@@ -214,6 +214,7 @@ export class HandlebarAgent<
 					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
+						enduser: opts.enduser,
 					});
 					this.maybeEmitSystemPrompt();
 				}
