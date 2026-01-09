@@ -7,12 +7,19 @@ import {
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
+import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
+	type Prompt,
 	type Tool,
 	type ToolCallOptions,
 	type ToolSet,
 } from "ai";
+import { uuidv7 } from "uuidv7";
+import type { z } from "zod";
+import { formatPrompt } from "./messages";
+
+type MessageEvent = z.infer<typeof MessageEventSchema>;
 
 type ToolSetBase = Record<string, Tool<any, any>>;
 
@@ -70,6 +77,8 @@ export class HandlebarAgent<
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
+	private systemPrompt: string | undefined = undefined;
+	private emittedSystemPrompt = false;
 	private hasInitialisedEngine = false;
 	private agentConfig:
 		| {
@@ -151,11 +160,31 @@ export class HandlebarAgent<
 
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
+			onStepFinish: async (step) => {
+				if (rest.onStepFinish) {
+					await rest.onStepFinish(step);
+				}
+
+				if (step.text.trim()) {
+					this.emitMessage(
+						step.text,
+						"assistant",
+						"output",
+						// tags: ["step_output"],
+					);
+				}
+
+				// TODO: do we need reasoning?
+			},
 			tools: wrapped,
 		});
 		this.governance = engine;
 		this.runCtx = runCtx;
 		this.agentConfig = agent;
+
+		if (rest.system) {
+			this.systemPrompt = rest.system;
+		}
 	}
 
 	public async initEngine() {
@@ -186,6 +215,7 @@ export class HandlebarAgent<
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 					});
+					this.maybeEmitSystemPrompt();
 				}
 
 				return await fn();
@@ -193,18 +223,75 @@ export class HandlebarAgent<
 		);
 	}
 
+	private emitMessage(
+		message: string,
+		role: MessageEvent["data"]["role"],
+		kind: MessageEvent["data"]["kind"],
+	) {
+		let truncated = false;
+		let messageFinal = message;
+
+		// TODO: set reasonable limit
+		const messageCharLimit = 10000;
+
+		if (message.length > messageCharLimit) {
+			truncated = true;
+			messageFinal = message.slice(0, messageCharLimit);
+		}
+
+		this.governance.emit("message.raw.created", {
+			content: messageFinal,
+			contentTruncated: truncated,
+			role,
+			kind,
+			messageId: uuidv7(),
+		});
+	}
+
+	private maybeEmitSystemPrompt() {
+		if (this.emittedSystemPrompt || this.systemPrompt === undefined) {
+			return;
+		}
+		this.emitMessage(this.systemPrompt, "system", "observation");
+		this.emittedSystemPrompt = true;
+	}
+
+	private emitMessages(prompts: Prompt[]) {
+		for (const prompt of prompts) {
+			const formattedMessages = formatPrompt(prompt);
+			for (const message of formattedMessages) {
+				if (message.role === "system") {
+					this.systemPrompt = message.content;
+					this.maybeEmitSystemPrompt();
+				} else {
+					this.emitMessage(message.content, message.role, message.kind);
+				}
+			}
+		}
+	}
+
 	async generate(params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
-    return this.withRun(handlebarOpts ?? {}, () => this.inner.generate(...params));
+		return this.withRun(handlebarOpts ?? {},() => {
+			this.emitMessages(params);
+			return this.inner.generate(...params);
+		});
 	}
 
 	async stream(params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
-		return this.withRun(handlebarOpts ?? {}, () => this.inner.stream(...params));
+		// TODO: emit streamed messages as audit events.
+		return this.withRun(handlebarOpts ?? {}, () => {
+			this.emitMessages(params);
+			return this.inner.stream(...params);
+		});
 	}
 
 	async respond(params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>, handlebarOpts?: HandlebarRunOpts) {
 		await this.initEngine();
-		return this.withRun(handlebarOpts ?? {}, () => this.inner.respond(...params));
+		return this.withRun(handlebarOpts ?? {}, () => {
+			// this.emitMessages(params); // TODO: fix type error.
+			return this.inner.respond(...params);
+		});
 	}
 }
