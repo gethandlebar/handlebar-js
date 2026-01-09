@@ -199,7 +199,10 @@ export class HandlebarAgent<
 		this.hasInitialisedEngine = true;
 	}
 
-	private withRun<T>(opts: HandlebarRunOpts, fn: () => Promise<T> | T): Promise<T> | T {
+	private withRun<T>(
+		opts: HandlebarRunOpts,
+		fn: () => Promise<T> | T,
+	): Promise<T> | T {
 		return withRunContext(
 			{
 				runId: this.runCtx.runId,
@@ -273,15 +276,21 @@ export class HandlebarAgent<
 
 	// TODO: fix input signature: this requires users to wrap inputs in an array, vs. doing "...params".
 	// Maybe extend params directly with handlebarOpts?
-	async generate(params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>, handlebarOpts?: HandlebarRunOpts) {
+	async generate(
+		params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>,
+		handlebarOpts?: HandlebarRunOpts,
+	) {
 		await this.initEngine();
-		return this.withRun(handlebarOpts ?? {},() => {
+		return this.withRun(handlebarOpts ?? {}, () => {
 			this.emitMessages(params);
 			return this.inner.generate(...params);
 		});
 	}
 
-	async stream(params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>, handlebarOpts?: HandlebarRunOpts) {
+	async stream(
+		params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>,
+		handlebarOpts?: HandlebarRunOpts,
+	) {
 		await this.initEngine();
 		// TODO: emit streamed messages as audit events.
 		return this.withRun(handlebarOpts ?? {}, () => {
@@ -290,7 +299,10 @@ export class HandlebarAgent<
 		});
 	}
 
-	async respond(params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>, handlebarOpts?: HandlebarRunOpts) {
+	async respond(
+		params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>,
+		handlebarOpts?: HandlebarRunOpts,
+	) {
 		await this.initEngine();
 		return this.withRun(handlebarOpts ?? {}, () => {
 			// this.emitMessages(params); // TODO: fix type error.

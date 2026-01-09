@@ -4,9 +4,11 @@
  * Subsequent user message would trigger a new run, although these would be grouped in a session.
  */
 
-import type { EndUserConfig, EndUserGroupConfig } from "@handlebar/governance-schema";
-
+import type {
+	EndUserConfig,
+	EndUserGroupConfig,
+} from "@handlebar/governance-schema";
 
 export type HandlebarRunOpts = {
-  enduser?: EndUserConfig & { group?: EndUserGroupConfig }
+	enduser?: EndUserConfig & { group?: EndUserGroupConfig };
 };
