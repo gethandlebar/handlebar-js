@@ -3,6 +3,7 @@ import {
 	type CustomCheck,
 	type GovernanceConfig,
 	GovernanceEngine,
+	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
@@ -198,12 +199,16 @@ export class HandlebarAgent<
 		this.hasInitialisedEngine = true;
 	}
 
-	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
+	private withRun<T>(
+		opts: HandlebarRunOpts,
+		fn: () => Promise<T> | T,
+	): Promise<T> | T {
 		return withRunContext(
 			{
 				runId: this.runCtx.runId,
 				userCategory: this.runCtx.userCategory,
 				stepIndex: this.runCtx.stepIndex,
+				enduser: opts.enduser,
 			},
 			async () => {
 				if (!this.runStarted) {
@@ -212,6 +217,7 @@ export class HandlebarAgent<
 					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
+						enduser: opts.enduser,
 					});
 					this.maybeEmitSystemPrompt();
 				}
@@ -268,28 +274,39 @@ export class HandlebarAgent<
 		}
 	}
 
-	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
+	// TODO: fix input signature: this requires users to wrap inputs in an array, vs. doing "...params".
+	// Maybe extend params directly with handlebarOpts?
+	async generate(
+		params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>,
+		handlebarOpts?: HandlebarRunOpts,
+	) {
 		await this.initEngine();
-		return this.withRun(() => {
-			this.emitMessages(a);
-			return this.inner.generate(...a);
+		return this.withRun(handlebarOpts ?? {}, () => {
+			this.emitMessages(params);
+			return this.inner.generate(...params);
 		});
 	}
 
-	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
+	async stream(
+		params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>,
+		handlebarOpts?: HandlebarRunOpts,
+	) {
 		await this.initEngine();
 		// TODO: emit streamed messages as audit events.
-		return this.withRun(() => {
-			this.emitMessages(a);
-			return this.inner.stream(...a);
+		return this.withRun(handlebarOpts ?? {}, () => {
+			this.emitMessages(params);
+			return this.inner.stream(...params);
 		});
 	}
 
-	async respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+	async respond(
+		params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>,
+		handlebarOpts?: HandlebarRunOpts,
+	) {
 		await this.initEngine();
-		return this.withRun(() => {
-			// this.emitMessages(a); // TODO: fix type error.
-			return this.inner.respond(...a);
+		return this.withRun(handlebarOpts ?? {}, () => {
+			// this.emitMessages(params); // TODO: fix type error.
+			return this.inner.respond(...params);
 		});
 	}
 }

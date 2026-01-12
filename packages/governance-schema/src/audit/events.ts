@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+	EndUserConfigSchema,
+	EndUserGroupConfigSchema,
+} from "../enduser.types";
 import { AuditEnvelopeSchema } from "./events.base";
 import { MessageEventSchema } from "./events.llm";
 import { GovernanceDecisionSchema } from "./governance-actions";
@@ -21,6 +25,10 @@ export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 			id: z.string().optional(),
 			name: z.string().optional(),
 		}),
+		enduser: EndUserConfigSchema.extend({
+			// If a group if also provided, the user will be attached to the group.
+			group: EndUserGroupConfigSchema.optional(),
+		}).optional(),
 		model: z
 			.object({
 				provider: z.string().optional(),
