@@ -281,6 +281,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 			case "not":
 				return !(await this.evalCondition(cond.not, args));
+
+			default:
+			  console.warn(`[Handlebar] Unknown condition type: ${cond.type}`);
+				return true;
 		}
 	}
 
