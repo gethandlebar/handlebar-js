@@ -54,7 +54,7 @@ export type GovernanceConfig<T extends Tool = Tool> = {
  * TODO: deduplicate with `RunCtx`.
  */
 export type RunContext<T extends Tool = Tool> = {
-  runId: string;
+	runId: string;
 	userCategory: string; // DEPRECATED.
 	stepIndex: number;
 	history: ToolResult<T>[];
