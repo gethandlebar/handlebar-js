@@ -53,13 +53,14 @@ export type ToolTagCondition =
   | { kind: "toolTag"; op: "allOf"; tags: string[] };
 
 /**
-  * Match on arbitrary tags assigned to the user.
+  * Match on arbitrary tags assigned to the enduser.
+  * "enduser" in this context means the users of a Handlebar user.
   * - has: existence AND truthiness of the tag. E.g. "has:tier" would be false if "tier=0", "tier=false", or no "tier" tag exists.
   * - hasValue: tag exists and has an exact given value
   */
-export type UserTagCondition =
-| { kind: "userTag"; op: "has"; tag: string }
-| { kind: "userTag"; op: "hasValue"; tag: string; value: string };
+export type EnduserTagCondition =
+| { kind: "enduserTag"; op: "has"; tag: string }
+| { kind: "enduserTag"; op: "hasValue"; tag: string; value: string };
 
 /**
  * Scope for execution time measurement.
@@ -128,7 +129,7 @@ export type NotCondition = { kind: "not"; not: RuleCondition };
 export type RuleCondition =
 	| ToolNameCondition
   | ToolTagCondition
-	| UserTagCondition
+	| EnduserTagCondition
 	| ExecutionTimeCondition
 	| SequenceCondition
 	| MaxCallsCondition
