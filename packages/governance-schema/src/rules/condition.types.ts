@@ -58,9 +58,10 @@ export type ToolTagCondition =
  * - has: existence AND truthiness of the tag. E.g. "has:tier" would be false if "tier=0", "tier=false", or no "tier" tag exists.
  * - hasValue: tag exists and has an exact given value
  */
-export type EnduserTagCondition =
+export type EndUserTagCondition =
 	| { kind: "enduserTag"; op: "has"; tag: string }
-	| { kind: "enduserTag"; op: "hasValue"; tag: string; value: string };
+	| { kind: "enduserTag"; op: "hasValue"; tag: string; value: string }
+	| { kind: "enduserTag"; op: "hasValueAny"; tag: string; values: string[] };
 
 /**
  * Scope for execution time measurement.
@@ -129,7 +130,7 @@ export type NotCondition = { kind: "not"; not: RuleCondition };
 export type RuleCondition =
 	| ToolNameCondition
 	| ToolTagCondition
-	| EnduserTagCondition
+	| EndUserTagCondition
 	| ExecutionTimeCondition
 	| SequenceCondition
 	| MaxCallsCondition

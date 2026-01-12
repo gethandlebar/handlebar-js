@@ -341,12 +341,12 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			return false;
 		}
 
-		if (cond.op === "has") {
-			const tagValue = enduser.metadata[cond.tag];
-			if (tagValue === undefined) {
-				return false;
-			}
+		const tagValue = enduser.metadata[cond.tag];
+		if (tagValue === undefined) {
+			return false;
+		}
 
+		if (cond.op === "has") {
 			try {
 				const booleanTagValue = Boolean(tagValue);
 				return booleanTagValue;
@@ -359,12 +359,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		if (cond.op === "hasValue") {
-			const tagValue = enduser.metadata[cond.tag];
-			if (tagValue === undefined) {
-				return false;
-			}
-
 			return tagValue === cond.value;
+		}
+
+		if (cond.op === "hasValueAny") {
+			return cond.values.some((v) => tagValue === v);
 		}
 
 		return false;
