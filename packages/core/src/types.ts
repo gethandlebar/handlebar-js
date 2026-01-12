@@ -50,8 +50,9 @@ export type GovernanceConfig<T extends Tool = Tool> = {
 };
 
 export type RunContext<T extends Tool = Tool> = {
-	runId: string;
-	userCategory: string;
+  runId: string;
+  enduser: Record<string, string> | null; // TODO: get proper type.
+	userCategory: string; // DEPRECATED.
 	stepIndex: number;
 	history: ToolResult<T>[];
 	counters: Record<string, number>;

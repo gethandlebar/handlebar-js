@@ -109,7 +109,7 @@ export class HandlebarAgent<
 
 		const runCtx = engine.createRunContext(
 			runId,
-			governance?.userCategory ?? "unknown", // TODO: allow undefined user ID/category
+			governance?.userCategory ?? "unknown", // TODO: remove userCategory.
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {

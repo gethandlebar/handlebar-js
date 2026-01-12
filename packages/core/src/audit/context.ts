@@ -1,6 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { HandlebarRunOpts } from "../runs";
 
+/**
+ * @todo - Remove duplication of `RunCtx` and `RunContext`.
+ */
 export type RunCtx = {
 	runId: string;
 	userCategory?: string;

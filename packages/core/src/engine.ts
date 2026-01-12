@@ -3,6 +3,9 @@ import type {
 	AuditEvent,
 	AuditEventByKind,
 	CustomFunctionCondition,
+	EndUserConfig,
+	EndUserGroupConfig,
+	EndUserTagCondition,
 	ExecutionTimeCondition,
 	GovernanceDecision,
 	GovernanceEffect,
@@ -243,13 +246,18 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			call: ToolCall<T>;
 			executionTimeMS: number | null;
 		},
-	): Promise<boolean> {
+  ): Promise<boolean> {
+    const conditionKind = cond.kind;
 		switch (cond.kind) {
 			case "toolName":
 				return this.evalToolName(cond, args.call.tool.name);
 
 			case "toolTag":
-				return this.evalToolTag(cond, args.call.tool.categories ?? []);
+        return this.evalToolTag(cond, args.call.tool.categories ?? []);
+
+      case "enduserTag":
+        // TODO: we need enduser info in context and to pass it in here.
+        return this.evalEnduserTag(cond, args.ctx.enduser);
 
 			case "executionTime":
 				// only meaningful post-tool
@@ -283,7 +291,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				return !(await this.evalCondition(cond.not, args));
 
 			default:
-			  console.warn(`[Handlebar] Unknown condition type: ${cond.type}`);
+			  console.warn(`[Handlebar] Unknown condition kind: ${conditionKind}`);
 				return true;
 		}
 	}
@@ -315,7 +323,22 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			case "in":
 				return cond.value.some((v) => matchGlob(name, v as string));
 		}
-	}
+  }
+
+  private evalEnduserTag(cond: EndUserTagCondition, enduser: Record<string, string> | null): boolean {
+    if (enduser === null) {
+      return false;
+    }
+
+    // Enduser is typed through as a record of strings but should be `EndUserConfig`.
+    // Verify types before continuing.
+    type expectedType = EndUserConfig & { group?: EndUserGroupConfig };
+    // if (!(enduser instanceof expectedType)) {
+    //   return false;
+    // }
+
+    return false;
+  }
 
 	private evalToolTag(cond: ToolTagCondition, tags: string[]): boolean {
 		const lower = tags.map((t) => t.toLowerCase());
