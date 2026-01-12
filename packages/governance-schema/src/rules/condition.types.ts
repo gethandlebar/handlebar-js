@@ -50,7 +50,16 @@ export type ToolNameCondition =
 export type ToolTagCondition =
 	| { kind: "toolTag"; op: "has"; tag: string }
 	| { kind: "toolTag"; op: "anyOf"; tags: string[] }
-	| { kind: "toolTag"; op: "allOf"; tags: string[] };
+  | { kind: "toolTag"; op: "allOf"; tags: string[] };
+
+/**
+  * Match on arbitrary tags assigned to the user.
+  * - has: existence AND truthiness of the tag. E.g. "has:tier" would be false if "tier=0", "tier=false", or no "tier" tag exists.
+  * - hasValue: tag exists and has an exact given value
+  */
+export type UserTagCondition =
+| { kind: "userTag"; op: "has"; tag: string }
+| { kind: "userTag"; op: "hasValue"; tag: string; value: string };
 
 /**
  * Scope for execution time measurement.
@@ -118,7 +127,8 @@ export type NotCondition = { kind: "not"; not: RuleCondition };
  */
 export type RuleCondition =
 	| ToolNameCondition
-	| ToolTagCondition
+  | ToolTagCondition
+	| UserTagCondition
 	| ExecutionTimeCondition
 	| SequenceCondition
 	| MaxCallsCondition
