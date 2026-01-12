@@ -325,17 +325,42 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
   }
 
-  private evalEnduserTag(cond: EndUserTagCondition, enduser: Record<string, string> | null): boolean {
-    if (enduser === null) {
+  /**
+   * Evaluate rules on metadata attached to enduser.
+   * Enduser may not be defined at runtime, in which case the rule evaluates negatively.
+   *
+   * Rules on the metadata tags attached to the enduser CURRENTLY evaluate only on metadata
+   * provided at runtime (which is passed through in run context).
+   * @todo - Fetch resolved user metadata from server and pass that through in run context. N.b. this function shouldn't change.
+   */
+  private evalEnduserTag(cond: EndUserTagCondition, enduser: EndUserConfig & { group?: EndUserGroupConfig } | undefined): boolean {
+    if (enduser == undefined) {
       return false;
     }
 
-    // Enduser is typed through as a record of strings but should be `EndUserConfig`.
-    // Verify types before continuing.
-    type expectedType = EndUserConfig & { group?: EndUserGroupConfig };
-    // if (!(enduser instanceof expectedType)) {
-    //   return false;
-    // }
+    if (cond.op === "has") {
+      const tagValue = enduser.metadata[cond.tag];
+      if (!tagValue) {
+        return false;
+      }
+
+      try {
+        const booleanTagValue = Boolean(tagValue);
+        return booleanTagValue;
+      } catch (error) {
+        console.error(`[Handlebar] Error evaluating enduser tag ${cond.tag}: ${error}`);
+        return false;
+      }
+    }
+
+    if (cond.op === "hasValue") {
+      const tagValue = enduser.metadata[cond.tag];
+      if (!tagValue) {
+        return false;
+      }
+
+      return tagValue === cond.value;
+    }
 
     return false;
   }
