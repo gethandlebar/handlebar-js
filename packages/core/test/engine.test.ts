@@ -78,3 +78,315 @@ describe("decideByRules - PRE", () => {
 		});
 	});
 });
+
+describe("Rule evals - enduser rule", () => {
+	it("Should eval false if enduser is undefined for 'has' op", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				tag: "sometag",
+				op: "has",
+			},
+			undefined,
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it("Should eval false if enduser is undefined for 'hasValue' op", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				tag: "sometag",
+				op: "hasValue",
+				value: "any",
+			},
+			undefined,
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it("Should eval false if enduser is undefined for 'hasValueAny' op", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				tag: "sometag",
+				op: "hasValueAny",
+				values: ["any"],
+			},
+			undefined,
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it("Should eval false if tag does not exist in 'has' op", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				op: "has",
+				tag: "sometag",
+			},
+			{ externalId: "123", metadata: { anothertag: "5" } },
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it("Should eval false if tag does not exist in 'hasValue' op", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				op: "hasValue",
+				tag: "sometag",
+				value: "any",
+			},
+			{ externalId: "123", metadata: { anothertag: "5" } },
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it("Should eval tag existence with case sensitivity", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				op: "has",
+				tag: "sometag",
+			},
+			{ externalId: "123", metadata: { sOmETaG: "true" } },
+		);
+
+		expect(result).toBe(false);
+	});
+
+	// string of "false" is truthy
+	it.each(["1", "5", "avalue", "true", "True", "false"])(
+		"Should eval true for 'has' op if tag value is truthy",
+		(value: string) => {
+			const engine = new GovernanceEngine({
+				tools: [],
+				defaultUncategorised: "allow",
+			});
+
+			const result = engine.evalEnduserTag(
+				{
+					kind: "enduserTag",
+					op: "has",
+					tag: "sometag",
+				},
+				{ externalId: "123", metadata: { sometag: value } },
+			);
+
+			expect(result).toBe(true);
+		},
+	);
+
+	// N.B. enduser conditions don't accept boolean or numeric values yet
+	it.each([""])(
+		"Should eval false for 'has' op if tag value is falsy",
+		(value: string) => {
+			const engine = new GovernanceEngine({
+				tools: [],
+				defaultUncategorised: "allow",
+			});
+
+			const result = engine.evalEnduserTag(
+				{
+					kind: "enduserTag",
+					op: "has",
+					tag: "sometag",
+				},
+				{ externalId: "123", metadata: { sometag: value } },
+			);
+
+			expect(result).toBe(false);
+		},
+	);
+
+	it.each(["somevalue", "any", "!", "false"])(
+		"Should eval true for 'hasValue' op if tag value matches expected exactly",
+		(value: string) => {
+			const engine = new GovernanceEngine({
+				tools: [],
+				defaultUncategorised: "allow",
+			});
+
+			const result = engine.evalEnduserTag(
+				{
+					kind: "enduserTag",
+					op: "hasValue",
+					tag: "sometag",
+					value,
+				},
+				{ externalId: "123", metadata: { sometag: value } },
+			);
+
+			expect(result).toBe(true);
+		},
+	);
+
+	it("Should eval true for 'hasValue' op with empty string tag value", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				op: "hasValue",
+				tag: "sometag",
+				value: "", // empty string should be a value expected value for the tag.
+			},
+			{ externalId: "123", metadata: { sometag: "" } },
+		);
+
+		expect(result).toBe(true);
+	});
+
+	it("Should eval false for 'hasValue' op if case variance in value", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				op: "hasValue",
+				tag: "sometag",
+				value: "avalue",
+			},
+			{ externalId: "123", metadata: { sometag: "aValue" } },
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it.each(["", "!", "_", "!avalue", " avalue"])(
+		"Should eval false for 'hasValue' op if values don't match",
+		(actualValue: string) => {
+			const engine = new GovernanceEngine({
+				tools: [],
+				defaultUncategorised: "allow",
+			});
+
+			const result = engine.evalEnduserTag(
+				{
+					kind: "enduserTag",
+					op: "hasValue",
+					tag: "sometag",
+					value: actualValue,
+				},
+				{ externalId: "123", metadata: { sometag: "avalue" } },
+			);
+
+			expect(result).toBe(false);
+		},
+	);
+
+	it("Should eval false for 'hasValueAny' op if values are empty", () => {
+		const engine = new GovernanceEngine({
+			tools: [],
+			defaultUncategorised: "allow",
+		});
+
+		const result = engine.evalEnduserTag(
+			{
+				kind: "enduserTag",
+				op: "hasValueAny",
+				tag: "sometag",
+				values: [],
+			},
+			{ externalId: "123", metadata: { sometag: "avalue" } },
+		);
+
+		expect(result).toBe(false);
+	});
+
+	it.each([
+		["nomatchingvalue"],
+		[""],
+		["not a value", ""],
+		["a value", " avalue", "aValue", "avalue!"],
+	])(
+		"Should eval false for 'hasValueAny' op if no values match exactly, case-sensitive",
+		(...values) => {
+			const engine = new GovernanceEngine({
+				tools: [],
+				defaultUncategorised: "allow",
+			});
+
+			const result = engine.evalEnduserTag(
+				{
+					kind: "enduserTag",
+					op: "hasValueAny",
+					tag: "sometag",
+					values: values as string[],
+				},
+				{ externalId: "123", metadata: { sometag: "avalue" } },
+			);
+
+			expect(result).toBe(false);
+		},
+	);
+
+	it.each([
+		["avalue"],
+		["first", "second", "third", "avalue"],
+		["avalue", "second", "third"],
+		["first", "avalue", "third"],
+	])(
+		"Should eval true for 'hasValueAny' op if any value matches exactly, case-sensitive",
+		(...values) => {
+			const engine = new GovernanceEngine({
+				tools: [],
+				defaultUncategorised: "allow",
+			});
+
+			const result = engine.evalEnduserTag(
+				{
+					kind: "enduserTag",
+					op: "hasValueAny",
+					tag: "sometag",
+					values: values as string[],
+				},
+				{ externalId: "123", metadata: { sometag: "avalue" } },
+			);
+
+			expect(result).toBe(true);
+		},
+	);
+});

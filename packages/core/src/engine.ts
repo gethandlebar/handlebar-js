@@ -3,6 +3,9 @@ import type {
 	AuditEvent,
 	AuditEventByKind,
 	CustomFunctionCondition,
+	EndUserConfig,
+	EndUserGroupConfig,
+	EndUserTagCondition,
 	ExecutionTimeCondition,
 	GovernanceDecision,
 	GovernanceEffect,
@@ -244,12 +247,17 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			executionTimeMS: number | null;
 		},
 	): Promise<boolean> {
+		const conditionKind = cond.kind;
 		switch (cond.kind) {
 			case "toolName":
 				return this.evalToolName(cond, args.call.tool.name);
 
 			case "toolTag":
 				return this.evalToolTag(cond, args.call.tool.categories ?? []);
+
+			case "enduserTag":
+				// TODO: we need enduser info in context and to pass it in here.
+				return this.evalEnduserTag(cond, args.ctx.enduser);
 
 			case "executionTime":
 				// only meaningful post-tool
@@ -281,6 +289,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 			case "not":
 				return !(await this.evalCondition(cond.not, args));
+
+			default:
+				console.warn(`[Handlebar] Unknown condition kind: ${conditionKind}`);
+				return true;
 		}
 	}
 
@@ -311,6 +323,50 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			case "in":
 				return cond.value.some((v) => matchGlob(name, v as string));
 		}
+	}
+
+	/**
+	 * Evaluate rules on metadata attached to enduser.
+	 * Enduser may not be defined at runtime, in which case the rule evaluates negatively.
+	 *
+	 * Rules on the metadata tags attached to the enduser CURRENTLY evaluate only on metadata
+	 * provided at runtime (which is passed through in run context).
+	 * @todo - Fetch resolved user metadata from server and pass that through in run context. N.b. this function shouldn't change.
+	 */
+	public evalEnduserTag(
+		cond: EndUserTagCondition,
+		enduser: (EndUserConfig & { group?: EndUserGroupConfig }) | undefined,
+	): boolean {
+		if (enduser == undefined) {
+			return false;
+		}
+
+		const tagValue = enduser.metadata[cond.tag];
+		if (tagValue === undefined) {
+			return false;
+		}
+
+		if (cond.op === "has") {
+			try {
+				const booleanTagValue = Boolean(tagValue);
+				return booleanTagValue;
+			} catch (error) {
+				console.error(
+					`[Handlebar] Error evaluating enduser tag ${cond.tag}: ${error}`,
+				);
+				return false;
+			}
+		}
+
+		if (cond.op === "hasValue") {
+			return tagValue === cond.value;
+		}
+
+		if (cond.op === "hasValueAny") {
+			return cond.values.some((v) => tagValue === v);
+		}
+
+		return false;
 	}
 
 	private evalToolTag(cond: ToolTagCondition, tags: string[]): boolean {

@@ -21,9 +21,11 @@ import { formatPrompt } from "./messages";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
+// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 type ToolSetBase = Record<string, Tool<any, any>>;
 
 export type ToCoreTool<T extends ToolSetBase> = {
+  // biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	[K in keyof T]: T[K]["execute"] extends (...args: any) => any
 		? CoreTool<
 				K & string,
@@ -42,6 +44,7 @@ function mapTools<ToolSet extends ToolSetBase>(
 		t: ToolSet[K],
 	) => ToolSet[K],
 ): ToolSet {
+  // biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	const out: Record<string, Tool<any, any>> = {};
 	for (const name in tools) {
 		out[name] = wrap(name as any, tools[name]);
@@ -109,7 +112,7 @@ export class HandlebarAgent<
 
 		const runCtx = engine.createRunContext(
 			runId,
-			governance?.userCategory ?? "unknown", // TODO: allow undefined user ID/category
+			governance?.userCategory ?? "unknown", // TODO: remove userCategory.
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
