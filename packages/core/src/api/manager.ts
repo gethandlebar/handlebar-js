@@ -1,5 +1,5 @@
 import type { Rule } from "@handlebar/governance-schema";
-import type { ApiConfig } from "./types";
+import type { AgentTool, ApiConfig } from "./types";
 
 type HitlResponse = {
 	hitlId: string;
@@ -63,7 +63,7 @@ export class ApiManager {
 		name?: string;
 		description?: string;
 		tags?: string[];
-	}): Promise<{ agentId: string; rules: Rule[] | null } | null> {
+	}, tools: AgentTool[]): Promise<{ agentId: string; rules: Rule[] | null } | null> {
 		if (!this.useApi) {
 			return null;
 		}
@@ -72,7 +72,7 @@ export class ApiManager {
 		let rules: Rule[] | null = null;
 
 		try {
-			agentId = await this.upsertAgent(agentInfo);
+			agentId = await this.upsertAgent(agentInfo, tools);
 			this.agentId = agentId;
 		} catch (e) {
 			console.error("Error upserting agent:", e);
@@ -108,7 +108,7 @@ export class ApiManager {
 		name?: string;
 		description?: string;
 		tags?: string[];
-	}): Promise<string> {
+	}, tools: AgentTool[]): Promise<string> {
 		const url = new URL("/v1/agent", this.apiEndpoint);
 
 		try {
@@ -119,7 +119,8 @@ export class ApiManager {
 					slug: agentInfo.slug,
 					name: agentInfo.name,
 					description: agentInfo.description,
-					tags: agentInfo.tags,
+          tags: agentInfo.tags,
+					tools,
 				}),
 			});
 			const data: { agentId: string } = await response.json();

@@ -30,6 +30,7 @@ import type {
 	ToolResult,
 } from "./types";
 import { millisecondsSince } from "./utils";
+import type { AgentTool } from "./api/types";
 
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
@@ -72,8 +73,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		name?: string;
 		description?: string;
 		tags?: string[];
-	}): Promise<string | null> {
-		const output = await this.api.initialiseAgent(agentConfig);
+	}, tools: AgentTool[]): Promise<string | null> {
+		const output = await this.api.initialiseAgent(agentConfig, tools);
 		if (!output) {
 			return null;
 		}

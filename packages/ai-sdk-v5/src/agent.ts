@@ -18,6 +18,7 @@ import {
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
 import { formatPrompt } from "./messages";
+import type { AgentTool } from "@handlebar/core/dist/api/types";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -188,7 +189,27 @@ export class HandlebarAgent<
 		if (rest.system) {
 			this.systemPrompt = rest.system;
 		}
-	}
+  }
+
+  private toolInfo() {
+    const infoTools: AgentTool[] = [];
+
+    for (const name in this.inner.tools) {
+      const tool = this.inner.tools[name];
+      if (!tool) {
+        continue;
+      }
+
+      infoTools.push({
+        name,
+        description: tool.description,
+        key: name.toLowerCase().replaceAll(" ", "-"),
+        version: 1,
+      })
+    }
+
+    return infoTools;
+  }
 
 	public async initEngine() {
 		if (this.hasInitialisedEngine) {
@@ -197,7 +218,8 @@ export class HandlebarAgent<
 
 		// TODO: generate consistent placeholder slug.
 		await this.governance.initAgentRules(
-			this.agentConfig ?? { slug: "temp-placeholder-agent-slug" },
+      this.agentConfig ?? { slug: "temp-placeholder-agent-slug" },
+			this.toolInfo(),
 		);
 		this.hasInitialisedEngine = true;
 	}
