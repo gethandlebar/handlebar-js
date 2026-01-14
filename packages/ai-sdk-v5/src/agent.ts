@@ -205,6 +205,7 @@ export class HandlebarAgent<
         description: tool.description,
         key: name.toLowerCase().replaceAll(" ", "-"),
         version: 1,
+        kind: "function",
       })
     }
 

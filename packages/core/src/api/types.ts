@@ -7,6 +7,7 @@ export type AgentTool = {
   name: string;
   key: string;
   version: number;
+  kind: "function";
 
   description?: string;
   metadata?: Record<string, string>;

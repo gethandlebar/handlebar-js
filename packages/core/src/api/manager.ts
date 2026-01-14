@@ -111,18 +111,20 @@ export class ApiManager {
 	}, tools: AgentTool[]): Promise<string> {
 		const url = new URL("/v1/agent", this.apiEndpoint);
 
-		try {
+    try {
+      const agentData = JSON.stringify({
+        slug: agentInfo.slug,
+        name: agentInfo.name,
+        description: agentInfo.description,
+        tags: agentInfo.tags,
+        tools,
+      });
+      console.log(agentData);
 			const response = await fetch(url.toString(), {
 				method: "PUT",
 				headers: this.headers("json"),
-				body: JSON.stringify({
-					slug: agentInfo.slug,
-					name: agentInfo.name,
-					description: agentInfo.description,
-          tags: agentInfo.tags,
-					tools,
-				}),
-			});
+				body: agentData,
+      });
 			const data: { agentId: string } = await response.json();
 			return data.agentId; // uuidv7-like
 		} catch (error) {
