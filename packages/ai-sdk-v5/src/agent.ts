@@ -203,7 +203,7 @@ export class HandlebarAgent<
       infoTools.push({
         name,
         description: tool.description,
-        key: name.toLowerCase().replaceAll(" ", "-"),
+        key: `function:${name.toLowerCase().replaceAll(" ", "-")}`,
         version: 1,
         kind: "function",
       })
