@@ -31,9 +31,7 @@ import type {
 } from "./types";
 import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
-import { AgentMetricCollector } from "./metrics/aggregator";
-import { approxBytes, approxRecords } from "./metrics/utils";
-import { AgentMetricHookRegistry } from "./metrics/hooks";
+import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry } from "./metrics";
 
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
