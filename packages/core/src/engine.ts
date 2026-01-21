@@ -31,7 +31,7 @@ import type {
 } from "./types";
 import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
-import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry, type AgentMetricHook } from "./metrics";
+import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry, type AgentMetricHook, type AgentMetricHookPhase } from "./metrics";
 
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
@@ -496,7 +496,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		return false;
   }
 
-  public registerMetric(hook: AgentMetricHook) {
+  public registerMetric<P extends AgentMetricHookPhase>(hook: AgentMetricHook<P>) {
     this.metricHooks.registerHook(hook);
   }
 

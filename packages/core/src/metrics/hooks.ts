@@ -1,18 +1,26 @@
-import type { AgentMetricHookPhase, AgentMetricHook, AgentMetricHookContext } from "./types";
+import type {
+  AgentMetricHook,
+  AgentMetricHookPhase,
+  AgentMetricHookContext,
+} from "./types";
 import { validateMetricKey } from "./utils";
 
+type HookStore = {
+  [P in AgentMetricHookPhase]: Map<string, AgentMetricHook<P>>;
+};
+
 export class AgentMetricHookRegistry {
-  private store: { [P in AgentMetricHookPhase]: Map<string,AgentMetricHook<P>> } = {
+  private store: HookStore = {
     "tool.before": new Map(),
     "tool.after": new Map(),
   };
 
   registerHook<P extends AgentMetricHookPhase>(hook: AgentMetricHook<P>) {
     if (!validateMetricKey(hook.key)) {
-      throw new Error("Invalid metric key")
+      throw new Error("Invalid metric key");
     }
 
-    this.store[hook.phase].set(hook.key, hook);
+    (this.store[hook.phase] as Map<string, AgentMetricHook<P>>).set(hook.key, hook);
   }
 
   unregisterHook(key: string, phase: AgentMetricHookPhase) {
@@ -24,17 +32,14 @@ export class AgentMetricHookRegistry {
     ctx: AgentMetricHookContext<P>,
     onMetric: (key: string, value: number, unit?: string) => void,
   ) {
-    const hooks = this.store[phase];
+    const hooksForPhase = this.store[phase] as Map<string, AgentMetricHook<P>>;
 
-    for (const [hookKey, hook] of hooks.entries()) {
-      if (hook.when && !hook.when(ctx)) {
-        continue;
-      }
+    for (const [hookKey, hook] of hooksForPhase.entries()) {
+      if (hook.when && !hook.when(ctx)) { continue; }
 
-      const res = await Promise.resolve(hook.run(ctx));
-      if (!res) {
-        continue;
-      }
+      const res = await hook.run(ctx);
+      if (!res) { continue; }
+
       onMetric(hookKey, res.value, res.unit);
     }
   }

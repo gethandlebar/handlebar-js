@@ -143,16 +143,18 @@ const beforeToolUsageMetric: AgentMetricHook = {
   },
 }
 
-const afterToolUsageMetric: AgentMetricHook = {
-  phase: "tool.after", // Evaluate after if your metric needs to make use of tool results.
+// Evaluate after if your metric needs to make use of tool results.
+const afterToolUsageMetric: AgentMetricHook<"tool.after"> = {
+  phase: "tool.after",
   key: "after_tool_metric_1",
-  run: ({ runContext, args, toolName}) => { // Can be async
+  run: async ({ toolName, args, runContext, result }) => { // Can be async
     const ExpectedOutputSchema = z.object({ balanceTransfer: z.number().min(0) });
+
     // Make use of input args, tool output, or other runtime data.
-    const output = ExpectedOutputSchema.safeParse(args);
+    const output = ExpectedOutputSchema.safeParse(result ?? {});
 
     if (!output.success) {
-      return undefined;
+      return;
     }
 
     return {
