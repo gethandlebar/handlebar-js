@@ -1,45 +1,5 @@
-import type { RunContext } from "../types";
-
-type AgentMetricHookPhase = "tool.before" | "tool.after";
-
-export type AgentMetricInputToolBefore = {
-  toolName: string;
-  args: unknown;
-  runContext: RunContext<any>;
-}
-
-export type AgentMetricInputToolAfter = {
-  toolName: string;
-  args: unknown,
-	result: unknown,
-	error?: unknown,
-  runContext: RunContext<any>
-}
-
-type AgentMetricHookContextMap = {
-  "tool.before": AgentMetricInputToolBefore;
-  "tool.after": AgentMetricInputToolAfter;
-}
-
-type AgentMetricHookContext<P extends AgentMetricHookPhase> = AgentMetricHookContextMap[P];
-
-type MetricHookResult = {
-  value: number;
-  unit?: string;
-};
-
-export type AgentMetricHook<P extends AgentMetricHookPhase = AgentMetricHookPhase> = {
-  key: string;
-  phase: P;
-
-  when?: (ctx: AgentMetricHookContext<P>) => boolean;
-
-  run: (ctx: AgentMetricHookContext<P>) => MetricHookResult | Promise<MetricHookResult>;
-
-  timeoutMs?: number;
-  blocking?: boolean;
-};
-
+import type { AgentMetricHookPhase, AgentMetricHook, AgentMetricHookContext } from "./types";
+import { validateMetricKey } from "./utils";
 
 export class AgentMetricHookRegistry {
   private store: { [P in AgentMetricHookPhase]: Map<string,AgentMetricHook<P>> } = {
@@ -48,6 +8,10 @@ export class AgentMetricHookRegistry {
   };
 
   registerHook<P extends AgentMetricHookPhase>(hook: AgentMetricHook<P>) {
+    if (!validateMetricKey(hook.key)) {
+      throw new Error("Invalid metric key")
+    }
+
     this.store[hook.phase].set(hook.key, hook);
   }
 

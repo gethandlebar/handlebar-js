@@ -1,3 +1,4 @@
+import type { MetricInfo } from "./types";
 
 export function nowMs(): number {
   return (globalThis.performance?.now?.() ?? Date.now());
@@ -36,4 +37,12 @@ export function approxRecords(value: unknown): number | undefined {
   }
 
   return undefined;
+}
+
+export function validateMetricKey(key: string): boolean {
+  return /^[a-zA-Z_0-9]{1,64}$/.test(key);
+}
+
+export function validateMetric(metric: MetricInfo): boolean {
+  return !Number.isNaN(metric.value) && Number.isFinite(metric.value);
 }
