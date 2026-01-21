@@ -31,6 +31,8 @@ import type {
 } from "./types";
 import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
+import { AgentMetricCollector } from "./metrics/aggregator";
+import { approxBytes, approxRecords } from "./metrics/utils";
 
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
@@ -47,7 +49,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private checks: CustomCheck<T>[];
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
-	private api: ApiManager;
+  private api: ApiManager;
+  private metrics: AgentMetricCollector;
 
 	/**
 	 * @deprecated - Superceded by audit log
@@ -65,7 +68,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
 
-		this.api = new ApiManager({});
+    this.api = new ApiManager({});
+    this.metrics = new AgentMetricCollector(); // TODO: partition by run ID
 	}
 
 	public async initAgentRules(agentConfig: {
@@ -121,7 +125,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			throw new Error(`Unknown tool "${name}"`);
 		}
 		return t;
-	} /**
+  }
+
+  /**
 	 * With a HITL rule hit, query the API to check for an existing, matching HITL request.
 	 *
 	 * Querying the API with the triggered API rule will try to match on existing or create a HITL request
@@ -498,6 +504,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const localStep = runCtx?.stepIndex ?? 0;
 		const t0 = performance.now();
 
+		const bytesIn = approxBytes(args);
+    if (bytesIn != null) { this.metrics.setInbuilt("bytes_in", bytesIn, "bytes"); }
+
 		const tool = this.getTool(toolName);
 		const call: ToolCall<T> = { tool, args } as ToolCall<T>;
 
@@ -533,7 +542,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
 		const decision = await this.decideByRules("pre", ctx, call, null);
-		const finalDecision = this._finaliseDecision(ctx, call, decision);
+    const finalDecision = this._finaliseDecision(ctx, call, decision);
+
+    const durationMs = millisecondsSince(t0);
+    // TODO: differentiate between LLM duration, tool duration, Handlebar duration, other duration etc.
+    this.metrics.setInbuilt("duration_ms", durationMs, "ms");
 
 		console.debug(`[Handlebar] ${toolName} ${decision.code}`);
 		this.emit(
@@ -545,8 +558,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				reason: decision.reason,
 				matchedRuleIds: decision.matchedRuleIds,
 				appliedActions: decision.appliedActions,
-				counters: { ...ctx.counters },
-				latencyMs: millisecondsSince(t0),
+        counters: { ...ctx.counters },
+				latencyMs: durationMs,
 			},
 			{ stepIndex: localStep },
 		);
@@ -580,11 +593,17 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		args: unknown,
 		result: unknown,
 		error?: unknown,
-	) {
+  ) {
 		const runCtx = getRunContext();
 		const localStep = runCtx?.stepIndex ?? 0;
 		const decisionId = runCtx?.decisionId;
-		const tool = this.getTool(toolName);
+    const tool = this.getTool(toolName);
+
+    const bytesOut = approxBytes(result);
+    if (bytesOut != null) { this.metrics.setInbuilt("bytes_out", bytesOut, "bytes"); }
+
+    const recordsOut = approxRecords(result);
+    if (recordsOut != null) { this.metrics.setInbuilt("records_out", recordsOut, "records"); }
 
 		const tr: ToolResult<T> = {
 			tool,
@@ -620,6 +639,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			);
 		}
 
+    const currentMetrics = this.metrics.toEventPayload({ aggregate: true });
+    console.log(`Metrics: ${JSON.stringify(currentMetrics)}`);
 		const errorAsError = error instanceof Error ? error : null;
 		this.emit(
 			"tool.result",
@@ -627,7 +648,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				tool: { name: toolName, categories: tool.categories },
 				outcome: error ? "error" : "success",
 				durationMs: executionTimeMS ?? undefined,
-				counters: { ...ctx.counters },
+        counters: { ...ctx.counters },
+        metrics: currentMetrics,
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }
 					: undefined,

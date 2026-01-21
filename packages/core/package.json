@@ -25,6 +25,6 @@
 	"types": "./dist/index.d.ts",
 	"dependencies": {
 		"zod": "^4.1.12",
-		"@handlebar/governance-schema": "0.0.6-dev.1"
+		"@handlebar/governance-schema": "0.0.6-dev.4"
 	}
 }
