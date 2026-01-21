@@ -36,7 +36,7 @@ export type AgentMetricHook<P extends AgentMetricHookPhase = AgentMetricHookPhas
 
   when?: (ctx: AgentMetricHookContext<P>) => boolean;
 
-  run: (ctx: AgentMetricHookContext<P>) => MetricHookResult | Promise<MetricHookResult>;
+  run: (ctx: AgentMetricHookContext<P>) => MetricHookResult | Promise<MetricHookResult> | undefined | Promise<undefined>;
 
   timeoutMs?: number;
   blocking?: boolean;

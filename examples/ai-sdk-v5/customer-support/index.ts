@@ -7,7 +7,8 @@ import {
 	maxCalls,
 	rule,
 	sequence,
-	toolName,
+  toolName,
+  type AgentMetricHook,
 } from "@handlebar/core";
 import type { RuleConfig } from "@handlebar/governance-schema";
 import { stepCountIs } from "ai";
@@ -27,6 +28,7 @@ import {
 	updateContact,
 	verifyIdentity,
 } from "./tools";
+import z from "zod";
 
 dotenv.config();
 
@@ -123,6 +125,48 @@ const agent = new HandlebarAgent({
 		rules: [], // rules.map(configToRule), // Adds IDs to rules to match expected schema.
 	},
 });
+
+// --- Custom metric calculation during runtime ---
+// Handlebar calculates your custom metrics as the agent executes tool,
+// alongside key inbuilt metrics such as token usage and total bytes in/out of tools.
+// These metrics are sent to the API, and can be used in rule evaluations.
+// For example, "agent cannot transfer more than 1GB of PII per user per day" is a valid rule you can configure!
+
+const beforeToolUsageMetric: AgentMetricHook = {
+  phase: "tool.before", // Evaluated just on tool inputs data
+  key: "some_random_metric",
+  run(ctx) {
+    return {
+      value: 10,
+      unit: "$"
+    }
+  },
+}
+
+const afterToolUsageMetric: AgentMetricHook = {
+  phase: "tool.after", // Evaluate after if your metric needs to make use of tool results.
+  key: "after_tool_metric_1",
+  run: ({ runContext, args, toolName}) => { // Can be async
+    const ExpectedOutputSchema = z.object({ balanceTransfer: z.number().min(0) });
+    // Make use of input args, tool output, or other runtime data.
+    const output = ExpectedOutputSchema.safeParse(args);
+
+    if (!output.success) {
+      return undefined;
+    }
+
+    return {
+      value: output.data.balanceTransfer,
+      unit: "£"
+    }
+  }
+}
+
+agent.governance.registerMetric(beforeToolUsageMetric);
+agent.governance.registerMetric(afterToolUsageMetric);
+
+// --- Custom metrics end ---
+
 
 const result = await agent.generate(
 	[

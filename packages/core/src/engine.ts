@@ -31,7 +31,7 @@ import type {
 } from "./types";
 import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
-import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry } from "./metrics";
+import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry, type AgentMetricHook } from "./metrics";
 
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
@@ -494,7 +494,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	): Promise<boolean> {
 		// For now, no central registry; user can still use CustomCheck.before
 		return false;
-	}
+  }
+
+  public registerMetric(hook: AgentMetricHook) {
+    this.metricHooks.registerHook(hook);
+  }
 
 	async beforeTool(
 		ctx: RunContext<T>,
