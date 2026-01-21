@@ -33,6 +33,7 @@ import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
 import { AgentMetricCollector } from "./metrics/aggregator";
 import { approxBytes, approxRecords } from "./metrics/utils";
+import { AgentMetricHookRegistry } from "./metrics/hooks";
 
 type GovernanceLog<T extends Tool = Tool> = {
 	tool: ToolCall<T>;
@@ -51,6 +52,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	private verbose: boolean;
   private api: ApiManager;
   private metrics: AgentMetricCollector;
+  private metricHooks: AgentMetricHookRegistry;
 
 	/**
 	 * @deprecated - Superceded by audit log
@@ -70,6 +72,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
     this.api = new ApiManager({});
     this.metrics = new AgentMetricCollector(); // TODO: partition by run ID
+    this.metricHooks = new AgentMetricHookRegistry();
 	}
 
 	public async initAgentRules(agentConfig: {
@@ -507,6 +510,12 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		const bytesIn = approxBytes(args);
     if (bytesIn != null) { this.metrics.setInbuilt("bytes_in", bytesIn, "bytes"); }
 
+    this.metricHooks.runPhase("tool.before", {
+      args,
+      toolName,
+      runContext: ctx,
+    }, (k, v, u) => this.metrics.setCustom(k, v, u));
+
 		const tool = this.getTool(toolName);
 		const call: ToolCall<T> = { tool, args } as ToolCall<T>;
 
@@ -604,6 +613,14 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
     const recordsOut = approxRecords(result);
     if (recordsOut != null) { this.metrics.setInbuilt("records_out", recordsOut, "records"); }
+
+    this.metricHooks.runPhase("tool.after", {
+      args,
+      result,
+      error,
+      toolName,
+      runContext: ctx,
+    }, (k, v, u) => this.metrics.setCustom(k, v, u));
 
 		const tr: ToolResult<T> = {
 			tool,
