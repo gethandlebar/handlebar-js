@@ -8,7 +8,7 @@ const AgentMetricInfo = z.object({
   unit: z.string().min(1).max(64).optional(),
 });
 
-const InbuiltAgentMetrics = z.record(InbuiltAgentMetricKind, AgentMetricInfo);
+const InbuiltAgentMetrics = z.partialRecord(InbuiltAgentMetricKind, AgentMetricInfo);
 const CustomAgentMetrics = z.record(CustomAgentMetricKind, AgentMetricInfo);
 
 export const AgentMetrics = z.object({
