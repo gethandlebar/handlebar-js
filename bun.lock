@@ -31,7 +31,7 @@
       "version": "0.0.5",
       "dependencies": {
         "@handlebar/core": "0.0.5",
-        "@handlebar/governance-schema": "0.0.4",
+        "@handlebar/governance-schema": "0.0.6-dev.1",
         "uuidv7": "^1.1.0",
       },
       "peerDependencies": {
@@ -42,13 +42,13 @@
       "name": "@handlebar/core",
       "version": "0.0.5",
       "dependencies": {
-        "@handlebar/governance-schema": "0.0.4",
+        "@handlebar/governance-schema": "0.0.6-dev.4",
         "zod": "^4.1.12",
       },
     },
     "packages/governance-schema": {
       "name": "@handlebar/governance-schema",
-      "version": "0.0.5",
+      "version": "0.0.6-dev.4",
       "dependencies": {
         "zod": "^4.1.12",
       },

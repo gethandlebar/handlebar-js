@@ -6,6 +6,7 @@ import {
 import { AuditEnvelopeSchema } from "./events.base";
 import { MessageEventSchema } from "./events.llm";
 import { GovernanceDecisionSchema } from "./governance-actions";
+import { AgentMetrics } from "./run-metrics";
 
 const CountersSchema = z.record(z.string(), z.union([z.string(), z.number()]));
 
@@ -89,7 +90,8 @@ export const ToolResultEventSchema = AuditEnvelopeSchema.extend({
 		hitl: HitlMetaSchema.optional(),
 		outcome: z.enum(["success", "error"]),
 		durationMs: z.number().min(0).optional(), // tool runtime
-		counters: CountersSchema.optional(),
+    counters: CountersSchema.optional(),
+		metrics: AgentMetrics.optional(),
 		error: z
 			.object({
 				name: z.string().optional(),
