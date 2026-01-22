@@ -1,4 +1,4 @@
-import type { Rule } from "@handlebar/governance-schema";
+import type { Rule, rulesV2 } from "@handlebar/governance-schema";
 import type { AgentTool, ApiConfig } from "./types";
 
 type HitlResponse = {
@@ -63,13 +63,13 @@ export class ApiManager {
 		name?: string;
 		description?: string;
 		tags?: string[];
-	}, tools: AgentTool[]): Promise<{ agentId: string; rules: Rule[] | null } | null> {
+	}, tools: AgentTool[]): Promise<{ agentId: string; rules: rulesV2.RuleV2[] | null } | null> {
 		if (!this.useApi) {
 			return null;
 		}
 
 		let agentId: string;
-		let rules: Rule[] | null = null;
+		let rules: rulesV2.RuleV2[] | null = null;
 
 		try {
 			agentId = await this.upsertAgent(agentInfo, tools);
@@ -133,7 +133,7 @@ export class ApiManager {
 		}
 	}
 
-	private async fetchAgentRules(agentId: string): Promise<Rule[] | null> {
+	private async fetchAgentRules(agentId: string): Promise<rulesV2.RuleV2[] | null> {
 		const url = new URL("/v1/rules", this.apiEndpoint);
 		const params = new URLSearchParams({
 			agentId,
@@ -149,7 +149,7 @@ export class ApiManager {
 			);
 		}
 
-		const data: { rules: Rule[] } = await response.json();
+		const data: { rules: rulesV2.RuleV2[] } = await response.json();
 		return data.rules;
 		// TODO: fix this safe parse error.
 		// const schemaData = RuleSchema.array().safeParse(data.rules);

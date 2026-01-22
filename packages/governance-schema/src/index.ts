@@ -7,3 +7,4 @@ export type { EndUserConfig, EndUserGroupConfig } from "./enduser.types";
 export * from "./rules/action.types";
 export * from "./rules/condition.types";
 export * from "./rules/rule.types";
+export * as rulesV2 from "./rules/v2";

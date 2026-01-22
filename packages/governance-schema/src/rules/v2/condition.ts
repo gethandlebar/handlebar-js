@@ -1,4 +1,5 @@
-import type { AndCondition, CustomFunctionCondition, EndUserTagCondition, ExecutionTimeCondition, MaxCallsCondition, NotCondition, OrCondition, SequenceCondition, ToolNameCondition, ToolTagCondition } from "../condition.types";
+import type { CustomFunctionCondition, EndUserTagCondition, ExecutionTimeCondition, MaxCallsCondition, SequenceCondition, ToolNameCondition, ToolTagCondition } from "../condition.types";
+import type { AndCondition, NotCondition, OrCondition } from "./logical_conditions";
 import type { MetricWindowCondition } from "./metrics";
 import type { RequireSubjectCondition, SignalCondition } from "./signals";
 import type { TimeGateCondition } from "./time";

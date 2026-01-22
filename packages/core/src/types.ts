@@ -2,6 +2,7 @@ import type {
 	GovernanceDecision,
 	GovernanceEffect,
 	Rule,
+    rulesV2,
 } from "@handlebar/governance-schema";
 import type { HandlebarRunOpts } from "./runs";
 
@@ -43,7 +44,7 @@ export type CustomCheck<T extends Tool = Tool> = {
 
 export type GovernanceConfig<T extends Tool = Tool> = {
 	tools: ToolMeta<T>[];
-	rules?: Rule[];
+	rules?: rulesV2.RuleV2[];
 	defaultUncategorised?: GovernanceEffect;
 	checks?: CustomCheck<T>[];
 	mode?: "monitor" | "enforce";
