@@ -1,0 +1,28 @@
+import type { Glob } from "../condition.types";
+import type { RuleEffectKind } from "./effects";
+
+type MetricRef =
+	| {
+			kind: "inbuilt";
+			// TODO: get inbuilt kinds from a shared type.
+			key:
+				| "bytes_in"
+				| "bytes_out"
+				| "records_in"
+				| "records_out"
+				| "duration_ms";
+	  }
+	| { kind: "custom"; key: string };
+
+export type MetricWindowCondition = {
+	kind: "metricWindow";
+	scope: "agent" | "agent_user";
+	metric: MetricRef;
+	aggregate: "sum" | "avg" | "max" | "min" | "count";
+	windowSeconds: number;
+	// optional filtering for which tool events count
+	filter?: { toolName?: Glob | Glob[]; toolTag?: string | string[] };
+	op: "gt" | "gte" | "lt" | "lte" | "eq" | "neq";
+	value: number;
+	onMissing?: RuleEffectKind; // default allow for metrics
+};
