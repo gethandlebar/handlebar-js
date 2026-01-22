@@ -16,15 +16,18 @@ export type RequireSubjectCondition = {
 };
 
 type SignalBinding =
-	| { from: "endUserId" }
-	| { from: "toolArg"; path: string } // Dot-path
-	| {
-			from: "subject";
-			subjectType: string;
-			role?: string; // e.g. "primary" | "source" | "dest". For when they are multiple items within a subject type.
-			field?: "id" | "idSystem";
-	  }
-	| { from: "const"; value: JSONValue };
+	  | { from: "endUserId" }
+    | { from: "endUserTag"; tag: string }
+    | { from: "toolName" }
+    | { from: "toolTag"; tag: string }
+    | { from: "toolArg"; path: string } // Dot-path
+  	| {
+  			from: "subject";
+  			subjectType: string;
+  			role?: string; // e.g. "primary" | "source" | "dest". For when they are multiple items within a subject type.
+  			field?: "id" | "idSystem";
+  	  }
+  	| { from: "const"; value: JSONValue };
 
 export type SignalCondition = {
 	kind: "signal";
