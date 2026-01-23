@@ -1,0 +1,109 @@
+{
+  "policy": {
+    "organisationId": "ORG_ID_HERE",
+    "name": "Customer Support Demo Guardrails",
+    "description": "Demo policy pack for customer support agent (PII, refunds, exports, password resets).",
+    "enabled": true,
+    "agentSelector": { "anyOfSlugs": ["customer-support"] },
+    "mode": "enforce",
+    "combine": "most_severe_wins",
+    "onMissingDefault": "block"
+  },
+  "rules": [
+    {
+      "enabled": true,
+      "priority": 100,
+      "name": "PII reads require verifyIdentity first",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "tagsAny": ["pii"], "tagsAll": ["read"] }
+      },
+      "condition": {
+        "kind": "sequence",
+        "mustHaveCalled": ["verifyIdentity"]
+      },
+      "effect": { "type": "block", "reason": "Must verify identity before reading PII." }
+    },
+
+    {
+      "enabled": true,
+      "priority": 90,
+      "name": "Updating contact details requires verifyIdentity first",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "name": "updateContact" }
+      },
+      "condition": {
+        "kind": "sequence",
+        "mustHaveCalled": ["verifyIdentity"]
+      },
+      "effect": { "type": "hitl", "reason": "Contact changes are sensitive; verify identity first." }
+    },
+
+    {
+      "enabled": true,
+      "priority": 80,
+      "name": "Sensitive actions require human approval",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "tagsAll": ["sensitive"], "tagsAny": ["write", "external"] }
+      },
+      "condition": { "kind": "and", "all": [] },
+      "effect": { "type": "hitl", "reason": "Sensitive external/write action requires human approval." }
+    },
+
+    {
+      "enabled": true,
+      "priority": 85,
+      "name": "Refunds >= 200 require human approval",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "name": "issueRefund" }
+      },
+      "condition": {
+        "kind": "signal",
+        "key": "__hb_local.arg_number_gte",
+        "args": {
+          "value": { "from": "toolArg", "path": "amount" },
+          "threshold": { "from": "const", "value": 200 }
+        },
+        "op": "eq",
+        "value": true,
+        "onMissing": "allow"
+      },
+      "effect": { "type": "hitl", "reason": "Refund above threshold." }
+    },
+
+    {
+      "enabled": true,
+      "priority": 95,
+      "name": "Block exporting user data after PII access in same run",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "name": "exportUserData" }
+      },
+      "condition": {
+        "kind": "sequence",
+        "mustHaveCalled": ["*"],
+        "mustNotHaveCalled": []
+      },
+      "effect": { "type": "block", "reason": "Exporting user data is restricted after accessing PII in-run." }
+    },
+
+    {
+      "enabled": true,
+      "priority": 70,
+      "name": "Limit verifyIdentity attempts to 3 per run",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "name": "verifyIdentity" }
+      },
+      "condition": {
+        "kind": "maxCalls",
+        "selector": { "by": "toolName", "patterns": ["verifyIdentity"] },
+        "max": 3
+      },
+      "effect": { "type": "block", "reason": "Too many verification attempts." }
+    }
+  ]
+}
