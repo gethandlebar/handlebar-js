@@ -273,6 +273,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     args: EvalArgs<TTool>,
   ): unknown {
     switch (binding?.from) {
+      // TODO: rename to endUserExternalId to clarify that it's not a Handlebar ID.
       case "endUserId":
         return args.ctx.enduser?.externalId;
 
@@ -345,12 +346,13 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
   private evalTimeGate(cond: rulesV2.TimeGateCondition, ctx: RunContext<T>): boolean {
     // timezone from enduserTag
-    const enduser = (ctx as any).enduser;
+    const enduser = ctx.enduser;
     const tzTag = cond.timezone?.source === "endUserTag" ? cond.timezone.tag : undefined;
     const tz = tzTag ? enduser?.metadata?.[tzTag] : undefined;
 
-    // fallback "org" not implemented in MVP client. If missing => fail closed? up to you.
-    // I'd fail closed (false) because time gate is a safety control.
+    // fallback "org" not implemented in MVP client. If missing => fail closed.
+    if (typeof tz !== "string" || tz.length === 0) { return false; }
+
     if (typeof tz !== "string" || !tz.length) return false;
 
     const { dow, hhmm } = nowToTimeParts(ctx.now(), tz);
@@ -423,7 +425,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  // --- reuse your existing helpers (unchanged) ---
   private evalToolName(cond: ToolNameCondition, toolName: string): boolean {
     const name = toolName.toLowerCase();
     const matchGlob = (value: string, pattern: string): boolean => {
@@ -703,9 +704,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
         (ctx.counters[TOTAL_DURATION_COUNTER] ?? 0) + executionTimeMS;
     }
 
-    // post rules (client-side only; metricWindow still false, so safe)
-    // If you later add a server “preflight decision” endpoint, this is where you’d call it too.
-    const subjects: SubjectRef[] = []; // you could re-use pre subjects by storing in ctx.state keyed by step
+    // TODO: add a server “preflight decision” endpoint
+    const subjects: SubjectRef[] = []; // TODO: re-use pre subjects by storing in ctx.state keyed by step
     const postDecision = await this.decide("tool.after", ctx, { tool, args } as ToolCall<T>, executionTimeMS, subjects);
 
     const currentMetrics = this.metrics.toEventPayload({ aggregate: true });
