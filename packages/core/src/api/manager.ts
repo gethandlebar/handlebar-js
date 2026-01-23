@@ -134,12 +134,9 @@ export class ApiManager {
 	}
 
 	private async fetchAgentRules(agentId: string): Promise<rulesV2.RuleV2[] | null> {
-		const url = new URL("/v1/rules", this.apiEndpoint);
-		const params = new URLSearchParams({
-			agentId,
-		});
+		const url = new URL(`/v1/rules/agent/${agentId}`, this.apiEndpoint);
 
-		const response = await fetch(`${url.toString()}?${params.toString()}`, {
+		const response = await fetch(url.toString(), {
 			headers: this.headers(),
 		});
 
