@@ -8,9 +8,8 @@ import type {
   MaxCallsCondition,
   EndUserConfig,
   EndUserGroupConfig,
+  GovernanceDecision, AppliedAction
 } from "@handlebar/governance-schema";
-
-import type { GovernanceDecision, AppliedAction } from "@handlebar/governance-schema";
 import type { AuditBus } from "./audit/bus";
 import { ApiManager } from "./api/manager";
 import { emit } from "./audit";
@@ -19,30 +18,8 @@ import type { CustomCheck, GovernanceConfig, RunContext, Tool, ToolCall, ToolMet
 import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
 import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry, type AgentMetricHook, type AgentMetricHookPhase } from "./metrics";
-
-// ------------------------
-// Subjects + Signals (MVP)
-// ------------------------
-
-export type SubjectRef = {
-  subjectType: string;
-  role?: string;          // "primary" | "source" | "dest"
-  id: string;
-  idSystem?: string;      // "ehr_patient_id" etc
-};
-
-export type SubjectExtractor<T extends Tool = Tool> = (args: {
-  tool: ToolMeta<T>;
-  toolName: string;
-  toolArgs: unknown;
-  runContext: RunContext<T>;
-}) => SubjectRef[] | Promise<SubjectRef[]>;
-
-export type SignalProvider = (args: Record<string, unknown>) => unknown | Promise<unknown>;
-
-type SignalResult =
-  | { key: string; ok: true; value: unknown }
-  | { key: string; ok: false; error: unknown };
+import { SubjectRegistry, type SubjectRef } from "./subjects";
+import { SignalRegistry, type SignalProvider, type SignalResult } from "./signals";
 
 function effectRank(effect: rulesV2.RuleEffectKind): number {
   // higher = more severe
@@ -88,7 +65,6 @@ function hhmmToMinutes(hhmm: string): number {
 }
 
 function compare(op: rulesV2.SignalCondition["op"], left: unknown, right: unknown): boolean {
-  // very MVP: handle primitives + in/nin over arrays
   switch (op) {
     case "eq":  return left === right;
     case "neq": return left !== right;
@@ -109,6 +85,7 @@ function compare(op: rulesV2.SignalCondition["op"], left: unknown, right: unknow
   }
 }
 
+// TODO: remove duplicate.
 function getByDotPath(obj: unknown, path: string): unknown {
   if (!path) return undefined;
   const parts = path.split(".").filter(Boolean);
@@ -150,8 +127,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
   private metricHooks: AgentMetricHookRegistry;
 
   // registries
-  private subjectExtractorsByToolName = new Map<string, SubjectExtractor<T>>();
-  private signalProvidersByKey = new Map<string, SignalProvider>();
+  private subjects = new SubjectRegistry<T>();
+  private signals = new SignalRegistry();
 
   constructor(cfg: GovernanceConfig<T>, public bus?: AuditBus) {
     this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
@@ -180,13 +157,14 @@ export class GovernanceEngine<T extends Tool = Tool> {
     this.metricHooks.registerHook(hook);
   }
 
-  public registerSubjectExtractor(toolName: string, extractor: SubjectExtractor<T>) {
-    this.subjectExtractorsByToolName.set(toolName, extractor);
+  public registerSubjectExtractor(toolName: string, extractor: Parameters<SubjectRegistry<T>["register"]>[1]) {
+    this.subjects.register(toolName, extractor);
   }
 
   public registerSignal(key: string, provider: SignalProvider) {
-    this.signalProvidersByKey.set(key, provider);
+    this.signals.register(key, provider);
   }
+
 
   createRunContext(
     runId: string,
@@ -252,95 +230,16 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return true;
   }
 
-  private async extractSubjects(ctx: RunContext<T>, call: ToolCall<T>): Promise<SubjectRef[]> {
-    const extractor = this.subjectExtractorsByToolName.get(call.tool.name);
-    if (!extractor) { return []; }
-    try {
-      const out = await Promise.resolve(extractor({
-        tool: call.tool,
-        toolName: call.tool.name,
-        toolArgs: call.args,
-        runContext: ctx,
-      }));
-      return Array.isArray(out) ? out : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private bindSignalArg<TTool extends Tool>(
-    binding: any,
-    args: EvalArgs<TTool>,
-  ): unknown {
-    switch (binding?.from) {
-      // TODO: rename to endUserExternalId to clarify that it's not a Handlebar ID.
-      case "endUserId":
-        return args.ctx.enduser?.externalId;
-
-      case "toolArg":
-        return getByDotPath(args.call.args, binding.path);
-
-      case "subject": {
-        const matches = args.subjects.filter(s => s.subjectType === binding.subjectType)
-          .filter(s => (binding.role ? s.role === binding.role : true));
-        const s0 = matches[0];
-        if (!s0) { return undefined; }
-        const field = binding.field ?? "id";
-        return field === "idSystem" ? s0.idSystem : s0.id;
-      }
-
-      case "const":
-        return binding.value;
-
-      case "endUserTag": {
-        const enduser = args.ctx.enduser;
-        return enduser?.metadata?.[binding.tag];
-      }
-      case "toolName":
-        return args.call.tool.name;
-      case "toolTag": {
-        const tags = (args.call.tool.categories ?? []).map((t: string) => t.toLowerCase());
-        return tags.includes(String(binding.tag).toLowerCase());
-      }
-
-      default:
-        return undefined;
-    }
-  }
-
-  private async evalSignalCondition(cond: rulesV2.SignalCondition, args: EvalArgs<T>): Promise<boolean> {
-    const provider = this.signalProvidersByKey.get(cond.key);
-    if (!provider) {
-      // missing signal provider => onMissing effect applies at rule-level; condition is "unknown"
-      return false;
-    }
-
-    const boundArgs: Record<string, unknown> = {};
-    for (const [k, b] of Object.entries(cond.args ?? {})) {
-      boundArgs[k] = this.bindSignalArg(b, args);
-    }
-
-    const cacheKey = `${cond.key}:${JSON.stringify(boundArgs)}`;
-    const cached = args.signalCache.get(cacheKey);
-    if (cached) {
-      if (!cached.ok) return false;
-      return compare(cond.op, cached.value, cond.value);
-    }
-
-    try {
-      const value = await Promise.resolve(provider(boundArgs));
-      args.signalCache.set(cacheKey, { key: cond.key, ok: true, value });
-      return compare(cond.op, value, cond.value);
-    } catch (err) {
-      args.signalCache.set(cacheKey, { key: cond.key, ok: false, error: err });
-      return false;
-    }
-  }
-
   private evalRequireSubject(cond: rulesV2.RequireSubjectCondition, subjects: SubjectRef[]): boolean {
     const matches = subjects.filter(s => s.subjectType === cond.subjectType);
-    if (!matches.length) return false;
-    if (cond.idSystem) return matches.some(s => s.idSystem === cond.idSystem);
+    if (!matches.length) {
+      return false;
+    }
+
+    if (cond.idSystem) {
+      return matches.some(s => s.idSystem === cond.idSystem);
+    }
+
     return true;
   }
 
@@ -394,8 +293,33 @@ export class GovernanceEngine<T extends Tool = Tool> {
       case "requireSubject":
         return this.evalRequireSubject(cond as rulesV2.RequireSubjectCondition, args.subjects);
 
-      case "signal":
-        return this.evalSignalCondition(cond as rulesV2.SignalCondition, args);
+      case "requireSubject": {
+        const c = cond as rulesV2.RequireSubjectCondition;
+        const matches = args.subjects.filter(s => s.subjectType === c.subjectType);
+        if (!matches.length) { return false; }
+        if (c.idSystem) {
+          return matches.some(s => s.idSystem === c.idSystem);
+        }
+        return true;
+      }
+
+      case "signal": {
+        const c = cond as rulesV2.SignalCondition;
+
+        const res = await this.signals.eval(
+          c.key,
+          c.args,
+          { ctx: args.ctx, call: args.call, subjects: args.subjects },
+          args.signalCache,
+        );
+
+        if (!res.ok) {
+          // missing provider / error: treat as "not matched" locally.
+          return false;
+        }
+
+        return compare(c.op, res.value, c.value);
+      }
 
       case "metricWindow":
         // server-enforced: cannot evaluate client-side => do NOT match rule locally.
@@ -597,13 +521,19 @@ export class GovernanceEngine<T extends Tool = Tool> {
     const tool = this.getTool(toolName);
     const call: ToolCall<T> = { tool, args } as ToolCall<T>;
 
-    // subjects first so rules can use them
-    const subjects = await this.extractSubjects(ctx, call);
+    const subjects = await this.subjects.extract({
+      tool,
+      toolName,
+      toolArgs: args,
+      runContext: ctx,
+    });
 
     // per-call metrics
     this.metrics = new AgentMetricCollector();
     const bytesIn = approxBytes(args);
-    if (bytesIn != null) this.metrics.setInbuilt("bytes_in", bytesIn, "bytes");
+    if (bytesIn != null) {
+      this.metrics.setInbuilt("bytes_in", bytesIn, "bytes");
+    }
 
     await this.metricHooks.runPhase(
       "tool.before",
@@ -613,7 +543,9 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
     // legacy checks (keep for now)
     for (const check of this.checks) {
-      if (!check.before) continue;
+      if (!check.before) {
+        continue;
+      }
       const d = await Promise.resolve(check.before(ctx, call));
       if (d && d.effect === "block") {
         this.emit(
