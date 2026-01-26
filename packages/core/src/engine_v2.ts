@@ -293,16 +293,6 @@ export class GovernanceEngine<T extends Tool = Tool> {
       case "requireSubject":
         return this.evalRequireSubject(cond as rulesV2.RequireSubjectCondition, args.subjects);
 
-      case "requireSubject": {
-        const c = cond as rulesV2.RequireSubjectCondition;
-        const matches = args.subjects.filter(s => s.subjectType === c.subjectType);
-        if (!matches.length) { return false; }
-        if (c.idSystem) {
-          return matches.some(s => s.idSystem === c.idSystem);
-        }
-        return true;
-      }
-
       case "signal": {
         const c = cond as rulesV2.SignalCondition;
 
@@ -661,6 +651,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
   }
 
   shouldBlock(decision: GovernanceDecision) {
-    return this.mode === "enforce" && decision.effect === "block";
+    // For now, HITL is automatically a run-ender.
+    return this.mode === "enforce" && (decision.effect === "block" || decision.effect === "hitl");
   }
 }
