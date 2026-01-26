@@ -1,16 +1,7 @@
 import type { Tool, ToolCall, RunContext } from "./types";
 import type { SubjectRef } from "./subjects";
-import type { JSONValue } from "@handlebar/governance-schema";
-
-// TODO: use governance-schema's SignalBinding
-export type SignalBinding =
-  | { from: "endUserId" }
-  | { from: "endUserTag"; tag: string }
-  | { from: "toolName" }
-  | { from: "toolTag"; tag: string }
-  | { from: "toolArg"; path: string }
-  | { from: "subject"; subjectType: string; role?: string; field?: "id" | "idSystem" }
-  | { from: "const"; value: JSONValue };
+import type { SignalCondition, SignalBinding } from "@handlebar/governance-schema";
+import { stableJson } from "./utils";
 
 export type SignalProvider<TValue = unknown> = (args: Record<string, unknown>) => TValue | Promise<TValue>;
 export type SignalResult = { ok: true; value: unknown } | { ok: false; error: unknown }
@@ -38,27 +29,25 @@ function getByDotPath(obj: unknown, path: string): unknown {
   return cur;
 }
 
-/**
- * JSON stringify with sorted keys for plain objects
- */
-function stableJson(v: unknown): string {
-  const seen = new WeakSet<object>();
-  const norm = (x: any): any => {
-    if (x && typeof x === "object") {
-      if (seen.has(x)) { return "[Circular]"; }
-      seen.add(x);
-      if (Array.isArray(x)) { return x.map(norm); }
-      const keys = Object.keys(x).sort();
-      const out: any = {};
-      for (const k of keys) {
-        out[k] = norm(x[k]);
-      }
-      return out;
+export function compareSignal(op: SignalCondition["op"], left: unknown, right: unknown): boolean {
+  switch (op) {
+    case "eq":  return left === right;
+    case "neq": return left !== right;
+    case "gt":  return typeof left === "number" && typeof right === "number" && left > right;
+    case "gte": return typeof left === "number" && typeof right === "number" && left >= right;
+    case "lt":  return typeof left === "number" && typeof right === "number" && left < right;
+    case "lte": return typeof left === "number" && typeof right === "number" && left <= right;
+    case "in": {
+      if (!Array.isArray(right)) return false;
+      return right.some(v => v === left);
     }
-    return x;
-  };
-
-  return JSON.stringify(norm(v));
+    case "nin": {
+      if (!Array.isArray(right)) return false;
+      return !right.some(v => v === left);
+    }
+    default:
+      return false;
+  }
 }
 
 export class SignalRegistry {

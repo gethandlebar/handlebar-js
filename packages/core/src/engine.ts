@@ -27,83 +27,9 @@ import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
 import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry, type AgentMetricHook, type AgentMetricHookPhase } from "./metrics";
 import { SubjectRegistry, type SubjectRef } from "./subjects";
-import { SignalRegistry, type SignalProvider, type SignalResult } from "./signals";
-
-function effectRank(effect: RuleEffectKind): number {
-  // higher = more severe
-  if (effect === "block") return 3;
-  if (effect === "hitl") return 2;
-  return 1; // allow
-}
-
-function decisionCodeFor(effect: RuleEffectKind): GovernanceDecision["code"] {
-  switch (effect) {
-    case "block":
-      return "BLOCKED_RULE";
-    case "hitl":
-      return "BLOCKED_HITL_REQUESTED";
-    default:
-      return "ALLOWED";
-  }
-}
-
-function nowToTimeParts(nowMs: number, timeZone: string): { dow: string; hhmm: string } {
-  // Dow: mon/tue/...
-  const dtf = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = dtf.formatToParts(new Date(nowMs));
-  const weekday = parts.find(p => p.type === "weekday")?.value ?? "Mon";
-  const hour = parts.find(p => p.type === "hour")?.value ?? "00";
-  const minute = parts.find(p => p.type === "minute")?.value ?? "00";
-
-  const dow = weekday.toLowerCase().slice(0, 3); // "mon"
-  return { dow, hhmm: `${hour}:${minute}` };
-}
-
-function hhmmToMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(":");
-  const hh = Number(h);
-  const mm = Number(m);
-  return hh * 60 + mm;
-}
-
-function compare(op: SignalCondition["op"], left: unknown, right: unknown): boolean {
-  switch (op) {
-    case "eq":  return left === right;
-    case "neq": return left !== right;
-    case "gt":  return typeof left === "number" && typeof right === "number" && left > right;
-    case "gte": return typeof left === "number" && typeof right === "number" && left >= right;
-    case "lt":  return typeof left === "number" && typeof right === "number" && left < right;
-    case "lte": return typeof left === "number" && typeof right === "number" && left <= right;
-    case "in": {
-      if (!Array.isArray(right)) return false;
-      return right.some(v => v === left);
-    }
-    case "nin": {
-      if (!Array.isArray(right)) return false;
-      return !right.some(v => v === left);
-    }
-    default:
-      return false;
-  }
-}
-
-// TODO: remove duplicate.
-function getByDotPath(obj: unknown, path: string): unknown {
-  if (!path) return undefined;
-  const parts = path.split(".").filter(Boolean);
-  let cur: any = obj;
-  for (const p of parts) {
-    if (cur == null) return undefined;
-    cur = cur[p];
-  }
-  return cur;
-}
+import { compareSignal, SignalRegistry, type SignalProvider, type SignalResult } from "./signals";
+import { hhmmToMinutes, nowToTimeParts } from "./time";
+import { decisionCodeFor, effectRank } from "./actions";
 
 type EvalArgs<T extends Tool = Tool> = {
   phase: RulePhase;
@@ -312,7 +238,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
           return false;
         }
 
-        return compare(c.op, res.value, c.value);
+        return compareSignal(c.op, res.value, c.value);
       }
 
       case "metricWindow":
@@ -580,7 +506,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
         continue;
       }
       const d = await Promise.resolve(check.before(ctx, call));
-      if (d && d.effect === "block") {
+      if (d?.effect === "block") {
         this.emit(
           "tool.decision",
           {

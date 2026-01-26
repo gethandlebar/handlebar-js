@@ -15,7 +15,7 @@ export type RequireSubjectCondition = {
 	idSystem?: string;
 };
 
-type SignalBinding =
+export type SignalBinding =
 	  | { from: "endUserId" }
     | { from: "endUserTag"; tag: string }
     | { from: "toolName" }
