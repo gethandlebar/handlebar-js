@@ -1,4 +1,4 @@
-import type { JSONValue } from "@handlebar/governance-schema";
+import type { rulesV2 } from "@handlebar/governance-schema";
 import type { Tool, ToolCall, RunContext } from "./types";
 import type { SubjectRef } from "./subjects";
 
@@ -10,7 +10,7 @@ export type SignalBinding =
   | { from: "toolTag"; tag: string }
   | { from: "toolArg"; path: string }
   | { from: "subject"; subjectType: string; role?: string; field?: "id" | "idSystem" }
-  | { from: "const"; value: JSONValue };
+  | { from: "const"; value: rulesV2.JSONValue };
 
 export type SignalProvider<TValue = unknown> = (args: Record<string, unknown>) => TValue | Promise<TValue>;
 export type SignalResult = { ok: true; value: unknown } | { ok: false; error: unknown }

@@ -1,4 +1,4 @@
-import type { Rule, rulesV2 } from "@handlebar/governance-schema";
+import type { rulesV2 } from "@handlebar/governance-schema";
 import type { AgentTool, ApiConfig } from "./types";
 
 type HitlResponse = {

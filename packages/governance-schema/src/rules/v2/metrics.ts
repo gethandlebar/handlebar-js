@@ -1,4 +1,4 @@
-import type { Glob } from "../condition.types";
+import type { Glob } from "./common";
 import type { RuleEffectKind } from "./effects";
 
 type MetricRef =

@@ -1,4 +1,4 @@
-import type { JSONValue } from "../condition.types";
+import type { JSONValue } from "./common";
 import type { RuleEffectKind } from "./effects";
 
 /**

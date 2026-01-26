@@ -1,11 +1,5 @@
 import type {
   rulesV2,
-  ToolNameCondition,
-  ToolTagCondition,
-  EndUserTagCondition,
-  ExecutionTimeCondition,
-  SequenceCondition,
-  MaxCallsCondition,
   EndUserConfig,
   EndUserGroupConfig,
   GovernanceDecision, AppliedAction
@@ -269,23 +263,23 @@ export class GovernanceEngine<T extends Tool = Tool> {
   private async evalCondition(cond: rulesV2.RuleConditionV2, args: EvalArgs<T>): Promise<boolean> {
     switch (cond.kind) {
       case "toolName":
-        return this.evalToolName(cond as ToolNameCondition, args.call.tool.name);
+        return this.evalToolName(cond as rulesV2.ToolNameCondition, args.call.tool.name);
 
       case "toolTag":
-        return this.evalToolTag(cond as ToolTagCondition, args.call.tool.categories ?? []);
+        return this.evalToolTag(cond as rulesV2.ToolTagCondition, args.call.tool.categories ?? []);
 
       case "enduserTag":
-        return this.evalEnduserTag(cond as EndUserTagCondition, args.ctx.enduser);
+        return this.evalEnduserTag(cond as rulesV2.EndUserTagCondition, args.ctx.enduser);
 
       case "executionTime":
         if (args.phase !== "tool.after") { return false; }
-        return this.evalExecutionTime(cond as ExecutionTimeCondition, args.executionTimeMS, args.ctx);
+        return this.evalExecutionTime(cond as rulesV2.ExecutionTimeCondition, args.executionTimeMS, args.ctx);
 
       case "sequence":
-        return this.evalSequence(cond as SequenceCondition, args.ctx.history, args.call.tool.name);
+        return this.evalSequence(cond as rulesV2.SequenceCondition, args.ctx.history, args.call.tool.name);
 
       case "maxCalls":
-        return this.evalMaxCalls(cond as MaxCallsCondition, args.ctx.history);
+        return this.evalMaxCalls(cond as rulesV2.MaxCallsCondition, args.ctx.history);
 
       case "timeGate":
         return this.evalTimeGate(cond as rulesV2.TimeGateCondition, args.ctx);
@@ -339,7 +333,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  private evalToolName(cond: ToolNameCondition, toolName: string): boolean {
+  private evalToolName(cond: rulesV2.ToolNameCondition, toolName: string): boolean {
     const name = toolName.toLowerCase();
     const matchGlob = (value: string, pattern: string): boolean => {
       const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*");
@@ -356,7 +350,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  private evalToolTag(cond: ToolTagCondition, tags: string[]): boolean {
+  private evalToolTag(cond: rulesV2.ToolTagCondition, tags: string[]): boolean {
     const lower = tags.map((t) => t.toLowerCase());
     switch (cond.op) {
       case "has": return lower.includes(cond.tag.toLowerCase());
@@ -366,7 +360,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
   }
 
   private evalEnduserTag(
-    cond: EndUserTagCondition,
+    cond: rulesV2.EndUserTagCondition,
     enduser: (EndUserConfig & { group?: EndUserGroupConfig }) | undefined,
   ): boolean {
     if (!enduser) { return false; }
@@ -380,7 +374,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return false;
   }
 
-  private evalExecutionTime(cond: ExecutionTimeCondition, executionTimeMS: number | null, ctx: RunContext<T>): boolean {
+  private evalExecutionTime(cond: rulesV2.ExecutionTimeCondition, executionTimeMS: number | null, ctx: RunContext<T>): boolean {
     if (executionTimeMS === null) return false;
     const totalMs = ctx.counters[TOTAL_DURATION_COUNTER] ?? 0;
     const valueMs = cond.scope === "tool" ? executionTimeMS : totalMs;
@@ -395,7 +389,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  private evalSequence(cond: SequenceCondition, history: ToolResult<T>[], currentToolName: string): boolean {
+  private evalSequence(cond: rulesV2.SequenceCondition, history: ToolResult<T>[], currentToolName: string): boolean {
     const names = history.map((h) => h.tool.name);
     const matchGlob = (value: string, pattern: string): boolean => {
       const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*");
@@ -417,7 +411,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return false;
   }
 
-  private evalMaxCalls(cond: MaxCallsCondition, history: ToolResult<T>[]): boolean {
+  private evalMaxCalls(cond: rulesV2.MaxCallsCondition, history: ToolResult<T>[]): boolean {
     const matchGlob = (value: string, pattern: string): boolean => {
       const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*");
       return new RegExp(`^${esc}$`, "i").test(value);

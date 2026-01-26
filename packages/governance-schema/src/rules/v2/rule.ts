@@ -1,4 +1,4 @@
-import type { Glob } from "../condition.types";
+import type { Glob } from "./common";
 import type { RuleConditionV2 } from "./condition";
 import type { RuleEffectKind, RuleEffectV2 } from "./effects";
 
