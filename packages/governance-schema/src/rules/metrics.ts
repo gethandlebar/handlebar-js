@@ -1,16 +1,12 @@
+import type { z } from "zod";
+import type { InbuiltAgentMetricKind } from "../audit/run-metrics";
 import type { Glob } from "./common";
 import type { RuleEffectKind } from "./effects";
 
 type MetricRef =
 	| {
 			kind: "inbuilt";
-			// TODO: get inbuilt kinds from a shared type.
-			key:
-				| "bytes_in"
-				| "bytes_out"
-				| "records_in"
-				| "records_out"
-				| "duration_ms";
+			key: z.infer<typeof InbuiltAgentMetricKind>;
 	  }
 	| { kind: "custom"; key: string };
 
