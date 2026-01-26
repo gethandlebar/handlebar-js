@@ -479,7 +479,13 @@ export class GovernanceEngine<T extends Tool = Tool> {
       matchedRuleIds.push(rule.id);
 
       // Apply effect (single canonical effect)
-      const eff = rule.effect.type as rulesV2.RuleEffectKind;
+      let eff = rule.effect.type as rulesV2.RuleEffectKind;
+
+      if (eff === "hitl") {
+        // If existing HITL review has been responded to, this supercedes the "HITL" request.
+        eff = await this.evaluateHitl(rule.id, ctx, call);
+      }
+
       appliedActions.push({ ruleId: rule.id, type: eff });
 
       // choose most severe (block > hitl > allow)
@@ -498,6 +504,43 @@ export class GovernanceEngine<T extends Tool = Tool> {
       reason: bestReason,
     };
   }
+
+  /**
+	 * With a HITL rule hit, query the API to check for an existing, matching HITL request.
+	 *
+	 * Querying the API with the triggered API rule will try to match on existing or create a HITL request
+	 * if none exists.
+	 * If there is an existing, matching request (server should return ID and status), we convert the HITL
+	 * action into a new action: on "pending" or "blocked" we convert to "blocked" action client side;
+	 * if the HITL request has "approved" then the client side also approves.
+	 */
+	private async evaluateHitl(
+		ruleId: string,
+		ctx: RunContext<T>,
+		call: ToolCall<T>,
+	): Promise<rulesV2.RuleEffectKind> {
+		const apiResponse = await this.api.queryHitl(
+			ctx.runId,
+			ruleId,
+			call.tool.name,
+			call.args as Record<string, unknown>,
+		); // TODO: sort typing of args.
+		if (!apiResponse) {
+			return "hitl";
+		}
+
+		if (apiResponse.pre_existing) {
+			if (apiResponse.status === "approved") {
+				return "allow";
+			}
+
+			return "block";
+		}
+
+		// If pre_existing=false, i.e. HITL request generated as part of this rule break,
+		// we must return "hitl" for appropriate auditing to propagate.
+		return "hitl";
+	}
 
   // ------------------------
   // Public lifecycle hooks
