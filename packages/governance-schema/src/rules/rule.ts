@@ -1,6 +1,6 @@
 import type { Glob } from "./common";
-import type { RuleConditionV2 } from "./condition";
-import type { RuleEffectKind, RuleEffectV2 } from "./effects";
+import type { RuleCondition } from "./condition";
+import type { RuleEffectKind, RuleEffect } from "./effects";
 
 export type RulePhase = "tool.before" | "tool.after";
 
@@ -18,7 +18,7 @@ export type RuleSelector = {
 	// agent?: { anyOfSlugs?: string[]; anyOfTags?: string[]; allOfTags?: string[] };
 };
 
-export type RuleV2 = {
+export type Rule = {
 	id: string;
 	policyId: string;
 	enabled: boolean;
@@ -26,11 +26,11 @@ export type RuleV2 = {
 	name: string;
 
 	selector: RuleSelector; // Cheap gating for rule applicability.
-	condition: RuleConditionV2; // Full logic for evaluation. Should NOT include selector logic.
+	condition: RuleCondition; // Full logic for evaluation. Should NOT include selector logic.
 
 	// Only a single canonical effect to influence agent behaviour immediately post-breach.
 	// In future work we will support side-effects.
-	effect: RuleEffectV2;
+	effect: RuleEffect;
 
 	onMissing?: RuleEffectKind; // default block.
 };

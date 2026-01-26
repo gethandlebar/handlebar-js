@@ -7,7 +7,7 @@ export type RuleEffectKind = "allow" | "hitl" | "block";
  * This is in contract to side effects (yet to be defined),
  * which would include "log" or "modify context".
  */
-export type RuleEffectV2 =
+export type RuleEffect =
   | { type: "allow"; reason?: string }
 	| { type: "hitl"; reason?: string } // Supercedes "allow"
 	| { type: "block"; reason?: string }; // Supercedes "hitl"

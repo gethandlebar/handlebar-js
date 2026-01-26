@@ -1,8 +1,22 @@
 import type {
-  rulesV2,
   EndUserConfig,
   EndUserGroupConfig,
-  GovernanceDecision, AppliedAction
+  GovernanceDecision,
+  AppliedAction,
+  EndUserTagCondition,
+  ExecutionTimeCondition,
+  MaxCallsCondition,
+  RequireSubjectCondition,
+  Rule,
+  RuleCondition,
+  RuleEffectKind,
+  RulePhase,
+  RuleSelector,
+  SequenceCondition,
+  SignalCondition,
+  TimeGateCondition,
+  ToolNameCondition,
+  ToolTagCondition
 } from "@handlebar/governance-schema";
 import type { AuditBus } from "./audit/bus";
 import { ApiManager } from "./api/manager";
@@ -15,14 +29,14 @@ import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegist
 import { SubjectRegistry, type SubjectRef } from "./subjects";
 import { SignalRegistry, type SignalProvider, type SignalResult } from "./signals";
 
-function effectRank(effect: rulesV2.RuleEffectKind): number {
+function effectRank(effect: RuleEffectKind): number {
   // higher = more severe
   if (effect === "block") return 3;
   if (effect === "hitl") return 2;
   return 1; // allow
 }
 
-function decisionCodeFor(effect: rulesV2.RuleEffectKind): GovernanceDecision["code"] {
+function decisionCodeFor(effect: RuleEffectKind): GovernanceDecision["code"] {
   switch (effect) {
     case "block":
       return "BLOCKED_RULE";
@@ -58,7 +72,7 @@ function hhmmToMinutes(hhmm: string): number {
   return hh * 60 + mm;
 }
 
-function compare(op: rulesV2.SignalCondition["op"], left: unknown, right: unknown): boolean {
+function compare(op: SignalCondition["op"], left: unknown, right: unknown): boolean {
   switch (op) {
     case "eq":  return left === right;
     case "neq": return left !== right;
@@ -92,7 +106,7 @@ function getByDotPath(obj: unknown, path: string): unknown {
 }
 
 type EvalArgs<T extends Tool = Tool> = {
-  phase: rulesV2.RulePhase;
+  phase: RulePhase;
   ctx: RunContext<T>;
   call: ToolCall<T>;
   executionTimeMS: number | null;
@@ -101,15 +115,11 @@ type EvalArgs<T extends Tool = Tool> = {
   signalCache: Map<string, SignalResult>;
 };
 
-// ------------------------
-// Engine (V2 rules)
-// ------------------------
-
 const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
 
 export class GovernanceEngine<T extends Tool = Tool> {
   private tools: Map<string, ToolMeta<T>>;
-  private rulesV2: rulesV2.RuleV2[];
+  private rules: Rule[];
   private checks: CustomCheck<T>[];
   private mode: "monitor" | "enforce";
   private verbose: boolean;
@@ -126,7 +136,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
   constructor(cfg: GovernanceConfig<T>, public bus?: AuditBus) {
     this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
-    this.rulesV2 = cfg.rules ?? [];
+    this.rules = cfg.rules ?? [];
     this.checks = cfg.checks ?? [];
     this.mode = cfg.mode ?? "enforce";
     this.verbose = Boolean(cfg.verbose);
@@ -143,7 +153,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     const output = await this.api.initialiseAgent(agentConfig, tools);
     if (!output) { return null; }
 
-    this.rulesV2.push(...((output.rules ?? []) as rulesV2.RuleV2[]));
+    this.rules.push(...((output.rules ?? []) as Rule[]));
     return output.agentId;
   }
 
@@ -191,7 +201,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return t;
   }
 
-  private ruleSelectorMatches(ruleSel: rulesV2.RuleSelector, phase: rulesV2.RulePhase, call: ToolCall<T>): boolean {
+  private ruleSelectorMatches(ruleSel: RuleSelector, phase: RulePhase, call: ToolCall<T>): boolean {
     if (ruleSel.phase !== phase) { return false; }
 
     const toolSel = ruleSel.tool;
@@ -224,7 +234,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return true;
   }
 
-  private evalRequireSubject(cond: rulesV2.RequireSubjectCondition, subjects: SubjectRef[]): boolean {
+  private evalRequireSubject(cond: RequireSubjectCondition, subjects: SubjectRef[]): boolean {
     const matches = subjects.filter(s => s.subjectType === cond.subjectType);
     if (!matches.length) {
       return false;
@@ -237,7 +247,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return true;
   }
 
-  private evalTimeGate(cond: rulesV2.TimeGateCondition, ctx: RunContext<T>): boolean {
+  private evalTimeGate(cond: TimeGateCondition, ctx: RunContext<T>): boolean {
     // timezone from enduserTag
     const enduser = ctx.enduser;
     const tzTag = cond.timezone?.source === "endUserTag" ? cond.timezone.tag : undefined;
@@ -260,35 +270,35 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return false;
   }
 
-  private async evalCondition(cond: rulesV2.RuleConditionV2, args: EvalArgs<T>): Promise<boolean> {
+  private async evalCondition(cond: RuleCondition, args: EvalArgs<T>): Promise<boolean> {
     switch (cond.kind) {
       case "toolName":
-        return this.evalToolName(cond as rulesV2.ToolNameCondition, args.call.tool.name);
+        return this.evalToolName(cond as ToolNameCondition, args.call.tool.name);
 
       case "toolTag":
-        return this.evalToolTag(cond as rulesV2.ToolTagCondition, args.call.tool.categories ?? []);
+        return this.evalToolTag(cond as ToolTagCondition, args.call.tool.categories ?? []);
 
       case "enduserTag":
-        return this.evalEnduserTag(cond as rulesV2.EndUserTagCondition, args.ctx.enduser);
+        return this.evalEnduserTag(cond as EndUserTagCondition, args.ctx.enduser);
 
       case "executionTime":
         if (args.phase !== "tool.after") { return false; }
-        return this.evalExecutionTime(cond as rulesV2.ExecutionTimeCondition, args.executionTimeMS, args.ctx);
+        return this.evalExecutionTime(cond as ExecutionTimeCondition, args.executionTimeMS, args.ctx);
 
       case "sequence":
-        return this.evalSequence(cond as rulesV2.SequenceCondition, args.ctx.history, args.call.tool.name);
+        return this.evalSequence(cond as SequenceCondition, args.ctx.history, args.call.tool.name);
 
       case "maxCalls":
-        return this.evalMaxCalls(cond as rulesV2.MaxCallsCondition, args.ctx.history);
+        return this.evalMaxCalls(cond as MaxCallsCondition, args.ctx.history);
 
       case "timeGate":
-        return this.evalTimeGate(cond as rulesV2.TimeGateCondition, args.ctx);
+        return this.evalTimeGate(cond as TimeGateCondition, args.ctx);
 
       case "requireSubject":
-        return this.evalRequireSubject(cond as rulesV2.RequireSubjectCondition, args.subjects);
+        return this.evalRequireSubject(cond as RequireSubjectCondition, args.subjects);
 
       case "signal": {
-        const c = cond as rulesV2.SignalCondition;
+        const c = cond as SignalCondition;
 
         const res = await this.signals.eval(
           c.key,
@@ -333,7 +343,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  private evalToolName(cond: rulesV2.ToolNameCondition, toolName: string): boolean {
+  private evalToolName(cond: ToolNameCondition, toolName: string): boolean {
     const name = toolName.toLowerCase();
     const matchGlob = (value: string, pattern: string): boolean => {
       const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*");
@@ -350,7 +360,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  private evalToolTag(cond: rulesV2.ToolTagCondition, tags: string[]): boolean {
+  private evalToolTag(cond: ToolTagCondition, tags: string[]): boolean {
     const lower = tags.map((t) => t.toLowerCase());
     switch (cond.op) {
       case "has": return lower.includes(cond.tag.toLowerCase());
@@ -360,7 +370,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
   }
 
   private evalEnduserTag(
-    cond: rulesV2.EndUserTagCondition,
+    cond: EndUserTagCondition,
     enduser: (EndUserConfig & { group?: EndUserGroupConfig }) | undefined,
   ): boolean {
     if (!enduser) { return false; }
@@ -374,7 +384,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return false;
   }
 
-  private evalExecutionTime(cond: rulesV2.ExecutionTimeCondition, executionTimeMS: number | null, ctx: RunContext<T>): boolean {
+  private evalExecutionTime(cond: ExecutionTimeCondition, executionTimeMS: number | null, ctx: RunContext<T>): boolean {
     if (executionTimeMS === null) return false;
     const totalMs = ctx.counters[TOTAL_DURATION_COUNTER] ?? 0;
     const valueMs = cond.scope === "tool" ? executionTimeMS : totalMs;
@@ -389,7 +399,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     }
   }
 
-  private evalSequence(cond: rulesV2.SequenceCondition, history: ToolResult<T>[], currentToolName: string): boolean {
+  private evalSequence(cond: SequenceCondition, history: ToolResult<T>[], currentToolName: string): boolean {
     const names = history.map((h) => h.tool.name);
     const matchGlob = (value: string, pattern: string): boolean => {
       const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*");
@@ -411,7 +421,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return false;
   }
 
-  private evalMaxCalls(cond: rulesV2.MaxCallsCondition, history: ToolResult<T>[]): boolean {
+  private evalMaxCalls(cond: MaxCallsCondition, history: ToolResult<T>[]): boolean {
     const matchGlob = (value: string, pattern: string): boolean => {
       const esc = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*");
       return new RegExp(`^${esc}$`, "i").test(value);
@@ -429,29 +439,25 @@ export class GovernanceEngine<T extends Tool = Tool> {
     return count >= cond.max;
   }
 
-  // ------------------------
-  // V2 decision evaluation
-  // ------------------------
-
-  private resolveMissingEffect(rule: rulesV2.RuleV2, cond: { onMissing?: rulesV2.RuleEffectKind } | null): rulesV2.RuleEffectKind {
-    return (cond?.onMissing ?? rule.onMissing ?? "block") as rulesV2.RuleEffectKind;
+  private resolveMissingEffect(rule: Rule, cond: { onMissing?: RuleEffectKind } | null): RuleEffectKind {
+    return (cond?.onMissing ?? rule.onMissing ?? "block") as RuleEffectKind;
   }
 
   private async decide(
-    phase: rulesV2.RulePhase,
+    phase: RulePhase,
     ctx: RunContext<T>,
     call: ToolCall<T>,
     executionTimeMS: number | null,
     subjects: SubjectRef[],
   ): Promise<GovernanceDecision> {
-    const applicable = this.rulesV2
+    const applicable = this.rules
       .filter(r => r.enabled)
       .filter(r => this.ruleSelectorMatches(r.selector, phase, call))
       .sort((a, b) => b.priority - a.priority); // higher priority first
 
     const signalCache = new Map<string, SignalResult>();
 
-    let bestEffect: rulesV2.RuleEffectKind = "allow";
+    let bestEffect: RuleEffectKind = "allow";
     let bestReason: string | undefined;
 
     const matchedRuleIds: string[] = [];
@@ -473,7 +479,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
       matchedRuleIds.push(rule.id);
 
       // Apply effect (single canonical effect)
-      let eff = rule.effect.type as rulesV2.RuleEffectKind;
+      let eff = rule.effect.type as RuleEffectKind;
 
       if (eff === "hitl") {
         // If existing HITL review has been responded to, this supercedes the "HITL" request.
@@ -512,7 +518,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		ruleId: string,
 		ctx: RunContext<T>,
 		call: ToolCall<T>,
-	): Promise<rulesV2.RuleEffectKind> {
+	): Promise<RuleEffectKind> {
 		const apiResponse = await this.api.queryHitl(
 			ctx.runId,
 			ruleId,

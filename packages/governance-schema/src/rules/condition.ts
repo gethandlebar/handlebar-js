@@ -5,12 +5,12 @@ import type { RequireSubjectCondition, SignalCondition } from "./signals";
 import type { TimeGateCondition, ExecutionTimeCondition } from "./time";
 import type { MaxCallsCondition, SequenceCondition, ToolNameCondition, ToolTagCondition } from "./tools";
 
-export type AndCondition = { kind: "and"; all: RuleConditionV2[] };
-export type OrCondition = { kind: "or"; any: RuleConditionV2[] };
-export type NotCondition = { kind: "not"; not: RuleConditionV2 };
+export type AndCondition = { kind: "and"; all: RuleCondition[] };
+export type OrCondition = { kind: "or"; any: RuleCondition[] };
+export type NotCondition = { kind: "not"; not: RuleCondition };
 
 
-export type RuleConditionV2 =
+export type RuleCondition =
   | ToolNameCondition
   | ToolTagCondition
   | EndUserTagCondition
