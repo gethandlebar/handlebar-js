@@ -32,39 +32,39 @@ import z from "zod";
 
 dotenv.config();
 
-const rules: RuleConfig[] = [
-	// rule.pre({
-	//   priority: 0,
-	//   if: and(toolTag.anyOf(["pii"])),
-	//   then: [block()],
-	// }),
+// const rules: RuleConfig[] = [
+// 	// rule.pre({
+// 	//   priority: 0,
+// 	//   if: and(toolTag.anyOf(["pii"])),
+// 	//   then: [block()],
+// 	// }),
 
-	// rule.pre({
-	//   priority: 1,
-	//   if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
-	//   then: [block()],
-	// }),
+// 	// rule.pre({
+// 	//   priority: 1,
+// 	//   if: maxCalls({ selector: { by: "toolTag", tags: ["pii"] }, max: 1 }),
+// 	//   then: [block()],
+// 	// }),
 
-	// Block issueRefund requests after the first one.
-	rule.pre({
-		priority: 2,
-		if: maxCalls({
-			selector: { by: "toolName", patterns: ["issueRefund"] },
-			max: 1,
-		}),
-		do: [block()],
-	}),
+// 	// Block issueRefund requests after the first one.
+// 	rule.pre({
+// 		priority: 2,
+// 		if: maxCalls({
+// 			selector: { by: "toolName", patterns: ["issueRefund"] },
+// 			max: 1,
+// 		}),
+// 		do: [block()],
+// 	}),
 
-	// Only allow issueRefund if humanApproval has been sought.
-	rule.pre({
-		priority: 10,
-		if: and(
-			toolName.eq("issueRefund"),
-			sequence({ mustHaveCalled: ["humanApproval"] }),
-		),
-		do: [block()],
-	}),
-];
+// 	// Only allow issueRefund if humanApproval has been sought.
+// 	rule.pre({
+// 		priority: 10,
+// 		if: and(
+// 			toolName.eq("issueRefund"),
+// 			sequence({ mustHaveCalled: ["humanApproval"] }),
+// 		),
+// 		do: [block()],
+// 	}),
+// ];
 
 const system = `
 You are a support assistant solving user issues.
@@ -121,8 +121,8 @@ const agent = new HandlebarAgent({
 	},
 	governance: {
 		userCategory,
-		categories: toolCategories,
-		rules: [], // rules.map(configToRule), // Adds IDs to rules to match expected schema.
+    categories: toolCategories,
+		// rules are queried from the Handlebar API at init.
 	},
 });
 
@@ -147,7 +147,11 @@ const beforeToolUsageMetric: AgentMetricHook = {
 const afterToolUsageMetric: AgentMetricHook<"tool.after"> = {
   phase: "tool.after",
   key: "after_tool_metric_1",
-  run: async ({ toolName, args, runContext, result }) => { // Can be async
+  run: async ({ toolName, runContext, result }) => { // Can be async
+    if (toolName !== "issueRefund") {
+      return;
+    }
+
     const ExpectedOutputSchema = z.object({ balanceTransfer: z.number().min(0) });
 
     // Make use of input args, tool output, or other runtime data.
@@ -169,6 +173,56 @@ agent.governance.registerMetric(afterToolUsageMetric);
 
 // --- Custom metrics end ---
 
+// --- Subjects and signals ---
+
+// We've set a rule for "difficult customers" to always have a human-in-the-loop
+// See `handlebar-rules.json` for the rule
+// Like all signals, "difficult customers" is internal logic that's meaningful to your system,
+// so you define how Handlebar makes use of this information.
+// From the rule we've defined, we need:
+//    (a) A subject representing the customer
+//      (i) this can be extracted from tool args
+//      (ii) this typically might involve a DB or cache read to enrich with internal information you hold about the user
+//      (iii) Subjects don't need to reference people - a subject is a formalisation of any data you want to pass through to Handlebar rules
+//    (b) A signal which defines our "is difficult" attribute, based on the customer in question
+
+// We'll attach a subject to our "getUserProfile" as this is the earliest point
+// where our agent could realise it's coming up against a customer we'd rather handle manually.
+agent.governance.registerSubjectExtractor("getUserProfile", (args) => {
+  console.log(`Subject getUserProfile: ${JSON.stringify(args)}`);
+  const UserProfileSchema = z.object({ userId: z.string() });
+  try {
+    const toolResult = UserProfileSchema.safeParse(args.toolArgs);
+    if (!toolResult.success) {
+      console.log(`getUserProfile: invalid args: ${JSON.stringify(toolResult.error)}`);
+      return [];
+    }
+    return [{
+      subjectType: "customer",
+      role: "primary",
+      id: toolResult.data.userId,
+      idSystem: "crm_customer_id"
+    }];
+  } catch (e) {
+    console.error(`getUserProfile: unexpected error: ${JSON.stringify(e)}`);
+    return [];
+  }
+});
+
+agent.governance.registerSignal("crm.isCustomerDifficult", async (args) => {
+  // TODO: we need better typing on signals and subjects!
+  console.log(`crm.isCustomerDifficult: ${JSON.stringify(args)}`);
+  const expectArgs = args as { customerId: string };
+
+  // here we'd want a DB/CRM/other query to determine our difficulty metric.
+  // For this demo, however, we'll mock
+  // "u_123" represents "alice" in our mock data (./data.ts)
+  const result = expectArgs.customerId === "u_123";
+  console.log(`crm.isCustomerDifficult: ${result}`);
+  return result;
+});
+
+// --- Subjects and signals end ---
 
 const result = await agent.generate(
 	[

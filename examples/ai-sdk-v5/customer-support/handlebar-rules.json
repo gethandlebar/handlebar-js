@@ -1,6 +1,5 @@
 {
   "policy": {
-    "organisationId": "ORG_ID_HERE",
     "name": "Customer Support Demo Guardrails",
     "description": "Demo policy pack for customer support agent (PII, refunds, exports, password resets).",
     "enabled": true,
@@ -43,15 +42,41 @@
     {
       "enabled": true,
       "priority": 80,
-      "name": "Sensitive actions require human approval",
+      "name": "Sensitive actions require human approval, unless user is a superadmin",
       "selector": {
         "phase": "tool.before",
         "tool": { "tagsAll": ["sensitive"], "tagsAny": ["write", "external"] }
       },
-      "condition": { "kind": "and", "all": [] },
+      "condition": { "kind": "not", "not": { "kind": "enduserTag", "op": "hasValue", "tag": "role", "value": "superadmin" } },
       "effect": { "type": "hitl", "reason": "Sensitive external/write action requires human approval." }
     },
-
+    {
+      "enabled": true,
+      "priority": 87,
+      "name": "Difficult or high-value customers should always be reviewed by a human",
+      "selector": {
+        "phase": "tool.before",
+        "tool": { "name": "getUserProfile" }
+      },
+      "condition": { "type": "and", "all": [
+        { "kind": "requireSubject", "subjectType": "customer", "role": "primary" },
+        {
+          "kind": "signal",
+          "key": "crm.isCustomerDifficult",
+          "args": {
+            "customerId": {
+              "from": "subject",
+              "subjectType": "customer",
+              "role": "primary",
+              "field": "id"
+            }
+         	},
+          "op":"eq",
+          "value": true
+        }
+      ]},
+      "effect": { "type": "hitl", "reason": "Sensitive external/write action requires human approval." }
+    },
     {
       "enabled": true,
       "priority": 85,
