@@ -11,6 +11,7 @@ import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
 	type Prompt,
+	type StopCondition,
 	type Tool,
 	type ToolCallOptions,
 	type ToolSet,
@@ -19,6 +20,8 @@ import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
 import { formatPrompt } from "./messages";
 import type { AgentTool } from "@handlebar/core/dist/api/types";
+
+const HANDLEBAR_RULE_VIOLATION_CODE= "HANDLEBAR_RULE_VIOLATION";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -79,7 +82,8 @@ export class HandlebarAgent<
 	private inner: Agent<ToolSet, Ctx, Memory>;
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
-	private runStarted = false;
+  private runStarted = false;
+  private runStopped = false;
 
 	private systemPrompt: string | undefined = undefined;
 	private emittedSystemPrompt = false;
@@ -117,7 +121,9 @@ export class HandlebarAgent<
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) return t;
+      if (!t.execute) {
+        return t;
+      }
 
 			const exec = t.execute.bind(t);
 
@@ -126,11 +132,12 @@ export class HandlebarAgent<
 				async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
-					if (engine.shouldBlock(decision)) {
-						const err = new Error(
-							decision.reason ?? "Blocked by Handlebar governance",
-						);
-						throw err;
+          if (engine.shouldBlock(decision)) {
+            const errorCode = {
+              code: HANDLEBAR_RULE_VIOLATION_CODE,
+              nextStep: "The tool call has violated Handlebar governance. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary"
+            };
+            return errorCode as never;
 					}
 
 					try {
@@ -160,10 +167,40 @@ export class HandlebarAgent<
 					}
 				},
 			} as typeof t;
-		});
+    });
+
+    let stopWhen: StopCondition<NoInfer<ToolSet>>[];
+
+    if (opts.stopWhen === undefined) {
+      stopWhen = [];
+    } else if (!Array.isArray(opts.stopWhen)) {
+      stopWhen = [opts.stopWhen];
+    } else {
+      stopWhen = opts.stopWhen;
+    }
+
+    // Look for HANDLEBAR_RULE_VIOLATION_CODE from response
+    // to indicate that there was a exit-worthy rule violation
+    stopWhen.push(({ steps }) => {
+      const lastStep = steps[steps.length - 1];
+      if (lastStep === undefined) {
+        return false;
+      }
+
+      for (const toolResult of lastStep.toolResults) {
+        try {
+          const output = JSON.stringify(toolResult.output);
+          if (output.includes(HANDLEBAR_RULE_VIOLATION_CODE)) {
+            return true;
+          }
+        } catch { }
+      }
+      return false;
+    });
 
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
-			...rest,
+      ...rest,
+      stopWhen,
 			onStepFinish: async (step) => {
 				if (rest.onStepFinish) {
 					await rest.onStepFinish(step);
@@ -248,7 +285,9 @@ export class HandlebarAgent<
 					this.maybeEmitSystemPrompt();
 				}
 
-				return await fn();
+				const out = await fn();
+				this.runStopped = true;
+				return out;
 			},
 		);
 	}
@@ -308,8 +347,8 @@ export class HandlebarAgent<
 	) {
 		await this.initEngine();
 		return this.withRun(handlebarOpts ?? {}, () => {
-			this.emitMessages(params);
-			return this.inner.generate(...params);
+      this.emitMessages(params);
+      return this.inner.generate(...params);
 		});
 	}
 
@@ -320,8 +359,8 @@ export class HandlebarAgent<
 		await this.initEngine();
 		// TODO: emit streamed messages as audit events.
 		return this.withRun(handlebarOpts ?? {}, () => {
-			this.emitMessages(params);
-			return this.inner.stream(...params);
+      this.emitMessages(params);
+      return this.inner.stream(...params);
 		});
 	}
 
