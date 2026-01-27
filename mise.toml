@@ -8,3 +8,7 @@ npm = { bun = true }
 [tools]
 bun = "1.3.5"
 node = "22.13.1"
+
+[tasks.build]
+run = "bun run --filter '@handlebar/governance-schema' build && bun run --filter '@handlebar/core' build && bun run --filter '@handlebar/ai-sdk-v5' build"
+description = "Build packages in dependency order"
