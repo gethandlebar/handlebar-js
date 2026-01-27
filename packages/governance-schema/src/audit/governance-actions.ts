@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+export const SignalSchema = z.object({
+  key: z.string(),
+  args: z.array(z.string()).optional(),
+  result: z.union([
+    z.object({ ok: z.literal(false), error: z.string().optional() }),
+    z.object({ ok: z.literal(true), value: z.string().max(256) }),
+  ]),
+});
+
 /**
  * "hitl" effect specifically denote human-in-the-loop interventions.
  * Flow blocking/approval as a result of a decided hitl intervention should have the corresponding effect.
@@ -26,7 +35,8 @@ export const GovernanceDecisionSchema = z.object({
 	code: z.custom<GovernanceCode>(),
 	matchedRuleIds: z.array(z.string()), // strings are uuid7-like, with prefix
 	appliedActions: z.array(AppliedActionSchema),
-	reason: z.optional(z.string()),
+  reason: z.optional(z.string()),
+	signals: z.array(SignalSchema).optional(),
 });
 
 export type GovernanceDecision = z.infer<typeof GovernanceDecisionSchema>;

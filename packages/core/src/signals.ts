@@ -1,7 +1,8 @@
 import type { Tool, ToolCall, RunContext } from "./types";
 import type { SubjectRef } from "./subjects";
-import type { SignalCondition, SignalBinding } from "@handlebar/governance-schema";
+import type { SignalCondition, SignalBinding, SignalSchema } from "@handlebar/governance-schema";
 import { stableJson } from "./utils";
+import type z from "zod";
 
 export type SignalProvider<TValue = unknown> = (args: Record<string, unknown>) => TValue | Promise<TValue>;
 export type SignalResult = { ok: true; value: unknown } | { ok: false; error: unknown }
@@ -15,6 +16,27 @@ export type SignalEvalEnv<T extends Tool = Tool> = {
 type Cached =
   | { ok: true; value: unknown }
   | { ok: false; error: unknown };
+
+export function resultToSignalSchema(key: string, result: SignalResult): z.infer<typeof SignalSchema> | undefined {
+  try {
+    if (result.ok) {
+      const resultValue = JSON.stringify(result.value);
+      return {
+        key,
+        result: { ok: true, value: resultValue },
+        args: undefined,
+      };
+    } else {
+      return {
+        key,
+        result: { ok: false, error: String(result.error) },
+        args: undefined,
+      };
+    }
+  } catch {
+    return undefined;
+  }
+}
 
 function getByDotPath(obj: unknown, path: string): unknown {
   const parts = path.split(".").filter(Boolean);

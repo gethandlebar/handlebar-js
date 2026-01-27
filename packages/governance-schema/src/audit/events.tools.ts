@@ -1,6 +1,6 @@
 import z from "zod";
 import { AuditEnvelopeSchema } from "./events.base";
-import { GovernanceDecisionSchema } from "./governance-actions";
+import { GovernanceDecisionSchema, SignalSchema } from "./governance-actions";
 import { AgentMetrics } from "./run-metrics";
 
 const CountersSchema = z.record(z.string(), z.union([z.string(), z.number()]));
@@ -24,15 +24,6 @@ export const SubjectSchema = z.object({
   role: z.string().optional(), // e.g. "primary" | "source" | "dest"
   value: z.string(), // Data representing the subject. Typically an ID, but doesn't have to be.
   idSystem: z.string().optional(), // Provenence of subject data for records. e.g. "crm_contact_id"
-});
-
-export const SignalSchema = z.object({
-  key: z.string(),
-  args: z.array(z.string()).optional(),
-  result: z.union([
-    z.object({ ok: z.literal(false), error: z.string().optional() }),
-    z.object({ ok: z.literal(true), value: z.string().max(256) }),
-  ]),
 });
 
 export const HitlMetaSchema = z.object({

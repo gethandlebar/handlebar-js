@@ -27,7 +27,7 @@ import { millisecondsSince } from "./utils";
 import type { AgentTool } from "./api/types";
 import { approxBytes, approxRecords, AgentMetricCollector, AgentMetricHookRegistry, type AgentMetricHook, type AgentMetricHookPhase } from "./metrics";
 import { SubjectRegistry, type SubjectRef } from "./subjects";
-import { compareSignal, SignalRegistry, type SignalProvider, type SignalResult } from "./signals";
+import { compareSignal, resultToSignalSchema, SignalRegistry, type SignalProvider, type SignalResult } from "./signals";
 import { hhmmToMinutes, nowToTimeParts } from "./time";
 import { decisionCodeFor, effectRank } from "./actions";
 
@@ -422,13 +422,21 @@ export class GovernanceEngine<T extends Tool = Tool> {
       }
     }
 
-    const signalValues = Array.from(signalCache.values());
+    const signals: GovernanceDecision["signals"] = [];
+    for (const [key, result] of signalCache.entries()) {
+      const signal = resultToSignalSchema(key, result);
+      if (signal) {
+        signals.push(signal);
+      }
+    }
+
     return {
       effect: bestEffect,
       code: decisionCodeFor(bestEffect),
       matchedRuleIds,
       appliedActions,
       reason: bestReason,
+      signals,
     };
   }
 
@@ -546,6 +554,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
         code: decision.code,
         reason: decision.reason,
         subjects,
+        signals: decision.signals,
         matchedRuleIds: decision.matchedRuleIds,
         appliedActions: decision.appliedActions,
         counters: { ...ctx.counters },
