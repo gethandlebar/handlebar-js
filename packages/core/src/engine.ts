@@ -422,6 +422,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
       }
     }
 
+    const signalValues = Array.from(signalCache.values());
     return {
       effect: bestEffect,
       code: decisionCodeFor(bestEffect),
@@ -514,6 +515,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
             effect: d.effect,
             code: d.code,
             reason: d.reason,
+            subjects,
             matchedRuleIds: d.matchedRuleIds,
             appliedActions: d.appliedActions,
             counters: { ...ctx.counters },
@@ -543,6 +545,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
         effect: decision.effect,
         code: decision.code,
         reason: decision.reason,
+        subjects,
         matchedRuleIds: decision.matchedRuleIds,
         appliedActions: decision.appliedActions,
         counters: { ...ctx.counters },
