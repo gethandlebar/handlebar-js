@@ -20,10 +20,10 @@ const ToolIdentitySchema = z.object({
 const ToolArgsSchema = z.record(z.string(), z.unknown());
 
 export const SubjectSchema = z.object({
-  subjectType: z.string(), // e.g. "customer", "ticket", "order"
-  role: z.string().optional(), // e.g. "primary" | "source" | "dest"
-  value: z.string(), // Data representing the subject. Typically an ID, but doesn't have to be.
-  idSystem: z.string().optional(), // Provenence of subject data for records. e.g. "crm_contact_id"
+  subjectType: z.string().max(256), // e.g. "customer", "ticket", "order"
+  role: z.string().max(256).optional(), // e.g. "primary" | "source" | "dest"
+  value: z.string().max(256), // Data representing the subject. Typically an ID, but doesn't have to be.
+  idSystem: z.string().max(256).optional(), // Provenence of subject data for records. e.g. "crm_contact_id"
 });
 
 export const HitlMetaSchema = z.object({
@@ -41,8 +41,8 @@ export const ToolDecisionEventSchema = AuditEnvelopeSchema.extend({
 		argsMeta: ToolMetaSchema.optional(),
     hitl: HitlMetaSchema.optional(),
 
-    subjects: z.array(SubjectSchema).optional(),
-    signals: z.array(SignalSchema).optional(),
+    subjects: z.array(SubjectSchema).max(100).optional(),
+    signals: z.array(SignalSchema).max(100).optional(),
 
 		counters: CountersSchema.optional(),
 		latencyMs: z.number().min(0).optional(), // Time in governance

@@ -42,3 +42,12 @@ export class SubjectRegistry<T extends Tool = Tool> {
     }
   }
 }
+
+export function sanitiseSubjects(subjects: SubjectRef[]): SubjectRef[] {
+  return subjects.slice(0, 100).map(subject => ({
+    subjectType: subject.subjectType.slice(0, 256),
+    value: subject.value.slice(0, 256),
+    idSystem: subject.idSystem?.slice(0, 256),
+    role: subject.role?.slice(0, 256),
+  }))
+}

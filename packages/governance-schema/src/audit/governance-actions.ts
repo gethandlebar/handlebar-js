@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const SignalSchema = z.object({
-  key: z.string(),
-  args: z.array(z.string()).optional(),
+  key: z.string().max(256),
+  args: z.array(z.string()).max(100).optional(),
   result: z.union([
     z.object({ ok: z.literal(false), error: z.string().optional() }),
     z.object({ ok: z.literal(true), value: z.string().max(256) }),
@@ -36,7 +36,7 @@ export const GovernanceDecisionSchema = z.object({
 	matchedRuleIds: z.array(z.string()), // strings are uuid7-like, with prefix
 	appliedActions: z.array(AppliedActionSchema),
   reason: z.optional(z.string()),
-	signals: z.array(SignalSchema).optional(),
+	signals: z.array(SignalSchema).max(100).optional(),
 });
 
 export type GovernanceDecision = z.infer<typeof GovernanceDecisionSchema>;

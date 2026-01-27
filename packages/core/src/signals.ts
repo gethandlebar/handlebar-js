@@ -13,14 +13,16 @@ export type SignalEvalEnv<T extends Tool = Tool> = {
   subjects: SubjectRef[];
 };
 
+type Signal = z.infer<typeof SignalSchema>;
+
 type Cached =
   | { ok: true; value: unknown }
   | { ok: false; error: unknown };
 
-export function resultToSignalSchema(key: string, result: SignalResult): z.infer<typeof SignalSchema> | undefined {
+export function resultToSignalSchema(key: string, result: SignalResult): Signal | undefined {
   try {
     if (result.ok) {
-      const resultValue = JSON.stringify(result.value);
+      const resultValue = JSON.stringify(result.value).slice(0, 256);
       return {
         key,
         result: { ok: true, value: resultValue },
@@ -156,4 +158,12 @@ export class SignalRegistry {
       return { ok: false, error };
     }
   }
+}
+
+export function sanitiseSignals(signals: Signal[]): Signal[] {
+  return signals.slice(100).map(signal => ({
+    key: signal.key.slice(256),
+    result: signal.result.ok ? { ok: true, value: signal.result.value.slice(256) } : signal.result,
+    args: signal.args?.slice(100).map(a => a.slice(256)),
+  }));
 }
