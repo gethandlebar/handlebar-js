@@ -81,7 +81,7 @@ export class ApiManager {
 
 		try {
 			rules = await this.fetchAgentRules(agentId);
-			console.debug(`Got Handlebar ${rules?.length} rules from api`);
+			console.debug(`[Handlebar] Loading ${rules?.length} rules`);
 		} catch (error) {
 			console.error("Error fetching rules:", error);
 			return null;
@@ -119,7 +119,6 @@ export class ApiManager {
         tags: agentInfo.tags,
         tools,
       });
-      console.log(agentData);
 			const response = await fetch(url.toString(), {
 				method: "PUT",
 				headers: this.headers("json"),
@@ -134,12 +133,9 @@ export class ApiManager {
 	}
 
 	private async fetchAgentRules(agentId: string): Promise<Rule[] | null> {
-		const url = new URL("/v1/rules", this.apiEndpoint);
-		const params = new URLSearchParams({
-			agentId,
-		});
+		const url = new URL(`/v1/rules/agent/${agentId}`, this.apiEndpoint);
 
-		const response = await fetch(`${url.toString()}?${params.toString()}`, {
+		const response = await fetch(url.toString(), {
 			headers: this.headers(),
 		});
 

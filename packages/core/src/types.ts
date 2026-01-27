@@ -1,7 +1,7 @@
 import type {
 	GovernanceDecision,
 	GovernanceEffect,
-	Rule,
+    Rule,
 } from "@handlebar/governance-schema";
 import type { HandlebarRunOpts } from "./runs";
 
