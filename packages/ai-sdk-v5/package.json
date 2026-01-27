@@ -15,7 +15,8 @@
 	"dependencies": {
 		"@handlebar/core": "0.0.6-dev.0",
 		"@handlebar/governance-schema": "0.0.6-dev.7",
-		"uuidv7": "^1.1.0"
+		"uuidv7": "^1.1.0",
+		"zod": "^4.3.6"
 	},
 	"peerDependencies": {
 		"ai": "^5.0.80"

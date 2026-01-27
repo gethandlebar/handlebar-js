@@ -207,26 +207,23 @@ agent.governance.registerSignal("crm.isCustomerDifficult", async (args) => {
 
 // --- Subjects and signals end ---
 
-const result = await agent.generate(
-	[
-		{
-			prompt: "Solve alice's issue.",
-		},
-	],
-	{
-		enduser: {
-			externalId: "an-external-user", // The user's ID in your system, so you can identify their agent usage.
-			metadata: { role: "user" }, // Optional
-			// Group information is optional.
-			// If provided, Handlebar will link the provided user to the group.
-			group: {
-				externalId: "org1",
-				name: "Your customer org",
-				metadata: { region: "eu", plan: "premium" },
-			},
-		},
-	},
-);
+const runtimeUser = {
+  enduser: {
+    externalId: "an-external-user", // The user's ID in your system, so you can identify their agent usage.
+    metadata: { role: "user" }, // Optional
+    // Group information is optional.
+    // If provided, Handlebar will link the provided user to the group.
+    group: {
+      externalId: "org1",
+      name: "Your customer org",
+      metadata: { region: "eu", plan: "premium" },
+    },
+  },
+}
+
+// OPTIONAL: pass in runtime enduser information in `with`.
+// Otherwise, you execute the agent as you would normally on Vercel's Agent class.
+const result = await agent.with(runtimeUser).generate({ prompt: "Solve alice's issue." });
 
 console.log(result.text);
 console.log(
