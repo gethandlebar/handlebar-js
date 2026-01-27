@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const SignalSchema = z.object({
   key: z.string().max(256),
-  args: z.array(z.string()).max(100).optional(),
+  args: z.array(z.string().max(256)).max(100).optional(),
   result: z.union([
     z.object({ ok: z.literal(false), error: z.string().optional() }),
     z.object({ ok: z.literal(true), value: z.string().max(256) }),
