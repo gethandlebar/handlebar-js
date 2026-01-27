@@ -192,7 +192,7 @@ agent.governance.registerSubjectExtractor("getUserProfile", (args) => {
     return [{
       subjectType: "customer",
       role: "primary",
-      id: toolResult.data.userId,
+      value: toolResult.data.userId,
       idSystem: "crm_customer_id"
     }];
   } catch (e) {

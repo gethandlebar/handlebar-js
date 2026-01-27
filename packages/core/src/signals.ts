@@ -1,7 +1,8 @@
 import type { Tool, ToolCall, RunContext } from "./types";
 import type { SubjectRef } from "./subjects";
-import type { SignalCondition, SignalBinding } from "@handlebar/governance-schema";
+import type { SignalCondition, SignalBinding, SignalSchema } from "@handlebar/governance-schema";
 import { stableJson } from "./utils";
+import type z from "zod";
 
 export type SignalProvider<TValue = unknown> = (args: Record<string, unknown>) => TValue | Promise<TValue>;
 export type SignalResult = { ok: true; value: unknown } | { ok: false; error: unknown }
@@ -12,9 +13,32 @@ export type SignalEvalEnv<T extends Tool = Tool> = {
   subjects: SubjectRef[];
 };
 
+type Signal = z.infer<typeof SignalSchema>;
+
 type Cached =
   | { ok: true; value: unknown }
   | { ok: false; error: unknown };
+
+export function resultToSignalSchema(key: string, result: SignalResult): Signal | undefined {
+  try {
+    if (result.ok) {
+      const resultValue = JSON.stringify(result.value).slice(0, 256);
+      return {
+        key,
+        result: { ok: true, value: resultValue },
+        args: undefined,
+      };
+    } else {
+      return {
+        key,
+        result: { ok: false, error: String(result.error) },
+        args: undefined,
+      };
+    }
+  } catch {
+    return undefined;
+  }
+}
 
 function getByDotPath(obj: unknown, path: string): unknown {
   const parts = path.split(".").filter(Boolean);
@@ -92,7 +116,7 @@ export class SignalRegistry {
         if (!s0) { return undefined; }
 
         const field = binding.field ?? "id";
-        return field === "idSystem" ? s0.idSystem : s0.id;
+        return field === "idSystem" ? s0.idSystem : s0.value;
       }
 
       case "const":
@@ -134,4 +158,12 @@ export class SignalRegistry {
       return { ok: false, error };
     }
   }
+}
+
+export function sanitiseSignals(signals: Signal[]): Signal[] {
+  return signals.slice(100).map(signal => ({
+    key: signal.key.slice(256),
+    result: signal.result.ok ? { ok: true, value: signal.result.value.slice(256) } : signal.result,
+    args: signal.args?.slice(100).map(a => a.slice(256)),
+  }));
 }

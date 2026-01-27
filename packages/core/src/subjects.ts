@@ -1,11 +1,8 @@
+import type z from "zod";
 import type { RunContext, Tool, ToolMeta } from "./types";
+import type { SubjectSchema } from "@handlebar/governance-schema";
 
-export type SubjectRef = {
-  subjectType: string;   // e.g. "customer", "ticket", "order"
-  role?: string;         // e.g. "primary" | "source" | "dest"
-  id: string;
-  idSystem?: string;     // e.g. "crm_contact_id"
-};
+export type SubjectRef = z.infer<typeof SubjectSchema>;
 
 export type SubjectExtractor<T extends Tool = Tool> = (args: {
   tool: ToolMeta<T>;
@@ -44,4 +41,13 @@ export class SubjectRegistry<T extends Tool = Tool> {
       return [];
     }
   }
+}
+
+export function sanitiseSubjects(subjects: SubjectRef[]): SubjectRef[] {
+  return subjects.slice(0, 100).map(subject => ({
+    subjectType: subject.subjectType.slice(0, 256),
+    value: subject.value.slice(0, 256),
+    idSystem: subject.idSystem?.slice(0, 256),
+    role: subject.role?.slice(0, 256),
+  }))
 }
