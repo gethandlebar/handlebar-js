@@ -130,7 +130,6 @@ const agent = new HandlebarAgent({
 	model,
 	tools,
 	governance: {
-		userCategory: "admin",
 		categories: toolCategories,
 		rules,
 	},

@@ -67,10 +67,10 @@ export class SignalRegistry {
 
   private bind(binding: SignalBinding, env: SignalEvalEnv): unknown {
     switch (binding.from) {
-      case "endUserId":
+      case "enduserId":
         return env.ctx.enduser?.externalId;
 
-      case "endUserTag":
+      case "enduserTag":
         return env.ctx.enduser?.metadata?.[binding.tag];
 
       case "toolName":

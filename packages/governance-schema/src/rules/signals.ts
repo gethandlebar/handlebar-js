@@ -16,8 +16,8 @@ export type RequireSubjectCondition = {
 };
 
 export type SignalBinding =
-	  | { from: "endUserId" }
-    | { from: "endUserTag"; tag: string }
+	  | { from: "enduserId" }
+    | { from: "enduserTag"; tag: string }
     | { from: "toolName" }
     | { from: "toolTag"; tag: string }
     | { from: "toolArg"; path: string } // Dot-path
