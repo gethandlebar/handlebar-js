@@ -92,7 +92,7 @@ export class SignalRegistry {
         if (!s0) { return undefined; }
 
         const field = binding.field ?? "id";
-        return field === "idSystem" ? s0.idSystem : s0.id;
+        return field === "idSystem" ? s0.idSystem : s0.value;
       }
 
       case "const":

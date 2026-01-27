@@ -19,6 +19,22 @@ const ToolIdentitySchema = z.object({
 
 const ToolArgsSchema = z.record(z.string(), z.unknown());
 
+export const SubjectSchema = z.object({
+  subjectType: z.string(), // e.g. "customer", "ticket", "order"
+  role: z.string().optional(), // e.g. "primary" | "source" | "dest"
+  value: z.string(), // Data representing the subject. Typically an ID, but doesn't have to be.
+  idSystem: z.string().optional(), // Provenence of subject data for records. e.g. "crm_contact_id"
+});
+
+export const SignalSchema = z.object({
+  key: z.string(),
+  args: z.array(z.string()).optional(),
+  result: z.union([
+    z.object({ ok: z.literal(false), error: z.string().optional() }),
+    z.object({ ok: z.literal(true), value: z.string().max(256) }),
+  ]),
+});
+
 export const HitlMetaSchema = z.object({
 	hitlActionId: z.string().optional(), // PK on hitl action.
 	fingerprint: z.string().optional(), // Typically agent+tool+args hash
@@ -32,7 +48,10 @@ export const ToolDecisionEventSchema = AuditEnvelopeSchema.extend({
 		tool: ToolIdentitySchema,
 		args: ToolArgsSchema.optional(),
 		argsMeta: ToolMetaSchema.optional(),
-		hitl: HitlMetaSchema.optional(),
+    hitl: HitlMetaSchema.optional(),
+
+    subjects: z.array(SubjectSchema).optional(),
+    signals: z.array(SignalSchema).optional(),
 
 		counters: CountersSchema.optional(),
 		latencyMs: z.number().min(0).optional(), // Time in governance
