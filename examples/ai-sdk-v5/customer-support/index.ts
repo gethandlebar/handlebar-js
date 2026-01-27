@@ -209,12 +209,12 @@ agent.governance.registerSignal("crm.isCustomerDifficult", async (args) => {
 
 const runtimeUser = {
   enduser: {
-    externalId: "an-external-user", // The user's ID in your system, so you can identify their agent usage.
+    externalId: "an-enduser-id", // The user's ID in your system, so you can identify their agent usage.
     metadata: { role: "user" }, // Optional
     // Group information is optional.
     // If provided, Handlebar will link the provided user to the group.
     group: {
-      externalId: "org1",
+      externalId: "endusers-org",
       name: "Your customer org",
       metadata: { region: "eu", plan: "premium" },
     },
