@@ -63,14 +63,6 @@ You are a support assistant solving user issues.
 You will be given a brief request from our internal customer support team. You must, to the best of your ability, use the tools available to you to autonomously resolve the issue, to the extent which is possible.
 Plan tool use, then produce a final answer for the user.`.trim();
 
-const args = minimist(process.argv.slice(2));
-const userCategory = args["admin"] ? "admin" : "randomuser";
-const paymentSequence = args["approval"];
-
-console.log(
-	`User category: ${userCategory}; Enforcing human approval: ${paymentSequence ? "enabled" : "disabled"}`,
-);
-
 const tools = {
 	findUserIds,
 	getUserProfile,
@@ -112,7 +104,6 @@ const agent = new HandlebarAgent({
 		slug: "customer-support",
 	},
 	governance: {
-		userCategory,
     categories: toolCategories,
 		// rules are queried from the Handlebar API at init.
 	},

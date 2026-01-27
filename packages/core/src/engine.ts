@@ -98,13 +98,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
   createRunContext(
     runId: string,
-    userCategory: string,
     now = () => Date.now(),
     initialCounters?: Record<string, number>,
   ): RunContext<T> {
     return {
       runId,
-      userCategory,
       stepIndex: 0,
       history: [],
       counters: {
@@ -176,7 +174,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
   private evalTimeGate(cond: TimeGateCondition, ctx: RunContext<T>): boolean {
     // timezone from enduserTag
     const enduser = ctx.enduser;
-    const tzTag = cond.timezone?.source === "endUserTag" ? cond.timezone.tag : undefined;
+    const tzTag = cond.timezone?.source === "enduserTag" ? cond.timezone.tag : undefined;
     const tz = tzTag ? enduser?.metadata?.[tzTag] : undefined;
 
     // fallback "org" not implemented in MVP client. If missing => fail closed.

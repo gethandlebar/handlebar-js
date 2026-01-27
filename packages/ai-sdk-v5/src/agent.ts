@@ -63,7 +63,6 @@ type HandlebarAgentOpts<
 	Memory,
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
-		userCategory?: string;
 		categories?: Record<string, string[]>; // tool categories by name
 	};
 	agent?: {
@@ -117,7 +116,6 @@ export class HandlebarAgent<
 
 		const runCtx = engine.createRunContext(
 			runId,
-			governance?.userCategory ?? "unknown", // TODO: remove userCategory.
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
@@ -269,7 +267,6 @@ export class HandlebarAgent<
 		return withRunContext(
 			{
 				runId: this.runCtx.runId,
-				userCategory: this.runCtx.userCategory,
 				stepIndex: this.runCtx.stepIndex,
 				enduser: opts.enduser,
 			},
