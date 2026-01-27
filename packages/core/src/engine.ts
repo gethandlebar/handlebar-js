@@ -95,22 +95,25 @@ export class GovernanceEngine<T extends Tool = Tool> {
     this.signals.register(key, provider);
   }
 
-
   createRunContext(
     runId: string,
+    opts?: {
+      initialCounters?: Record<string, number>,
+      enduser?: EndUserConfig & { group?: EndUserGroupConfig }
+    },
     now = () => Date.now(),
-    initialCounters?: Record<string, number>,
   ): RunContext<T> {
     return {
       runId,
       stepIndex: 0,
       history: [],
       counters: {
-        ...(initialCounters ?? {}),
+        ...(opts?.initialCounters ?? {}),
         [TOTAL_DURATION_COUNTER]: 0,
       },
       state: new Map(),
       now,
+      enduser: opts?.enduser,
     };
   }
 

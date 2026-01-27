@@ -63,8 +63,8 @@ type HandlebarAgentOpts<
 	Memory,
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
-		categories?: Record<string, string[]>; // tool categories by name
-	};
+    categories?: Record<string, string[]>; // tool categories by name
+	} & HandlebarRunOpts;
 	agent?: {
 		slug: string;
 		name?: string;
@@ -80,9 +80,8 @@ export class HandlebarAgent<
 > {
 	private inner: Agent<ToolSet, Ctx, Memory>;
 	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
-	private runCtx: RunContext<ToCoreTool<ToolSet>>;
+  private runCtx: RunContext<ToCoreTool<ToolSet>>;
   private runStarted = false;
-  private runStopped = false;
 
 	private systemPrompt: string | undefined = undefined;
 	private emittedSystemPrompt = false;
@@ -115,7 +114,8 @@ export class HandlebarAgent<
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
 		const runCtx = engine.createRunContext(
-			runId,
+      runId,
+      { enduser: governance?.enduser }
 		);
 
 		const wrapped = mapTools(tools, (name, t) => {
@@ -258,17 +258,16 @@ export class HandlebarAgent<
 			this.toolInfo(),
 		);
 		this.hasInitialisedEngine = true;
-	}
+  }
 
 	private withRun<T>(
-		opts: HandlebarRunOpts,
 		fn: () => Promise<T> | T,
 	): Promise<T> | T {
 		return withRunContext(
 			{
 				runId: this.runCtx.runId,
 				stepIndex: this.runCtx.stepIndex,
-				enduser: opts.enduser,
+				enduser: this.runCtx.enduser,
 			},
 			async () => {
 				if (!this.runStarted) {
@@ -277,13 +276,12 @@ export class HandlebarAgent<
 					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
-						enduser: opts.enduser,
+						enduser: this.runCtx.enduser,
 					});
 					this.maybeEmitSystemPrompt();
 				}
 
 				const out = await fn();
-				this.runStopped = true;
 				return out;
 			},
 		);
@@ -334,39 +332,40 @@ export class HandlebarAgent<
 				}
 			}
 		}
-	}
+  }
 
-	// TODO: fix input signature: this requires users to wrap inputs in an array, vs. doing "...params".
-	// Maybe extend params directly with handlebarOpts?
+  public with(opts: HandlebarRunOpts) {
+    this.runCtx.enduser = opts.enduser;
+    return this;
+  }
+
 	async generate(
-		params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>,
-		handlebarOpts?: HandlebarRunOpts,
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>
 	) {
 		await this.initEngine();
-		return this.withRun(handlebarOpts ?? {}, () => {
+		return this.withRun(() => {
       this.emitMessages(params);
       return this.inner.generate(...params);
 		});
-	}
+  }
+
 
 	async stream(
-		params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>,
-		handlebarOpts?: HandlebarRunOpts,
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>
 	) {
 		await this.initEngine();
 		// TODO: emit streamed messages as audit events.
-		return this.withRun(handlebarOpts ?? {}, () => {
+		return this.withRun(() => {
       this.emitMessages(params);
       return this.inner.stream(...params);
 		});
 	}
 
 	async respond(
-		params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>,
-		handlebarOpts?: HandlebarRunOpts,
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>
 	) {
 		await this.initEngine();
-		return this.withRun(handlebarOpts ?? {}, () => {
+		return this.withRun(() => {
 			// this.emitMessages(params); // TODO: fix type error.
 			return this.inner.respond(...params);
 		});
