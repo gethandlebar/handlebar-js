@@ -1,12 +1,12 @@
-import type { Tool, ToolCall, RunContext } from "./types";
-import type { SubjectRef } from "./subjects";
 import type {
-	SignalCondition,
 	SignalBinding,
+	SignalCondition,
 	SignalSchema,
 } from "@handlebar/governance-schema";
-import { stableJson } from "./utils";
 import type z from "zod";
+import type { SubjectRef } from "./subjects";
+import type { RunContext, Tool, ToolCall } from "./types";
+import { stableJson } from "./utils";
 
 export type SignalProvider<TValue = unknown> = (
 	args: Record<string, unknown>,

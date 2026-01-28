@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { type JSONValue, JSONValueSchema } from "./common";
-import { type RuleEffectKind, RuleEffectKindSchema } from "./effects";
+import { JSONValueSchema } from "./common";
+import { RuleEffectKindSchema } from "./effects";
 
 export const RequireSubjectConditionSchema = z
 	.object({
