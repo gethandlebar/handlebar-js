@@ -1,13 +1,14 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
-	generateSlug,
 	type GovernanceConfig,
 	GovernanceEngine,
+	generateSlug,
 	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
+import type { AgentTool } from "@handlebar/core/dist/api/types";
 import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
@@ -20,7 +21,6 @@ import {
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
 import { formatPrompt } from "./messages";
-import type { AgentTool } from "@handlebar/core/dist/api/types";
 
 const HANDLEBAR_RULE_VIOLATION_CODE = "HANDLEBAR_RULE_VIOLATION";
 
