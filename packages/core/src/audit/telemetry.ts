@@ -13,6 +13,19 @@ class TelemetrySingleton {
 	private _bus: AuditBus | null = null;
 	private _inited = false;
 
+	private loadEndpoint(opts?: TelemetryOptions) {
+		let endpoint =
+			opts?.endpoint ??
+			process.env.HANDLEBAR_API_ENDPOINT ??
+			"https://api.gethandlebar.com";
+		if (!endpoint.endsWith("/")) {
+			endpoint += "/";
+		}
+
+		endpoint += "v1/audit/ingest";
+		return endpoint;
+	}
+
 	init(opts?: TelemetryOptions) {
 		if (this._inited) {
 			return;
@@ -21,18 +34,17 @@ class TelemetrySingleton {
 		this._inited = true;
 		this._bus = createAuditBus();
 
-		const endpoint = opts?.endpoint ?? process.env.HANDLEBAR_AUDIT_ENDPOINT;
+		const endpoint = this.loadEndpoint(opts);
 		const apiKey = opts?.apiKey ?? process.env.HANDLEBAR_API_KEY;
 
-		// TODO: remove default console log before publish.
-		const defaults = opts?.defaultSinks ?? (endpoint ? ["http"] : ["console"]);
+		const defaults = opts?.defaultSinks ?? (apiKey ? ["http"] : ["console"]);
 
 		const sinks: AuditSink[] = [];
 		if (defaults.includes("console")) {
 			sinks.push(ConsoleSink("json"));
 		}
 
-		if (defaults.includes("http") && endpoint) {
+		if (defaults.includes("http")) {
 			const headers = {
 				Authorization: apiKey ? `Bearer ${apiKey}` : "",
 				...(opts?.headers ?? {}),
