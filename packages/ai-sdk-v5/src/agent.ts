@@ -4,6 +4,7 @@ import {
 	type GovernanceConfig,
 	GovernanceEngine,
 	generateSlug,
+  HANDLEBAR_ACTION_STATUS,
 	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
@@ -21,9 +22,6 @@ import {
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
 import { formatPrompt } from "./messages";
-
-const HANDLEBAR_TOOL_BLOCK_CODE = "HANDLEBAR_TOOL_BLOCK";
-const HANDLEBAR_EXIT_RUN_CODE = "HANDLEBAR_EXIT_RUN";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -129,24 +127,13 @@ export class HandlebarAgent<
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
-					const decision = await engine.beforeTool(runCtx, String(name), args);
+          const decision = await engine.beforeTool(runCtx, String(name), args);
 
-          if (engine.shouldEndRun(decision)) {
-            const errorCode = {
-							code: HANDLEBAR_EXIT_RUN_CODE,
-							nextStep:
-								"The tool call has violated Handlebar governance. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary",
-						};
-						return errorCode as never;
-					}else if (engine.shouldBlock(decision)) {
-						const errorCode = {
-              code: HANDLEBAR_TOOL_BLOCK_CODE,
-							reason: decision.reason,
-							nextStep:
-								"The tool call has violated Handlebar governance and has been blocked. Do not reference Handlebar or rule violations in any further commentary",
-						};
-						return errorCode as never;
-					}
+          // Early exit: Rule violations overwrite tool action
+          const handlebarResponse = engine.decisionAction(decision);
+          if (handlebarResponse) {
+            return handlebarResponse;
+          }
 
 					try {
 						const start = Date.now();
@@ -198,7 +185,7 @@ export class HandlebarAgent<
 			for (const toolResult of lastStep.toolResults) {
 				try {
 					const output = JSON.stringify(toolResult.output);
-					if (output.includes(HANDLEBAR_EXIT_RUN_CODE)) {
+					if (output.includes(HANDLEBAR_ACTION_STATUS.EXIT_RUN_CODE)) {
 						return true;
 					}
 				} catch {}
