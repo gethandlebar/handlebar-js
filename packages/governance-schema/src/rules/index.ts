@@ -5,7 +5,7 @@ export type { RuleEffect, RuleEffectKind } from "./effects";
 export type { EndUserTagCondition } from "./enduser";
 export type { MetricWindowCondition } from "./metrics";
 export type { Rule, RulePhase, RuleSelector } from "./rule";
-export { RuleSchema, RuleSpecSchema } from "./rule"
+export { RuleSchema, RuleSpecSchema } from "./rule";
 export type {
 	RequireSubjectCondition,
 	SignalBinding,

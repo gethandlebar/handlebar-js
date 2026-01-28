@@ -11,11 +11,23 @@ export type RuleEffectKind = z.infer<typeof RuleEffectKindSchema>;
  * which would include "log" or "modify context".
  */
 export const RuleEffectSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("allow"), reason: z.string().max(500).optional() }).strict(),
-  z.object({ type: z.literal("hitl"), reason: z.string().max(500).optional() }).strict(),
-  z.object({ type: z.literal("block"), reason: z.string().max(500).optional() }).strict(),
-// Possible future expansions.
-// | { type: "require_step"; toolName: string; withinSeconds?: number; reason?: string }
-// | { type: "redact"; fields: string[]; reason?: string };
+	z
+		.object({
+			type: z.literal("allow"),
+			reason: z.string().max(500).optional(),
+		})
+		.strict(),
+	z
+		.object({ type: z.literal("hitl"), reason: z.string().max(500).optional() })
+		.strict(),
+	z
+		.object({
+			type: z.literal("block"),
+			reason: z.string().max(500).optional(),
+		})
+		.strict(),
+	// Possible future expansions.
+	// | { type: "require_step"; toolName: string; withinSeconds?: number; reason?: string }
+	// | { type: "redact"; fields: string[]; reason?: string };
 ]);
 export type RuleEffect = z.infer<typeof RuleEffectSchema>;
