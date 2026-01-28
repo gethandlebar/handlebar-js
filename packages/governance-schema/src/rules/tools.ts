@@ -1,58 +1,59 @@
-import type { Glob } from "./common";
+import { z } from "zod";
+import { GlobSchema } from "./common";
 
-/**
- * Match on a tool's name.
- * - glob comparator supports wildcard matching
- * - in comparator permits list membership check
- */
-export type ToolNameCondition =
-	| {
-			kind: "toolName";
-			op: "eq" | "neq" | "contains" | "startsWith" | "endsWith" | "glob";
-			value: string | Glob;
-	  }
-	| {
-			kind: "toolName";
-			op: "in";
-			value: (string | Glob)[];
-	  };
+export const ToolNameConditionSchema = z.discriminatedUnion("op", [
+  z
+    .object({
+      kind: z.literal("toolName"),
+      op: z.enum(["eq", "neq", "contains", "startsWith", "endsWith", "glob"]),
+      value: z.string().min(1), // (string | Glob) == string at runtime
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("toolName"),
+      op: z.literal("in"),
+      value: z.array(z.string().min(1)).min(1),
+    })
+    .strict(),
+]);
+export type ToolNameCondition = z.infer<typeof ToolNameConditionSchema>;
 
-/**
- * Match on tool tags present on the tool.
- * - has: single tag must be present
- * - anyOf: at least one tag present
- * - allOf: every provided tag must be present
- */
-export type ToolTagCondition =
-	| { kind: "toolTag"; op: "has"; tag: string }
-	| { kind: "toolTag"; op: "anyOf"; tags: string[] }
-	| { kind: "toolTag"; op: "allOf"; tags: string[] };
+export const ToolTagConditionSchema = z.discriminatedUnion("op", [
+  z.object({ kind: z.literal("toolTag"), op: z.literal("has"), tag: z.string().min(1) }).strict(),
+  z
+    .object({ kind: z.literal("toolTag"), op: z.literal("anyOf"), tags: z.array(z.string().min(1)).min(1) })
+    .strict(),
+  z
+    .object({ kind: z.literal("toolTag"), op: z.literal("allOf"), tags: z.array(z.string().min(1)).min(1) })
+    .strict(),
+]);
+export type ToolTagCondition = z.infer<typeof ToolTagConditionSchema>;
 
-/**
- * Enforce sequencing constraints within the current run history.
- * - mustHaveCalled: all listed tool name patterns must have been called earlier
- * - mustNotHaveCalled: none of the listed patterns may have been called earlier
- */
-export type SequenceCondition = {
-	kind: "sequence";
-	mustHaveCalled?: Glob[];
-	mustNotHaveCalled?: Glob[];
-};
+export const SequenceConditionSchema = z
+  .object({
+    kind: z.literal("sequence"),
+    mustHaveCalled: z.array(GlobSchema).min(1).optional(),
+    mustNotHaveCalled: z.array(GlobSchema).min(1).optional(),
+  })
+  .strict()
+  .refine(
+    (v) => v.mustHaveCalled?.length || v.mustNotHaveCalled?.length,
+    "sequence requires mustHaveCalled and/or mustNotHaveCalled"
+  );
+export type SequenceCondition = z.infer<typeof SequenceConditionSchema>;
 
-/**
- * Select tools for counting within a run.
- * - by toolName: count calls whose name matches any provided glob patterns
- * - by toolTag: count calls whose tool includes any of the provided tags
- */
-export type MaxCallsSelector =
-	| { by: "toolName"; patterns: Glob[] }
-	| { by: "toolTag"; tags: string[] };
+export const MaxCallsSelectorSchema = z.discriminatedUnion("by", [
+  z.object({ by: z.literal("toolName"), patterns: z.array(GlobSchema).min(1) }).strict(),
+  z.object({ by: z.literal("toolTag"), tags: z.array(z.string().min(1)).min(1) }).strict(),
+]);
+export type MaxCallsSelector = z.infer<typeof MaxCallsSelectorSchema>;
 
-/**
- * Assert a maximum number of calls within a run for the selected tools (inclusive).
- */
-export type MaxCallsCondition = {
-	kind: "maxCalls";
-	selector: MaxCallsSelector;
-	max: number;
-};
+export const MaxCallsConditionSchema = z
+  .object({
+    kind: z.literal("maxCalls"),
+    selector: MaxCallsSelectorSchema,
+    max: z.number().int().nonnegative(),
+  })
+  .strict();
+export type MaxCallsCondition = z.infer<typeof MaxCallsConditionSchema>;
