@@ -1,8 +1,8 @@
 import type { CustomFunctionCondition } from "./custom";
-import type { MetricWindowCondition } from "./metrics";
 import type { EndUserTagCondition } from "./enduser";
+import type { MetricWindowCondition } from "./metrics";
 import type { RequireSubjectCondition, SignalCondition } from "./signals";
-import type { TimeGateCondition, ExecutionTimeCondition } from "./time";
+import type { ExecutionTimeCondition, TimeGateCondition } from "./time";
 import type {
 	MaxCallsCondition,
 	SequenceCondition,
