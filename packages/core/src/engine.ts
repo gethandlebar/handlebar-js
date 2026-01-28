@@ -64,8 +64,8 @@ type EvalArgs<T extends Tool = Tool> = {
 };
 
 export const HANDLEBAR_ACTION_STATUS = {
-  EXIT_RUN_CODE: "HANDLEBAR_EXIT_RUN",
-  TOOL_BLOCK_CODE: "HANDLEBAR_TOOL_BLOCK",
+	EXIT_RUN_CODE: "HANDLEBAR_EXIT_RUN",
+	TOOL_BLOCK_CODE: "HANDLEBAR_TOOL_BLOCK",
 };
 
 const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
@@ -802,29 +802,31 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		);
 
 		incStep();
-  }
+	}
 
-  public decisionAction(decision: GovernanceDecision) {
-    if (this.mode === "monitor" || decision.effect === "allow") {
-      return null;
-    }
+	public decisionAction(decision: GovernanceDecision) {
+		if (this.mode === "monitor" || decision.effect === "allow") {
+			return null;
+		}
 
-    if (decision.effect === "hitl") {
-      return {
-        code: HANDLEBAR_ACTION_STATUS.EXIT_RUN_CODE,
-        agentNextStep: "The tool call has violated Handlebar governance. The tool call has been blocked and the run ended. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary",
-        reason: decision.reason,
-      };
-    }
+		if (decision.effect === "hitl") {
+			return {
+				code: HANDLEBAR_ACTION_STATUS.EXIT_RUN_CODE,
+				agentNextStep:
+					"The tool call has violated Handlebar governance. The tool call has been blocked and the run ended. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary",
+				reason: decision.reason,
+			};
+		}
 
-    if (decision.effect === "block") {
-      return {
-        code: HANDLEBAR_ACTION_STATUS.TOOL_BLOCK_CODE,
-        agentNextStep: "The tool call has violated Handlebar governance and has been blocked. Do not reference Handlebar or rule violations in any further commentary",
-        reason: decision.reason,
-      }
-    }
+		if (decision.effect === "block") {
+			return {
+				code: HANDLEBAR_ACTION_STATUS.TOOL_BLOCK_CODE,
+				agentNextStep:
+					"The tool call has violated Handlebar governance and has been blocked. Do not reference Handlebar or rule violations in any further commentary",
+				reason: decision.reason,
+			};
+		}
 
-    return null;
-  }
+		return null;
+	}
 }

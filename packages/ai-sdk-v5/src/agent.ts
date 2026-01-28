@@ -4,7 +4,7 @@ import {
 	type GovernanceConfig,
 	GovernanceEngine,
 	generateSlug,
-  HANDLEBAR_ACTION_STATUS,
+	HANDLEBAR_ACTION_STATUS,
 	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
@@ -127,13 +127,13 @@ export class HandlebarAgent<
 			return {
 				...t,
 				async execute(args: unknown, options: ToolCallOptions) {
-          const decision = await engine.beforeTool(runCtx, String(name), args);
+					const decision = await engine.beforeTool(runCtx, String(name), args);
 
-          // Early exit: Rule violations overwrite tool action
-          const handlebarResponse = engine.decisionAction(decision);
-          if (handlebarResponse) {
-            return handlebarResponse;
-          }
+					// Early exit: Rule violations overwrite tool action
+					const handlebarResponse = engine.decisionAction(decision);
+					if (handlebarResponse) {
+						return handlebarResponse;
+					}
 
 					try {
 						const start = Date.now();
