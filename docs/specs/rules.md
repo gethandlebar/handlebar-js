@@ -6,14 +6,16 @@ A Handlebar "rule" is a logical condition evaluation on an agent's actions (hist
 - `effect`: the single consequence if the rule condition is evaluated as true
 - `condition`: The logical evaluation of the rule
 
+The selector gates whether to evaluate: If it does not match, rule is skipped and the process continues. If the selector matches, the condition is evaluated. If the condition is matched, the effect is applied.
+
 The complete spec for defining a new rule is:
 ```
 {
 	priority: number;
 	enabled: boolean;
 	name: string;
-	selector: RuleSelector; // Cheap gating for rule applicability.
-	condition: RuleCondition; // Full logic for evaluation. Should NOT include selector logic.
+	selector: RuleSelector;
+	condition: RuleCondition;
 	effect: RuleEffect;
 }
 ```

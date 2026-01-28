@@ -12,3 +12,5 @@ Refer to the documentation on rules and policies before evaluating this API rout
   rules: RuleSpec[]
 }
 ```
+
+**IMPORTANT:** This route does not handle duplication/upserts. If it is invoked again with the same policy/rules, duplicate policies/rules will be created.
