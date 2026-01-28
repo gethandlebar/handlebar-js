@@ -1,3 +1,4 @@
+import { createHash, randomInt } from "node:crypto";
 import type { ISO8601 } from "./types";
 
 export function millisecondsSince(initialTime: number): number {
@@ -38,4 +39,50 @@ export function stableJson(v: unknown): string {
   };
 
   return JSON.stringify(norm(v));
+}
+
+// https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
+function mulberry32(a: number) {
+    return function() {
+      var t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+function hashToSeed(input: string): number {
+  const hash = createHash("sha256").update(input).digest();
+  return hash.readUInt32LE(0);
+}
+
+const SLUG_PARTS = [
+  "chainring",
+  "spoke",
+  "handlebar",
+  "bell",
+  "seatpost",
+  "frame",
+  "drivetrain",
+  "cassette",
+  "derailleur",
+  "crankset",
+  "saddle",
+  "brake",
+];
+
+export function generateSlug(): string {
+  const wd = process.cwd();
+  const seed = hashToSeed(wd);
+  const rand = mulberry32(seed);
+
+  const parts = 4;
+  const words = [];
+
+  for (let i = 1; i <= parts; i++) {
+    const idx = Math.floor(rand() * SLUG_PARTS.length);
+    words.push(SLUG_PARTS[idx]);
+  }
+
+  return words.join("-");
 }

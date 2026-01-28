@@ -1,6 +1,7 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
+	generateSlug,
 	type GovernanceConfig,
 	GovernanceEngine,
 	type HandlebarRunOpts,
@@ -252,9 +253,8 @@ export class HandlebarAgent<
 			return;
 		}
 
-		// TODO: generate consistent placeholder slug.
 		await this.governance.initAgentRules(
-      this.agentConfig ?? { slug: "temp-placeholder-agent-slug" },
+      this.agentConfig ?? { slug: generateSlug() },
 			this.toolInfo(),
 		);
 		this.hasInitialisedEngine = true;
