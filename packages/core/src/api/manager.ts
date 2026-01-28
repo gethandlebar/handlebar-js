@@ -58,12 +58,15 @@ export class ApiManager {
 		}
 	}
 
-	public async initialiseAgent(agentInfo: {
-		slug: string;
-		name?: string;
-		description?: string;
-		tags?: string[];
-	}, tools: AgentTool[]): Promise<{ agentId: string; rules: Rule[] | null } | null> {
+	public async initialiseAgent(
+		agentInfo: {
+			slug: string;
+			name?: string;
+			description?: string;
+			tags?: string[];
+		},
+		tools: AgentTool[],
+	): Promise<{ agentId: string; rules: Rule[] | null } | null> {
 		if (!this.useApi) {
 			return null;
 		}
@@ -103,27 +106,30 @@ export class ApiManager {
 		return baseHeaders;
 	}
 
-	private async upsertAgent(agentInfo: {
-		slug: string;
-		name?: string;
-		description?: string;
-		tags?: string[];
-	}, tools: AgentTool[]): Promise<string> {
+	private async upsertAgent(
+		agentInfo: {
+			slug: string;
+			name?: string;
+			description?: string;
+			tags?: string[];
+		},
+		tools: AgentTool[],
+	): Promise<string> {
 		const url = new URL("/v1/agent", this.apiEndpoint);
 
-    try {
-      const agentData = JSON.stringify({
-        slug: agentInfo.slug,
-        name: agentInfo.name,
-        description: agentInfo.description,
-        tags: agentInfo.tags,
-        tools,
-      });
+		try {
+			const agentData = JSON.stringify({
+				slug: agentInfo.slug,
+				name: agentInfo.name,
+				description: agentInfo.description,
+				tags: agentInfo.tags,
+				tools,
+			});
 			const response = await fetch(url.toString(), {
 				method: "PUT",
 				headers: this.headers("json"),
 				body: agentData,
-      });
+			});
 			const data: { agentId: string } = await response.json();
 			return data.agentId; // uuidv7-like
 		} catch (error) {

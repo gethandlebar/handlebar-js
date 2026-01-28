@@ -1,9 +1,9 @@
 import type {
-  EndUserConfig,
-  EndUserGroupConfig,
+	EndUserConfig,
+	EndUserGroupConfig,
 	GovernanceDecision,
 	GovernanceEffect,
-    Rule,
+	Rule,
 } from "@handlebar/governance-schema";
 import type { HandlebarRunOpts } from "./runs";
 
@@ -61,6 +61,6 @@ export type RunContext<T extends Tool = Tool> = {
 	history: ToolResult<T>[];
 	counters: Record<string, number>;
 	state: Map<string, unknown>;
-  now: () => number;
+	now: () => number;
 	enduser?: EndUserConfig & { group?: EndUserGroupConfig };
 } & HandlebarRunOpts;

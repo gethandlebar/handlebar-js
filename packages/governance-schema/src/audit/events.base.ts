@@ -14,10 +14,10 @@ export const AuditEnvelopeSchema = z.object({
 	}, z.date()),
 	runId: z.string(),
 	stepIndex: z.number().min(0).optional(),
-  decisionId: z.string().optional(), // DEPRECATED.
-  // ID of enduser the agent is acting on behalf of as present in the Handlebar user's system.
-  // NOT the Handlebar ID for this enduser.
-  enduserExternalId: z.string().optional(),
+	decisionId: z.string().optional(), // DEPRECATED.
+	// ID of enduser the agent is acting on behalf of as present in the Handlebar user's system.
+	// NOT the Handlebar ID for this enduser.
+	enduserExternalId: z.string().optional(),
 	// sessionId: z.string().optional(),
 	otel: z
 		.object({

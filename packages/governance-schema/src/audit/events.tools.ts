@@ -20,10 +20,10 @@ const ToolIdentitySchema = z.object({
 const ToolArgsSchema = z.record(z.string(), z.unknown());
 
 export const SubjectSchema = z.object({
-  subjectType: z.string().max(256), // e.g. "customer", "ticket", "order"
-  role: z.string().max(256).optional(), // e.g. "primary" | "source" | "dest"
-  value: z.string().max(256), // Data representing the subject. Typically an ID, but doesn't have to be.
-  idSystem: z.string().max(256).optional(), // Provenence of subject data for records. e.g. "crm_contact_id"
+	subjectType: z.string().max(256), // e.g. "customer", "ticket", "order"
+	role: z.string().max(256).optional(), // e.g. "primary" | "source" | "dest"
+	value: z.string().max(256), // Data representing the subject. Typically an ID, but doesn't have to be.
+	idSystem: z.string().max(256).optional(), // Provenence of subject data for records. e.g. "crm_contact_id"
 });
 
 export const HitlMetaSchema = z.object({
@@ -32,17 +32,16 @@ export const HitlMetaSchema = z.object({
 	status: z.enum(["none", "pending", "approved", "denied"]).optional(), // "none" for generated client-side without server acknowledgement.
 });
 
-
 export const ToolDecisionEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("tool.decision"),
 	data: GovernanceDecisionSchema.extend({
 		tool: ToolIdentitySchema,
 		args: ToolArgsSchema.optional(),
 		argsMeta: ToolMetaSchema.optional(),
-    hitl: HitlMetaSchema.optional(),
+		hitl: HitlMetaSchema.optional(),
 
-    subjects: z.array(SubjectSchema).max(100).optional(),
-    signals: z.array(SignalSchema).max(100).optional(),
+		subjects: z.array(SubjectSchema).max(100).optional(),
+		signals: z.array(SignalSchema).max(100).optional(),
 
 		counters: CountersSchema.optional(),
 		latencyMs: z.number().min(0).optional(), // Time in governance
@@ -56,7 +55,7 @@ export const ToolResultEventSchema = AuditEnvelopeSchema.extend({
 		hitl: HitlMetaSchema.optional(),
 		outcome: z.enum(["success", "error"]),
 		durationMs: z.number().min(0).optional(), // tool runtime
-    counters: CountersSchema.optional(),
+		counters: CountersSchema.optional(),
 		metrics: AgentMetrics.optional(),
 		error: z
 			.object({

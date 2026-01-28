@@ -13,77 +13,77 @@ export function now(): ISO8601 {
  * JSON stringify with sorted keys for plain objects
  */
 export function stableJson(v: unknown): string {
-  const seen = new WeakSet<object>();
+	const seen = new WeakSet<object>();
 
-  const norm = (x: any): any => {
-    if (x && typeof x === "object") {
-      if (seen.has(x)) {
-        return "[Circular]";
-      }
+	const norm = (x: any): any => {
+		if (x && typeof x === "object") {
+			if (seen.has(x)) {
+				return "[Circular]";
+			}
 
-      seen.add(x);
+			seen.add(x);
 
-      if (Array.isArray(x)) {
-        return x.map(norm);
-      }
-      const keys = Object.keys(x).sort();
-      const out: any = {};
+			if (Array.isArray(x)) {
+				return x.map(norm);
+			}
+			const keys = Object.keys(x).sort();
+			const out: any = {};
 
-      for (const k of keys) {
-        out[k] = norm(x[k]);
-      }
+			for (const k of keys) {
+				out[k] = norm(x[k]);
+			}
 
-      return out;
-    }
-    return x;
-  };
+			return out;
+		}
+		return x;
+	};
 
-  return JSON.stringify(norm(v));
+	return JSON.stringify(norm(v));
 }
 
 // https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
 function mulberry32(a: number) {
-  let t = a;
-  return () => {
-    t += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
+	let t = a;
+	return () => {
+		t += 0x6d2b79f5;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
 }
 
 function hashToSeed(input: string): number {
-  const hash = createHash("sha256").update(input).digest();
-  return hash.readUInt32LE(0);
+	const hash = createHash("sha256").update(input).digest();
+	return hash.readUInt32LE(0);
 }
 
 const SLUG_PARTS = [
-  "chainring",
-  "spoke",
-  "handlebar",
-  "bell",
-  "seatpost",
-  "frame",
-  "drivetrain",
-  "cassette",
-  "derailleur",
-  "crankset",
-  "saddle",
-  "brake",
+	"chainring",
+	"spoke",
+	"handlebar",
+	"bell",
+	"seatpost",
+	"frame",
+	"drivetrain",
+	"cassette",
+	"derailleur",
+	"crankset",
+	"saddle",
+	"brake",
 ];
 
 export function generateSlug(): string {
-  const wd = process.cwd();
-  const seed = hashToSeed(wd);
-  const rand = mulberry32(seed);
+	const wd = process.cwd();
+	const seed = hashToSeed(wd);
+	const rand = mulberry32(seed);
 
-  const parts = 4;
-  const words = [];
+	const parts = 4;
+	const words = [];
 
-  for (let i = 1; i <= parts; i++) {
-    const idx = Math.floor(rand() * SLUG_PARTS.length);
-    words.push(SLUG_PARTS[idx]);
-  }
+	for (let i = 1; i <= parts; i++) {
+		const idx = Math.floor(rand() * SLUG_PARTS.length);
+		words.push(SLUG_PARTS[idx]);
+	}
 
-  return words.join("-");
+	return words.join("-");
 }

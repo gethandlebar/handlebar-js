@@ -28,16 +28,15 @@ export type ToolTagCondition =
 	| { kind: "toolTag"; op: "anyOf"; tags: string[] }
 	| { kind: "toolTag"; op: "allOf"; tags: string[] };
 
-
-	/**
+/**
  * Enforce sequencing constraints within the current run history.
  * - mustHaveCalled: all listed tool name patterns must have been called earlier
  * - mustNotHaveCalled: none of the listed patterns may have been called earlier
  */
 export type SequenceCondition = {
-		kind: "sequence";
-		mustHaveCalled?: Glob[];
-		mustNotHaveCalled?: Glob[];
+	kind: "sequence";
+	mustHaveCalled?: Glob[];
+	mustNotHaveCalled?: Glob[];
 };
 
 /**
@@ -46,14 +45,14 @@ export type SequenceCondition = {
  * - by toolTag: count calls whose tool includes any of the provided tags
  */
 export type MaxCallsSelector =
-		| { by: "toolName"; patterns: Glob[] }
-		| { by: "toolTag"; tags: string[] };
+	| { by: "toolName"; patterns: Glob[] }
+	| { by: "toolTag"; tags: string[] };
 
 /**
  * Assert a maximum number of calls within a run for the selected tools (inclusive).
  */
 export type MaxCallsCondition = {
-		kind: "maxCalls";
-		selector: MaxCallsSelector;
-		max: number;
+	kind: "maxCalls";
+	selector: MaxCallsSelector;
+	max: number;
 };

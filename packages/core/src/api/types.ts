@@ -4,11 +4,11 @@ export type ApiConfig = {
 };
 
 export type AgentTool = {
-  name: string;
-  key: string;
-  version: number;
-  kind: "function";
+	name: string;
+	key: string;
+	version: number;
+	kind: "function";
 
-  description?: string;
-  metadata?: Record<string, string>;
-}
+	description?: string;
+	metadata?: Record<string, string>;
+};

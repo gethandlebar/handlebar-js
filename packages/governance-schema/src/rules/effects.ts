@@ -8,7 +8,7 @@ export type RuleEffectKind = "allow" | "hitl" | "block";
  * which would include "log" or "modify context".
  */
 export type RuleEffect =
-  | { type: "allow"; reason?: string }
+	| { type: "allow"; reason?: string }
 	| { type: "hitl"; reason?: string } // Supercedes "allow"
 	| { type: "block"; reason?: string }; // Supercedes "hitl"
 // Possible future expansions.
