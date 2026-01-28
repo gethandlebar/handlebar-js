@@ -6,6 +6,7 @@
 		"useIgnoreFile": true
 	},
 	"files": {
+		"includes": ["packages/**/*"],
 		"ignoreUnknown": false
 	},
 	"formatter": {

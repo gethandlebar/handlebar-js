@@ -1,8 +1,11 @@
 import type {
+	EndUserConfig,
+	EndUserGroupConfig,
 	GovernanceDecision,
 	GovernanceEffect,
 	Rule,
 } from "@handlebar/governance-schema";
+import type { HandlebarRunOpts } from "./runs";
 
 export type Id = string;
 export type ISO8601 = string; // date string
@@ -49,12 +52,15 @@ export type GovernanceConfig<T extends Tool = Tool> = {
 	verbose?: boolean;
 };
 
+/**
+ * TODO: deduplicate with `RunCtx`.
+ */
 export type RunContext<T extends Tool = Tool> = {
 	runId: string;
-	userCategory: string;
 	stepIndex: number;
 	history: ToolResult<T>[];
 	counters: Record<string, number>;
 	state: Map<string, unknown>;
 	now: () => number;
-};
+	enduser?: EndUserConfig & { group?: EndUserGroupConfig };
+} & HandlebarRunOpts;

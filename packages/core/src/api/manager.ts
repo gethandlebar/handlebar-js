@@ -1,5 +1,5 @@
 import type { Rule } from "@handlebar/governance-schema";
-import type { ApiConfig } from "./types";
+import type { AgentTool, ApiConfig } from "./types";
 
 type HitlResponse = {
 	hitlId: string;
@@ -58,12 +58,15 @@ export class ApiManager {
 		}
 	}
 
-	public async initialiseAgent(agentInfo: {
-		slug: string;
-		name?: string;
-		description?: string;
-		tags?: string[];
-	}): Promise<{ agentId: string; rules: Rule[] | null } | null> {
+	public async initialiseAgent(
+		agentInfo: {
+			slug: string;
+			name?: string;
+			description?: string;
+			tags?: string[];
+		},
+		tools: AgentTool[],
+	): Promise<{ agentId: string; rules: Rule[] | null } | null> {
 		if (!this.useApi) {
 			return null;
 		}
@@ -72,7 +75,7 @@ export class ApiManager {
 		let rules: Rule[] | null = null;
 
 		try {
-			agentId = await this.upsertAgent(agentInfo);
+			agentId = await this.upsertAgent(agentInfo, tools);
 			this.agentId = agentId;
 		} catch (e) {
 			console.error("Error upserting agent:", e);
@@ -81,7 +84,7 @@ export class ApiManager {
 
 		try {
 			rules = await this.fetchAgentRules(agentId);
-			console.debug(`Got Handlebar ${rules?.length} rules from api`);
+			console.debug(`[Handlebar] Loading ${rules?.length} rules`);
 		} catch (error) {
 			console.error("Error fetching rules:", error);
 			return null;
@@ -103,24 +106,29 @@ export class ApiManager {
 		return baseHeaders;
 	}
 
-	private async upsertAgent(agentInfo: {
-		slug: string;
-		name?: string;
-		description?: string;
-		tags?: string[];
-	}): Promise<string> {
+	private async upsertAgent(
+		agentInfo: {
+			slug: string;
+			name?: string;
+			description?: string;
+			tags?: string[];
+		},
+		tools: AgentTool[],
+	): Promise<string> {
 		const url = new URL("/v1/agent", this.apiEndpoint);
 
 		try {
+			const agentData = JSON.stringify({
+				slug: agentInfo.slug,
+				name: agentInfo.name,
+				description: agentInfo.description,
+				tags: agentInfo.tags,
+				tools,
+			});
 			const response = await fetch(url.toString(), {
 				method: "PUT",
 				headers: this.headers("json"),
-				body: JSON.stringify({
-					slug: agentInfo.slug,
-					name: agentInfo.name,
-					description: agentInfo.description,
-					tags: agentInfo.tags,
-				}),
+				body: agentData,
 			});
 			const data: { agentId: string } = await response.json();
 			return data.agentId; // uuidv7-like
@@ -131,12 +139,9 @@ export class ApiManager {
 	}
 
 	private async fetchAgentRules(agentId: string): Promise<Rule[] | null> {
-		const url = new URL("/v1/rules", this.apiEndpoint);
-		const params = new URLSearchParams({
-			agentId,
-		});
+		const url = new URL(`/v1/rules/agent/${agentId}`, this.apiEndpoint);
 
-		const response = await fetch(`${url.toString()}?${params.toString()}`, {
+		const response = await fetch(url.toString(), {
 			headers: this.headers(),
 		});
 

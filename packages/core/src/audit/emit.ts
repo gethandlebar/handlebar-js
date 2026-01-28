@@ -22,6 +22,7 @@ export function emit<K extends AuditEvent["kind"]>(
 		kind,
 		ts: new Date(),
 		runId: ctx.runId,
+		enduserExternalId: ctx.enduser?.externalId,
 		stepIndex: ctx.stepIndex,
 		decisionId: ctx.decisionId,
 		otel: ctx.otel,

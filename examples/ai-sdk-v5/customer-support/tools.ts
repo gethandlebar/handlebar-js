@@ -94,7 +94,7 @@ export const issueRefund = tool({
 		return { ok: true, refunded: amount, orderId };
 	},
 });
-toolCategories.updateContact = ["finance", "write", "external", "sensitive"];
+toolCategories.issueRefund = ["finance", "write", "external", "sensitive"];
 
 export const humanApproval = tool({
 	description:

@@ -1,21 +1,36 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
+	generateSlug,
 	type GovernanceConfig,
 	GovernanceEngine,
+	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
+import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
+	type Prompt,
+	type StopCondition,
 	type Tool,
 	type ToolCallOptions,
 	type ToolSet,
 } from "ai";
+import { uuidv7 } from "uuidv7";
+import type { z } from "zod";
+import { formatPrompt } from "./messages";
+import type { AgentTool } from "@handlebar/core/dist/api/types";
 
+const HANDLEBAR_RULE_VIOLATION_CODE = "HANDLEBAR_RULE_VIOLATION";
+
+type MessageEvent = z.infer<typeof MessageEventSchema>;
+
+// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 type ToolSetBase = Record<string, Tool<any, any>>;
 
 export type ToCoreTool<T extends ToolSetBase> = {
+	// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	[K in keyof T]: T[K]["execute"] extends (...args: any) => any
 		? CoreTool<
 				K & string,
@@ -34,6 +49,7 @@ function mapTools<ToolSet extends ToolSetBase>(
 		t: ToolSet[K],
 	) => ToolSet[K],
 ): ToolSet {
+	// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	const out: Record<string, Tool<any, any>> = {};
 	for (const name in tools) {
 		out[name] = wrap(name as any, tools[name]);
@@ -48,9 +64,8 @@ type HandlebarAgentOpts<
 	Memory,
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
-		userCategory?: string;
 		categories?: Record<string, string[]>; // tool categories by name
-	};
+	} & HandlebarRunOpts;
 	agent?: {
 		slug: string;
 		name?: string;
@@ -69,6 +84,8 @@ export class HandlebarAgent<
 	private runCtx: RunContext<ToCoreTool<ToolSet>>;
 	private runStarted = false;
 
+	private systemPrompt: string | undefined = undefined;
+	private emittedSystemPrompt = false;
 	private hasInitialisedEngine = false;
 	private agentConfig:
 		| {
@@ -97,13 +114,14 @@ export class HandlebarAgent<
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
-		const runCtx = engine.createRunContext(
-			runId,
-			governance?.userCategory ?? "unknown", // TODO: allow undefined user ID/category
-		);
+		const runCtx = engine.createRunContext(runId, {
+			enduser: governance?.enduser,
+		});
 
 		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) return t;
+			if (!t.execute) {
+				return t;
+			}
 
 			const exec = t.execute.bind(t);
 
@@ -113,10 +131,12 @@ export class HandlebarAgent<
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					if (engine.shouldBlock(decision)) {
-						const err = new Error(
-							decision.reason ?? "Blocked by Handlebar governance",
-						);
-						throw err;
+						const errorCode = {
+							code: HANDLEBAR_RULE_VIOLATION_CODE,
+							nextStep:
+								"The tool call has violated Handlebar governance. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary",
+						};
+						return errorCode as never;
 					}
 
 					try {
@@ -148,13 +168,84 @@ export class HandlebarAgent<
 			} as typeof t;
 		});
 
+		let stopWhen: StopCondition<NoInfer<ToolSet>>[];
+
+		if (opts.stopWhen === undefined) {
+			stopWhen = [];
+		} else if (!Array.isArray(opts.stopWhen)) {
+			stopWhen = [opts.stopWhen];
+		} else {
+			stopWhen = opts.stopWhen;
+		}
+
+		// Look for HANDLEBAR_RULE_VIOLATION_CODE from response
+		// to indicate that there was a exit-worthy rule violation
+		stopWhen.push(({ steps }) => {
+			const lastStep = steps[steps.length - 1];
+			if (lastStep === undefined) {
+				return false;
+			}
+
+			for (const toolResult of lastStep.toolResults) {
+				try {
+					const output = JSON.stringify(toolResult.output);
+					if (output.includes(HANDLEBAR_RULE_VIOLATION_CODE)) {
+						return true;
+					}
+				} catch {}
+			}
+			return false;
+		});
+
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
+			stopWhen,
+			onStepFinish: async (step) => {
+				if (rest.onStepFinish) {
+					await rest.onStepFinish(step);
+				}
+
+				if (step.text.trim()) {
+					this.emitMessage(
+						step.text,
+						"assistant",
+						"output",
+						// tags: ["step_output"],
+					);
+				}
+
+				// TODO: do we need reasoning?
+			},
 			tools: wrapped,
 		});
 		this.governance = engine;
 		this.runCtx = runCtx;
 		this.agentConfig = agent;
+
+		if (rest.system) {
+			this.systemPrompt = rest.system;
+		}
+	}
+
+	private toolInfo() {
+		const infoTools: AgentTool[] = [];
+
+		for (const name in this.inner.tools) {
+			const tool = this.inner.tools[name];
+			if (!tool) {
+				continue;
+			}
+
+			infoTools.push({
+				name,
+				description: tool.description,
+				key: `function:${name.toLowerCase().replaceAll(" ", "-")}`,
+				version: 1,
+				kind: "function",
+			});
+		}
+
+		return infoTools;
 	}
 
 	public async initEngine() {
@@ -162,9 +253,9 @@ export class HandlebarAgent<
 			return;
 		}
 
-		// TODO: generate consistent placeholder slug.
 		await this.governance.initAgentRules(
-			this.agentConfig ?? { slug: "temp-placeholder-agent-slug" },
+			this.agentConfig ?? { slug: generateSlug() },
+			this.toolInfo(),
 		);
 		this.hasInitialisedEngine = true;
 	}
@@ -173,8 +264,8 @@ export class HandlebarAgent<
 		return withRunContext(
 			{
 				runId: this.runCtx.runId,
-				userCategory: this.runCtx.userCategory,
 				stepIndex: this.runCtx.stepIndex,
+				enduser: this.runCtx.enduser,
 			},
 			async () => {
 				if (!this.runStarted) {
@@ -183,26 +274,93 @@ export class HandlebarAgent<
 					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
 						adapter: { name: "@handlebar/ai-sdk-v5" },
+						enduser: this.runCtx.enduser,
 					});
+					this.maybeEmitSystemPrompt();
 				}
 
-				return await fn();
+				const out = await fn();
+				return out;
 			},
 		);
 	}
 
-	async generate(...a: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
-		await this.initEngine();
-		return this.withRun(() => this.inner.generate(...a));
+	private emitMessage(
+		message: string,
+		role: MessageEvent["data"]["role"],
+		kind: MessageEvent["data"]["kind"],
+	) {
+		let truncated = false;
+		let messageFinal = message;
+
+		// TODO: set reasonable limit
+		const messageCharLimit = 10000;
+
+		if (message.length > messageCharLimit) {
+			truncated = true;
+			messageFinal = message.slice(0, messageCharLimit);
+		}
+
+		this.governance.emit("message.raw.created", {
+			content: messageFinal,
+			contentTruncated: truncated,
+			role,
+			kind,
+			messageId: uuidv7(),
+		});
 	}
 
-	async stream(...a: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
-		await this.initEngine();
-		return this.withRun(() => this.inner.stream(...a));
+	private maybeEmitSystemPrompt() {
+		if (this.emittedSystemPrompt || this.systemPrompt === undefined) {
+			return;
+		}
+		this.emitMessage(this.systemPrompt, "system", "observation");
+		this.emittedSystemPrompt = true;
 	}
 
-	async respond(...a: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+	private emitMessages(prompts: Prompt[]) {
+		for (const prompt of prompts) {
+			const formattedMessages = formatPrompt(prompt);
+			for (const message of formattedMessages) {
+				if (message.role === "system") {
+					this.systemPrompt = message.content;
+					this.maybeEmitSystemPrompt();
+				} else {
+					this.emitMessage(message.content, message.role, message.kind);
+				}
+			}
+		}
+	}
+
+	public with(opts: HandlebarRunOpts) {
+		this.runCtx.enduser = opts.enduser;
+		return this;
+	}
+
+	async generate(
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>
+	) {
 		await this.initEngine();
-		return this.withRun(() => this.inner.respond(...a));
+		return this.withRun(() => {
+			this.emitMessages(params);
+			return this.inner.generate(...params);
+		});
+	}
+
+	async stream(...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
+		await this.initEngine();
+		// TODO: emit streamed messages as audit events.
+		return this.withRun(() => {
+			this.emitMessages(params);
+			return this.inner.stream(...params);
+		});
+	}
+
+	async respond(...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+		await this.initEngine();
+		return this.withRun(() => {
+			// this.emitMessages(params); // TODO: fix type error.
+			return this.inner.respond(...params);
+		});
 	}
 }
