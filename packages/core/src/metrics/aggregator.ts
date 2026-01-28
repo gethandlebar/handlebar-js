@@ -76,9 +76,7 @@ export class AgentMetricCollector {
 		this.custom = {};
 	}
 
-	toEventPayload(
-		opts: { aggregate?: boolean } = { aggregate: false },
-	):
+	toEventPayload(opts: { aggregate?: boolean } = { aggregate: false }):
 		| {
 				inbuilt: Record<string, MetricInfo>;
 				custom: Record<string, MetricInfo>;

@@ -1,6 +1,6 @@
 import type { Glob } from "./common";
 import type { RuleCondition } from "./condition";
-import type { RuleEffectKind, RuleEffect } from "./effects";
+import type { RuleEffect, RuleEffectKind } from "./effects";
 
 export type RulePhase = "tool.before" | "tool.after";
 
@@ -29,7 +29,7 @@ export type Rule = {
 	condition: RuleCondition; // Full logic for evaluation. Should NOT include selector logic.
 
 	// Only a single canonical effect to influence agent behaviour immediately post-breach.
-	// In future work we will support side-effects.
+	// TODO: support multiple side-effects in addition to primary "effect".
 	effect: RuleEffect;
 
 	onMissing?: RuleEffectKind; // default block.

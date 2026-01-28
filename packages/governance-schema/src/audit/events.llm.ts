@@ -38,7 +38,6 @@ export const MessageSchema = z.object({
 	content: z.string(),
 	contentTruncated: z.boolean(),
 
-	// Helpful linking (optional)
 	parentMessageId: z.uuidv7().optional(), // for threading
 	turnIndex: z.number().int().min(0).optional(), // monotonic within run
 	name: z.string().optional(), // e.g. tool name, or assistant persona name
