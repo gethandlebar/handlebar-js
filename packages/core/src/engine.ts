@@ -1,10 +1,10 @@
 import type {
+	AppliedAction,
 	EndUserConfig,
 	EndUserGroupConfig,
-	GovernanceDecision,
-	AppliedAction,
 	EndUserTagCondition,
 	ExecutionTimeCondition,
+	GovernanceDecision,
 	MaxCallsCondition,
 	RequireSubjectCondition,
 	Rule,
@@ -18,10 +18,30 @@ import type {
 	ToolNameCondition,
 	ToolTagCondition,
 } from "@handlebar/governance-schema";
-import type { AuditBus } from "./audit/bus";
+import { decisionCodeFor, effectRank } from "./actions";
 import { ApiManager } from "./api/manager";
+import type { AgentTool } from "./api/types";
 import { emit } from "./audit";
+import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
+import {
+	AgentMetricCollector,
+	type AgentMetricHook,
+	type AgentMetricHookPhase,
+	AgentMetricHookRegistry,
+	approxBytes,
+	approxRecords,
+} from "./metrics";
+import {
+	compareSignal,
+	resultToSignalSchema,
+	type SignalProvider,
+	SignalRegistry,
+	type SignalResult,
+	sanitiseSignals,
+} from "./signals";
+import { type SubjectRef, SubjectRegistry, sanitiseSubjects } from "./subjects";
+import { hhmmToMinutes, nowToTimeParts } from "./time";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -32,26 +52,6 @@ import type {
 	ToolResult,
 } from "./types";
 import { millisecondsSince } from "./utils";
-import type { AgentTool } from "./api/types";
-import {
-	approxBytes,
-	approxRecords,
-	AgentMetricCollector,
-	AgentMetricHookRegistry,
-	type AgentMetricHook,
-	type AgentMetricHookPhase,
-} from "./metrics";
-import { sanitiseSubjects, SubjectRegistry, type SubjectRef } from "./subjects";
-import {
-	compareSignal,
-	resultToSignalSchema,
-	sanitiseSignals,
-	SignalRegistry,
-	type SignalProvider,
-	type SignalResult,
-} from "./signals";
-import { hhmmToMinutes, nowToTimeParts } from "./time";
-import { decisionCodeFor, effectRank } from "./actions";
 
 type EvalArgs<T extends Tool = Tool> = {
 	phase: RulePhase;
@@ -61,6 +61,11 @@ type EvalArgs<T extends Tool = Tool> = {
 	subjects: SubjectRef[];
 	// per-call caches
 	signalCache: Map<string, SignalResult>;
+};
+
+export const HANDLEBAR_ACTION_STATUS = {
+	EXIT_RUN_CODE: "HANDLEBAR_EXIT_RUN",
+	TOOL_BLOCK_CODE: "HANDLEBAR_TOOL_BLOCK",
 };
 
 const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
@@ -799,11 +804,29 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		incStep();
 	}
 
-	shouldBlock(decision: GovernanceDecision) {
-		// For now, HITL is automatically a run-ender.
-		return (
-			this.mode === "enforce" &&
-			(decision.effect === "block" || decision.effect === "hitl")
-		);
+	public decisionAction(decision: GovernanceDecision) {
+		if (this.mode === "monitor" || decision.effect === "allow") {
+			return null;
+		}
+
+		if (decision.effect === "hitl") {
+			return {
+				code: HANDLEBAR_ACTION_STATUS.EXIT_RUN_CODE,
+				agentNextStep:
+					"The tool call has violated Handlebar governance. The tool call has been blocked and the run ended. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary",
+				reason: decision.reason,
+			};
+		}
+
+		if (decision.effect === "block") {
+			return {
+				code: HANDLEBAR_ACTION_STATUS.TOOL_BLOCK_CODE,
+				agentNextStep:
+					"The tool call has violated Handlebar governance and has been blocked. Do not reference Handlebar or rule violations in any further commentary",
+				reason: decision.reason,
+			};
+		}
+
+		return null;
 	}
 }

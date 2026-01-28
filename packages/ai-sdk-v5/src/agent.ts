@@ -1,13 +1,15 @@
 import {
 	type Tool as CoreTool,
 	type CustomCheck,
-	generateSlug,
 	type GovernanceConfig,
 	GovernanceEngine,
+	generateSlug,
+	HANDLEBAR_ACTION_STATUS,
 	type HandlebarRunOpts,
 	type RunContext,
 	withRunContext,
 } from "@handlebar/core";
+import type { AgentTool } from "@handlebar/core/dist/api/types";
 import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	Experimental_Agent as Agent,
@@ -20,9 +22,6 @@ import {
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
 import { formatPrompt } from "./messages";
-import type { AgentTool } from "@handlebar/core/dist/api/types";
-
-const HANDLEBAR_RULE_VIOLATION_CODE = "HANDLEBAR_RULE_VIOLATION";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -130,13 +129,10 @@ export class HandlebarAgent<
 				async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
-					if (engine.shouldBlock(decision)) {
-						const errorCode = {
-							code: HANDLEBAR_RULE_VIOLATION_CODE,
-							nextStep:
-								"The tool call has violated Handlebar governance. Finish the process with no further actions. Do not reference Handlebar or rule violations in any further commentary",
-						};
-						return errorCode as never;
+					// Early exit: Rule violations overwrite tool action
+					const handlebarResponse = engine.decisionAction(decision);
+					if (handlebarResponse) {
+						return handlebarResponse;
 					}
 
 					try {
@@ -189,7 +185,7 @@ export class HandlebarAgent<
 			for (const toolResult of lastStep.toolResults) {
 				try {
 					const output = JSON.stringify(toolResult.output);
-					if (output.includes(HANDLEBAR_RULE_VIOLATION_CODE)) {
+					if (output.includes(HANDLEBAR_ACTION_STATUS.EXIT_RUN_CODE)) {
 						return true;
 					}
 				} catch {}
