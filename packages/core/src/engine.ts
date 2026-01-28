@@ -1,10 +1,10 @@
 import type {
+	AppliedAction,
 	EndUserConfig,
 	EndUserGroupConfig,
-	GovernanceDecision,
-	AppliedAction,
 	EndUserTagCondition,
 	ExecutionTimeCondition,
+	GovernanceDecision,
 	MaxCallsCondition,
 	RequireSubjectCondition,
 	Rule,
@@ -18,10 +18,30 @@ import type {
 	ToolNameCondition,
 	ToolTagCondition,
 } from "@handlebar/governance-schema";
-import type { AuditBus } from "./audit/bus";
+import { decisionCodeFor, effectRank } from "./actions";
 import { ApiManager } from "./api/manager";
+import type { AgentTool } from "./api/types";
 import { emit } from "./audit";
+import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
+import {
+	AgentMetricCollector,
+	type AgentMetricHook,
+	type AgentMetricHookPhase,
+	AgentMetricHookRegistry,
+	approxBytes,
+	approxRecords,
+} from "./metrics";
+import {
+	compareSignal,
+	resultToSignalSchema,
+	type SignalProvider,
+	SignalRegistry,
+	type SignalResult,
+	sanitiseSignals,
+} from "./signals";
+import { type SubjectRef, SubjectRegistry, sanitiseSubjects } from "./subjects";
+import { hhmmToMinutes, nowToTimeParts } from "./time";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -32,26 +52,6 @@ import type {
 	ToolResult,
 } from "./types";
 import { millisecondsSince } from "./utils";
-import type { AgentTool } from "./api/types";
-import {
-	approxBytes,
-	approxRecords,
-	AgentMetricCollector,
-	AgentMetricHookRegistry,
-	type AgentMetricHook,
-	type AgentMetricHookPhase,
-} from "./metrics";
-import { sanitiseSubjects, SubjectRegistry, type SubjectRef } from "./subjects";
-import {
-	compareSignal,
-	resultToSignalSchema,
-	sanitiseSignals,
-	SignalRegistry,
-	type SignalProvider,
-	type SignalResult,
-} from "./signals";
-import { hhmmToMinutes, nowToTimeParts } from "./time";
-import { decisionCodeFor, effectRank } from "./actions";
 
 type EvalArgs<T extends Tool = Tool> = {
 	phase: RulePhase;
@@ -797,7 +797,14 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		);
 
 		incStep();
-	}
+  }
+
+  shouldEndRun(decision: GovernanceDecision) {
+    return (
+			this.mode === "enforce" &&
+			decision.effect === "hitl"
+		);
+  }
 
 	shouldBlock(decision: GovernanceDecision) {
 		// For now, HITL is automatically a run-ender.
