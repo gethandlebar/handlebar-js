@@ -3,7 +3,7 @@ import { z } from "zod";
 export const EndUserConfigSchema = z.object({
 	externalId: z.string(), // A Handlebar user's ID for _their_ user
 	// TODO: make metadata optional.
-	metadata: z.record(z.string(), z.string()), // Arbitrary labels to attach to the user.
+	metadata: z.record(z.string(), z.string()).optional	(), // Arbitrary labels to attach to the user.
 	name: z.string().optional(),
 });
 
