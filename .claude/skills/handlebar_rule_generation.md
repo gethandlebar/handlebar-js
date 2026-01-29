@@ -9,7 +9,7 @@ Generate governance rules for an agent that has been connected to Handlebar. Thi
 
 ## Prerequisites
 
-This skill should run **after** the `/handlebar` skill has been used to connect the agent. It reads the configuration saved by that skill from `handlebar-agent-config.json`.
+This skill should run **after** the `/handlebar` skill has been used to connect the agent. It reads the configuration saved by that skill from `.handlebar/agent-config.json`.
 
 ## When to Use
 
@@ -22,11 +22,11 @@ Use this skill when the user wants to:
 
 ### Step 1: Load Agent Configuration
 
-**Read `handlebar-agent-config.json`** from the project root. This file was created by the `/handlebar` skill.
+**Read `.handlebar/agent-config.json`** from the project root. This file was created by the `/handlebar` skill.
 
 If the file doesn't exist, **INFORM THE USER**:
 
-> "I couldn't find `handlebar-agent-config.json`. Please run `/handlebar` first to connect your agent and generate the configuration."
+> "I couldn't find `.handlebar/agent-config.json`. Please run `/handlebar` first to connect your agent and generate the configuration."
 
 If the file exists, load it and summarise:
 
@@ -74,7 +74,7 @@ A rule contains:
   "enabled": true,
   "name": "Human readable rule name",
   "selector": {
-    "phase": "tool.before",
+    "phase": "tool.before", /* must be this exact value */
     "tool": {
       "name": "toolName",
       "tagsAny": ["pii", "financial"],
@@ -138,6 +138,7 @@ Consider rules for:
 - Approval requirements for irreversible actions
 - Time-based restrictions if applicable
 - Role-based access controls
+- Limits on tool parameters
 - Sequence requirements (e.g., verify before access)
 
 #### 2b: Generate Valid JSON Rules

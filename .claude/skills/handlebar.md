@@ -410,7 +410,7 @@ If jurisdiction cannot be inferred, **ASK THE USER**:
 
 Provide a summary report for Handlebar configuration and **save it to a file** for use by the rule generation skill.
 
-**Save to `handlebar-agent-config.json`**:
+**Create `.handlebar` folder and save to `.handlebar/agent-config.json`**:
 
 ```json
 {
@@ -469,7 +469,7 @@ Provide a summary report for Handlebar configuration and **save it to a file** f
 
 ---
 
-Configuration saved to `handlebar-agent-config.json`
+Configuration saved to `.handlebar/agent-config.json`
 ```
 
 **ASK THE USER**:
