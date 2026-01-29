@@ -1,39 +1,46 @@
-import type { JSONValue } from "./common";
-import type { RuleEffectKind } from "./effects";
+import { z } from "zod";
+import { JSONValueSchema } from "./common";
+import { RuleEffectKindSchema } from "./effects";
 
-/**
- * Requires the existence of subject data at runtime.
- *
- * Handlebar is agnostic to the source of the data,
- * so long as it is present in the engine runtime.
- */
-export type RequireSubjectCondition = {
-	kind: "requireSubject";
-	subjectType: string; // subject class. E.g. patient/account/portfolio/document.
-	// idSystem: human-understandable namespace for kind of data subject represents.
-	// E.g. "ehr_patient_id"; "crm_contact_id
-	idSystem?: string;
-};
+export const RequireSubjectConditionSchema = z
+	.object({
+		kind: z.literal("requireSubject"),
+		subjectType: z.string().min(1),
+		idSystem: z.string().min(1).optional(),
+	})
+	.strict();
+export type RequireSubjectCondition = z.infer<
+	typeof RequireSubjectConditionSchema
+>;
 
-export type SignalBinding =
-	| { from: "enduserId" }
-	| { from: "enduserTag"; tag: string }
-	| { from: "toolName" }
-	| { from: "toolTag"; tag: string }
-	| { from: "toolArg"; path: string } // Dot-path
-	| {
-			from: "subject";
-			subjectType: string;
-			role?: string; // e.g. "primary" | "source" | "dest". For when they are multiple items within a subject type.
-			field?: "id" | "idSystem";
-	  }
-	| { from: "const"; value: JSONValue };
+export const SignalBindingSchema = z.discriminatedUnion("from", [
+	z.object({ from: z.literal("enduserId") }).strict(),
+	z.object({ from: z.literal("enduserTag"), tag: z.string().min(1) }).strict(),
+	z.object({ from: z.literal("toolName") }).strict(),
+	z.object({ from: z.literal("toolTag"), tag: z.string().min(1) }).strict(),
+	z
+		.object({ from: z.literal("toolArg"), path: z.string().min(1) })
+		.strict(), // dot-path, validated elsewhere if you want
+	z
+		.object({
+			from: z.literal("subject"),
+			subjectType: z.string().min(1),
+			role: z.string().min(1).optional(),
+			field: z.enum(["id", "idSystem"]).optional(),
+		})
+		.strict(),
+	z.object({ from: z.literal("const"), value: JSONValueSchema }).strict(),
+]);
+export type SignalBinding = z.infer<typeof SignalBindingSchema>;
 
-export type SignalCondition = {
-	kind: "signal";
-	key: string;
-	args: Record<string, SignalBinding>;
-	op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "nin";
-	value: JSONValue;
-	onMissing?: RuleEffectKind;
-};
+export const SignalConditionSchema = z
+	.object({
+		kind: z.literal("signal"),
+		key: z.string().min(1),
+		args: z.record(z.string().min(1), SignalBindingSchema),
+		op: z.enum(["eq", "neq", "gt", "gte", "lt", "lte", "in", "nin"]),
+		value: JSONValueSchema,
+		onMissing: RuleEffectKindSchema.optional(),
+	})
+	.strict();
+export type SignalCondition = z.infer<typeof SignalConditionSchema>;

@@ -1,19 +1,21 @@
+export type { Glob, JSONValue } from "./common";
 export type { RuleCondition } from "./condition";
-export type { RulePhase, RuleSelector, Rule } from "./rule";
+export type { CustomFunctionCondition } from "./custom";
 export type { RuleEffect, RuleEffectKind } from "./effects";
+export type { EndUserTagCondition } from "./enduser";
+export type { MetricWindowCondition } from "./metrics";
+export type { Rule, RulePhase, RuleSelector } from "./rule";
+export { RuleSchema, RuleSpecSchema } from "./rule";
 export type {
 	RequireSubjectCondition,
-	SignalCondition,
 	SignalBinding,
+	SignalCondition,
 } from "./signals";
 export type {
-	TimeGateCondition,
 	ExecutionTimeCondition,
 	ExecutionTimeScope,
+	TimeGateCondition,
 } from "./time";
-export type { MetricWindowCondition } from "./metrics";
-export type { CustomFunctionCondition } from "./custom";
-export type { EndUserTagCondition } from "./enduser";
 export type {
 	MaxCallsCondition,
 	MaxCallsSelector,
@@ -21,4 +23,3 @@ export type {
 	ToolNameCondition,
 	ToolTagCondition,
 } from "./tools";
-export type { Glob, JSONValue } from "./common";

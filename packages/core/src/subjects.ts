@@ -1,6 +1,6 @@
+import type { SubjectSchema } from "@handlebar/governance-schema";
 import type z from "zod";
 import type { RunContext, Tool, ToolMeta } from "./types";
-import type { SubjectSchema } from "@handlebar/governance-schema";
 
 export type SubjectRef = z.infer<typeof SubjectSchema>;
 
