@@ -1,0 +1,295 @@
+---
+name: handlebar_rule_generation
+description: Generate and upload Handlebar governance rules for a connected agent
+---
+
+# Handlebar Rule Generation Skill
+
+Generate governance rules for an agent that has been connected to Handlebar. This skill creates rules based on the agent's tools and purpose, then uploads them to the Handlebar platform.
+
+## Prerequisites
+
+This skill should run **after** the `/handlebar` skill has been used to connect the agent. It reads the configuration saved by that skill from `handlebar-agent-config.json`.
+
+## When to Use
+
+Use this skill when the user wants to:
+- Generate governance rules for their agent
+- Create Handlebar rules based on their tools
+- Upload rules to Handlebar
+
+## Workflow
+
+### Step 1: Load Agent Configuration
+
+**Read `handlebar-agent-config.json`** from the project root. This file was created by the `/handlebar` skill.
+
+If the file doesn't exist, **INFORM THE USER**:
+
+> "I couldn't find `handlebar-agent-config.json`. Please run `/handlebar` first to connect your agent and generate the configuration."
+
+If the file exists, load it and summarise:
+
+1. **Tools available** - List each tool with its purpose
+2. **Tool categories** - What categories were assigned (pii, financial, write, etc.)
+3. **Agent intent** - What workflow the agent supports
+4. **Jurisdiction** - What regulatory context applies
+5. **High-risk actions** - What actions need extra controls
+
+**Output format**:
+
+```
+## Agent Summary
+
+**Agent**: [name/slug]
+**Domain**: [healthcare/finance/etc.]
+**Workflow**: [what the agent does]
+
+**Tools**:
+| Tool | Purpose | Categories |
+|------|---------|------------|
+| ... | ... | ... |
+
+**High-risk actions**: [list]
+**Jurisdiction**: [UK/US/EU]
+```
+
+### Step 2: Generate Rules
+
+**IMPORTANT**: You MUST read and understand the Handlebar rule capabilities below BEFORE generating any rules. Do not proceed to output until you have completed BOTH (a) human-readable rules AND (b) valid JSON rules.
+
+---
+
+#### Handlebar Rule Reference
+
+A rule contains:
+- `selector`: Filtering logic to determine if a rule applies (based on tool names or tags)
+- `condition`: The logical evaluation
+- `effect`: The consequence if condition is true (`allow`, `block`, or `hitl`)
+
+**Rule spec**:
+```json
+{
+  "priority": 100,
+  "enabled": true,
+  "name": "Human readable rule name",
+  "selector": {
+    "phase": "tool.before",
+    "tool": {
+      "name": "toolName",
+      "tagsAny": ["pii", "financial"],
+      "tagsAll": ["write", "external"]
+    }
+  },
+  "condition": { /* see condition types below */ },
+  "effect": { "type": "block", "reason": "Explanation for user" }
+}
+```
+
+**Effect types**:
+- `{ "type": "allow", "reason": "..." }` - Permit the action
+- `{ "type": "block", "reason": "..." }` - Block the action, agent continues
+- `{ "type": "hitl", "reason": "..." }` - Human-in-the-loop review required, blocks until approved
+
+**Condition types**:
+
+| Kind | Purpose | Example |
+|------|---------|---------|
+| `enduserTag` | Check enduser metadata | `{ "kind": "enduserTag", "op": "hasValue", "tag": "role", "value": "admin" }` |
+| `executionTime` | Limit execution time | `{ "kind": "executionTime", "scope": "tool", "op": "gt", "ms": 5000 }` |
+| `sequence` | Require/forbid prior tools | `{ "kind": "sequence", "mustHaveCalled": ["verifyIdentity"] }` |
+| `maxCalls` | Limit tool invocations | `{ "kind": "maxCalls", "selector": { "by": "toolName", "patterns": ["*"] }, "max": 10 }` |
+| `metricWindow` | Evaluate metrics over time | `{ "kind": "metricWindow", "scope": "agent_user", "metric": { "kind": "inbuilt", "key": "bytes_out" }, "aggregate": "sum", "windowSeconds": 3600, "op": "gt", "value": 1000000 }` |
+| `timeGate` | Time-based restrictions | `{ "kind": "timeGate", "timezone": { "source": "enduserTag", "tag": "tz", "fallback": "org" }, "windows": [{ "days": ["mon","tue","wed","thu","fri"], "start": "09:00", "end": "17:00" }] }` |
+| `signal` | Custom signal evaluation | `{ "kind": "signal", "key": "mySignal", "args": { "userId": { "from": "enduserId" } }, "op": "eq", "value": "true" }` |
+| `and` | All conditions must match | `{ "kind": "and", "all": [ /* conditions */ ] }` |
+| `or` | Any condition must match | `{ "kind": "or", "any": [ /* conditions */ ] }` |
+| `not` | Invert condition | `{ "kind": "not", "not": { /* condition */ } }` |
+
+**Signal bindings** (for `signal` condition args):
+- `{ "from": "enduserId" }` - The enduser's ID
+- `{ "from": "enduserTag", "tag": "role" }` - An enduser metadata tag
+- `{ "from": "toolName" }` - Name of the tool being called
+- `{ "from": "toolArg", "path": "amount" }` - A tool argument (dot-path)
+- `{ "from": "const", "value": "100" }` - A constant value
+
+---
+
+#### 2a: Generate Human-Readable Rules
+
+Based on the agent summary, create a list of governance rules in plain English:
+
+```
+## Proposed Rules
+
+1. **[Rule Name]**
+   - When: [describe when this rule applies]
+   - Condition: [what must be true]
+   - Effect: [block/allow/require approval]
+   - Reason: [why this rule exists]
+
+2. **[Rule Name]**
+   ...
+```
+
+Consider rules for:
+- Identity verification before sensitive actions
+- Rate limiting on high-risk tools
+- Approval requirements for irreversible actions
+- Time-based restrictions if applicable
+- Role-based access controls
+- Sequence requirements (e.g., verify before access)
+
+#### 2b: Generate Valid JSON Rules
+
+For each human-readable rule, generate the corresponding valid Handlebar JSON:
+
+```json
+[
+  {
+    "priority": 100,
+    "enabled": true,
+    "name": "Rule Name",
+    "selector": { "phase": "tool.before", "tool": { "tagsAny": ["pii"] } },
+    "condition": { "kind": "sequence", "mustHaveCalled": ["verifyIdentity"] },
+    "effect": { "type": "block", "reason": "Please verify identity first" }
+  }
+]
+```
+
+**Write the rules to a file**: Save the JSON rules array to `handlebar-rules.json` in the project root.
+
+#### 2c: Output Rule Summary
+
+After generating both formats, output the high-level rule descriptions to the user:
+
+```
+## Generated Rules Summary
+
+| # | Rule Name | Effect | Purpose |
+|---|-----------|--------|---------|
+| 1 | ... | block | ... |
+| 2 | ... | hitl | ... |
+
+Rules have been saved to `handlebar-rules.json`
+```
+
+### Step 3: Create Policy
+
+Create a policy to group the rules and define which agents they apply to.
+
+**Policy spec**:
+```json
+{
+  "name": "Policy name",
+  "description": "What this policy covers",
+  "enabled": true,
+  "agentSelector": {
+    "anyOfSlugs": ["agent-slug"],
+    "anyOfTags": ["prod"],
+    "allOfTags": ["customer-facing"]
+  },
+  "mode": "enforce",
+  "combine": "most_severe_wins"
+}
+```
+
+**IMPORTANT**: If the agent does not have a configured slug, use the `*` catch-all for the agent selector:
+```json
+{
+  "agentSelector": {
+    "anyOfSlugs": ["*"]
+  }
+}
+```
+
+**Output**:
+```
+## Policy
+
+**Name**: [policy name]
+**Description**: [description]
+**Agent selector**: [how agents are matched]
+**Mode**: enforce (or shadow for testing)
+```
+
+### Step 4: Upload Rules to Handlebar
+
+Upload the policy and rules to the Handlebar API.
+
+**API Endpoint**: `POST https://api.gethandlebar.com/v1/rules`
+
+**Authorization**: Bearer token (uses `HANDLEBAR_API_KEY` environment variable)
+
+**Request body**:
+```json
+{
+  "policy": {
+    "name": "Policy Name",
+    "description": "Description",
+    "enabled": true,
+    "agentSelector": { "anyOfSlugs": ["*"] },
+    "mode": "enforce",
+    "combine": "most_severe_wins"
+  },
+  "rules": [
+    { /* rule 1 */ },
+    { /* rule 2 */ }
+  ]
+}
+```
+
+**Execute the upload**:
+
+```bash
+curl -X POST https://api.gethandlebar.com/v1/rules \
+  -H "Authorization: Bearer $HANDLEBAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @handlebar-rules-upload.json
+```
+
+Before uploading, save the complete payload (policy + rules) to `handlebar-rules-upload.json`.
+
+**INFORM THE USER** of the result:
+
+> "Rules have been uploaded to Handlebar.
+>
+> - **Policy**: [name]
+> - **Rules**: [count] rules uploaded
+> - **Mode**: [enforce/shadow]
+>
+> You can view and manage these rules at https://app.gethandlebar.com"
+
+If the upload fails (e.g., no API key), inform the user:
+
+> "Could not upload rules to Handlebar. Please ensure `HANDLEBAR_API_KEY` is set in your environment, then run:
+> ```bash
+> curl -X POST https://api.gethandlebar.com/v1/rules \
+>   -H \"Authorization: Bearer $HANDLEBAR_API_KEY\" \
+>   -H \"Content-Type: application/json\" \
+>   -d @handlebar-rules-upload.json
+> ```"
+
+### Final Output
+
+Provide a summary:
+
+```
+# Rule Generation Complete
+
+## Summary
+- **Agent**: [name/slug]
+- **Policy**: [policy name]
+- **Rules generated**: [count]
+- **Mode**: [enforce/shadow]
+
+## Files Created
+- `handlebar-rules.json` - Rules array
+- `handlebar-rules-upload.json` - Full payload (policy + rules)
+
+## Next Steps
+1. Review rules in Handlebar dashboard: https://app.gethandlebar.com
+2. Test with mode: "shadow" before enforcing
+3. Monitor audit logs for rule triggers
+4. Adjust rules as needed based on real usage
+```

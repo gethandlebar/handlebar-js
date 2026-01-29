@@ -16,42 +16,27 @@ Use this skill when the user wants to:
 
 ## Workflow
 
-### Step 1: Verify Handlebar Access
+### Step 1: Handlebar Setup Information
 
-Before proceeding, confirm the user has access to Handlebar:
+**INFORM THE USER**:
 
-**ASK THE USER**:
-
-> "Do you have a Handlebar account? You'll need access to configure governance rules for your agent.
+> "To connect your agent to Handlebar, you'll need an account and API key:
 >
-> - **Yes** - great, let's continue
-> - **No** - sign up at https://app.gethandlebar.com
-> - **Waiting for access** - Handlebar is currently operating a waitlist. Request access by emailing contact@gethandlebar.com"
+> **Sign up**: https://app.gethandlebar.com  
+> (Handlebar is currently operating a waitlist - if you don't have access, email contact@gethandlebar.com to request it)
+>
+> **Create an API key**: Org Settings > API Keys > Create API key
+>
+> **Set the environment variable**:
+> ```bash
+> export HANDLEBAR_API_KEY=hb_your_api_key_here
+> # Or add to .env file
+> HANDLEBAR_API_KEY=hb_your_api_key_here
+> ```
+>
+> Don't worry if you don't have this yet - the API key can be added after we've onboarded your agent. Let's continue with the setup."
 
-Wait for confirmation before proceeding.
-
-#### Once Onboarded: Create an API Key
-
-If the user has access, guide them to create an API key:
-
-1. Go to https://app.gethandlebar.com
-2. Navigate to **Org Settings** > **API Keys**
-3. Click **Create API key**
-4. Copy the API key
-
-The API key must be set as an environment variable in their agent codebase/system:
-
-```bash
-HANDLEBAR_API_KEY=hb_your_api_key_here
-```
-
-Or in a `.env` file:
-
-```
-HANDLEBAR_API_KEY=hb_your_api_key_here
-```
-
-**Confirm with the user** that they have their API key ready before proceeding.
+Proceed to Step 2.
 
 ### Step 2: Detect Agent Framework
 
@@ -175,10 +160,9 @@ npm install @handlebar/core
 
 ```bash
 HANDLEBAR_API_KEY=hb_your_api_key_here
-HANDLEBAR_AUDIT_ENDPOINT=https://api.handlebar.ai/v1/audit/ingest
 ```
 
-If `HANDLEBAR_AUDIT_ENDPOINT` and `HANDLEBAR_API_KEY` are set, audit logs go to Handlebar API. Otherwise, they log to console.
+If `HANDLEBAR_API_KEY` is set, audit logs go to Handlebar API. Otherwise, they log to console.
 
 **Integration steps:**
 
@@ -250,7 +234,7 @@ async function executeToolWithGovernance(toolName: string, args: unknown) {
     return { blocked: true, reason: decision.reason };
   }
   
-  if (decision.effect === "human_in_the_loop") {
+  if (decision.effect === "hitl") {
     // Handle HITL approval flow
     return { requiresApproval: true, reason: decision.reason };
   }
@@ -282,6 +266,24 @@ async function executeToolWithGovernance(toolName: string, args: unknown) {
 ```
 
 **Output**: Provide the appropriate code snippet for the detected framework.
+
+---
+
+#### For Non-JavaScript/TypeScript Agents
+
+If the agent is built in a language other than JavaScript or TypeScript (e.g., Python, Go, Rust, Java):
+
+**INFORM THE USER**:
+
+> "[Language] is not yet supported by Handlebar SDKs.
+>
+> Please contact the Handlebar team at contact@gethandlebar.com to let them know the agent framework you want to use. We will endeavour to support it as soon as possible.
+>
+> In the meantime, let's continue with the agent and rule analysis so you're ready when support is available."
+
+Then proceed to Step 4 to complete the codebase assessment.
+
+---
 
 ### Step 4: Assess Codebase for Agent Purpose
 
@@ -406,7 +408,36 @@ If jurisdiction cannot be inferred, **ASK THE USER**:
 
 ### Final Output
 
-Provide a summary report for Handlebar configuration:
+Provide a summary report for Handlebar configuration and **save it to a file** for use by the rule generation skill.
+
+**Save to `handlebar-agent-config.json`**:
+
+```json
+{
+  "agent": {
+    "slug": "[agent-slug]",
+    "name": "[agent-name]",
+    "framework": "[detected framework]",
+    "package": "[package to install]"
+  },
+  "tools": [
+    { "name": "toolName", "summary": "...", "categories": ["read", "pii"] }
+  ],
+  "intent": {
+    "domain": "[healthcare/finance/etc.]",
+    "workflow": "[primary workflow]",
+    "goal": "[agent goal]"
+  },
+  "context": {
+    "jurisdiction": "[UK/US/EU]",
+    "users": "[who is impacted]",
+    "regulations": ["regulation1", "regulation2"],
+    "highRiskActions": ["action1", "action2"]
+  }
+}
+```
+
+**Output to user**:
 
 ```
 # Handlebar Configuration Summary
@@ -420,6 +451,11 @@ Provide a summary report for Handlebar configuration:
 |------|---------|------------|
 | ... | ... | ... |
 
+## Intent
+- **Domain**: [domain]
+- **Workflow**: [primary workflow]
+- **Goal**: [agent goal]
+
 ## Context
 - **Jurisdiction**: [detected/specified]
 - **Users**: [who is impacted]
@@ -429,7 +465,16 @@ Provide a summary report for Handlebar configuration:
 ## Next Steps
 1. Install the package: `npm install [package]`
 2. Add the integration code (above)
-3. Configure rules in Handlebar dashboard
-4. Start in `monitor` mode to observe behavior
-5. Switch to `enforce` when ready
+3. Run `/handlebar_rule_generation` to generate governance rules
+
+---
+
+Configuration saved to `handlebar-agent-config.json`
 ```
+
+**ASK THE USER**:
+
+> "Please review the configuration above. Is this information correct?
+>
+> - If yes, you can proceed with `/handlebar_rule_generation` to generate governance rules
+> - If anything needs to be changed, let me know and I'll update the configuration"
