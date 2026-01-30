@@ -10,13 +10,15 @@ import { ExecutionTimeConditionSchema, TimeGateConditionSchema } from "./time";
 import {
 	MaxCallsConditionSchema,
 	SequenceConditionSchema,
+	ToolArgConditionSchema,
 	ToolNameConditionSchema,
 	ToolTagConditionSchema,
 } from "./tools";
 
 const BaseRuleConditionSchema = z.union([
 	ToolNameConditionSchema,
-	ToolTagConditionSchema,
+  ToolTagConditionSchema,
+	ToolArgConditionSchema,
 	EndUserTagConditionSchema,
 	ExecutionTimeConditionSchema,
 	SequenceConditionSchema,

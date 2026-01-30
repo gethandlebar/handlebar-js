@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GlobSchema } from "./common";
+import { GlobSchema, JSONValueSchema } from "./common";
 
 export const ToolNameConditionSchema = z.discriminatedUnion("op", [
 	z
@@ -18,6 +18,32 @@ export const ToolNameConditionSchema = z.discriminatedUnion("op", [
 		.strict(),
 ]);
 export type ToolNameCondition = z.infer<typeof ToolNameConditionSchema>;
+
+export const ToolArgConditionSchema = z.discriminatedUnion("type", [
+  z.object({
+    kind: z.literal("toolArg"),
+    type: z.literal("string"),
+    op: z.enum(["eq", "neq", "contains", "startsWith", "endsWith", "in"]),
+    path: z.string().min(1).max(100),
+    value: z.string().min(1).max(1000),
+  }),
+  z.object({
+    kind: z.literal("toolArg"),
+    type: z.literal("number"),
+    op: z.enum(["eq", "neq", "lt", "lte", "gt", "gte"]),
+    path: z.string().min(1).max(100),
+    value: z.number(),
+  }),
+  z.object({
+    kind: z.literal("toolArg"),
+    type: z.literal("boolean"),
+    op: z.literal("eq"),
+    path: z.string().min(1).max(100),
+    value: z.boolean(),
+  }),
+]
+);
+export type ToolArgCondition = z.infer<typeof ToolArgConditionSchema>;
 
 export const ToolTagConditionSchema = z.discriminatedUnion("op", [
 	z
