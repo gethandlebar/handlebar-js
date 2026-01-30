@@ -87,3 +87,16 @@ export function generateSlug(): string {
 
 	return words.join("-");
 }
+
+export function getByDotPath(obj: unknown, path: string): unknown {
+	const parts = path.split(".").filter(Boolean);
+	let cur: any = obj;
+
+	for (const p of parts) {
+		if (cur == null) {
+			return undefined;
+		}
+		cur = cur[p];
+	}
+	return cur;
+}

@@ -6,7 +6,7 @@ import type {
 import type z from "zod";
 import type { SubjectRef } from "./subjects";
 import type { RunContext, Tool, ToolCall } from "./types";
-import { stableJson } from "./utils";
+import { getByDotPath, stableJson } from "./utils";
 
 export type SignalProvider<TValue = unknown> = (
 	args: Record<string, unknown>,
@@ -47,19 +47,6 @@ export function resultToSignalSchema(
 	} catch {
 		return undefined;
 	}
-}
-
-function getByDotPath(obj: unknown, path: string): unknown {
-	const parts = path.split(".").filter(Boolean);
-	let cur: any = obj;
-
-	for (const p of parts) {
-		if (cur == null) {
-			return undefined;
-		}
-		cur = cur[p];
-	}
-	return cur;
 }
 
 export function compareSignal(

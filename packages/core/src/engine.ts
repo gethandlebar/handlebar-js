@@ -18,6 +18,7 @@ import type {
 	ToolNameCondition,
 	ToolTagCondition,
 } from "@handlebar/governance-schema";
+import type { ToolArgCondition } from "@handlebar/governance-schema/dist/rules/tools";
 import { decisionCodeFor, effectRank } from "./actions";
 import { ApiManager } from "./api/manager";
 import type { AgentTool } from "./api/types";
@@ -51,7 +52,7 @@ import type {
 	ToolMeta,
 	ToolResult,
 } from "./types";
-import { millisecondsSince } from "./utils";
+import { getByDotPath, millisecondsSince } from "./utils";
 
 type EvalArgs<T extends Tool = Tool> = {
 	phase: RulePhase;
@@ -271,52 +272,36 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				);
 
 			case "toolTag":
-				return this.evalToolTag(
-					cond as ToolTagCondition,
-					args.call.tool.categories ?? [],
-				);
+				return this.evalToolTag(cond, args.call.tool.categories ?? []);
+
+			case "toolArg":
+				return this.evalToolArg(cond, args.call.args);
 
 			case "enduserTag":
-				return this.evalEnduserTag(
-					cond as EndUserTagCondition,
-					args.ctx.enduser,
-				);
+				return this.evalEnduserTag(cond, args.ctx.enduser);
 
 			case "executionTime":
 				if (args.phase !== "tool.after") {
 					return false;
 				}
-				return this.evalExecutionTime(
-					cond as ExecutionTimeCondition,
-					args.executionTimeMS,
-					args.ctx,
-				);
+				return this.evalExecutionTime(cond, args.executionTimeMS, args.ctx);
 
 			case "sequence":
-				return this.evalSequence(
-					cond as SequenceCondition,
-					args.ctx.history,
-					args.call.tool.name,
-				);
+				return this.evalSequence(cond, args.ctx.history, args.call.tool.name);
 
 			case "maxCalls":
-				return this.evalMaxCalls(cond as MaxCallsCondition, args.ctx.history);
+				return this.evalMaxCalls(cond, args.ctx.history);
 
 			case "timeGate":
-				return this.evalTimeGate(cond as TimeGateCondition, args.ctx);
+				return this.evalTimeGate(cond, args.ctx);
 
 			case "requireSubject":
-				return this.evalRequireSubject(
-					cond as RequireSubjectCondition,
-					args.subjects,
-				);
+				return this.evalRequireSubject(cond, args.subjects);
 
 			case "signal": {
-				const c = cond as SignalCondition;
-
 				const res = await this.signals.eval(
-					c.key,
-					c.args,
+					cond.key,
+					cond.args,
 					{ ctx: args.ctx, call: args.call, subjects: args.subjects },
 					args.signalCache,
 				);
@@ -326,7 +311,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 					return false;
 				}
 
-				return compareSignal(c.op, res.value, c.value);
+				return compareSignal(cond.op, res.value, cond.value);
 			}
 
 			case "metricWindow":
@@ -338,34 +323,31 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				return false;
 
 			case "and": {
-				const c = cond;
-				if (!c.all.length) {
+				if (!cond.all.length) {
 					return true;
 				}
-				for (const child of c.all) {
+				for (const child of cond.all) {
 					if (!(await this.evalCondition(child, args))) {
 						return false;
 					}
 				}
 				return true;
 			}
+
 			case "or": {
-				const c = cond;
-				if (!c.any.length) {
+				if (!cond.any.length) {
 					return false;
 				}
-				for (const child of c.any) {
+				for (const child of cond.any) {
 					if (await this.evalCondition(child, args)) {
 						return true;
 					}
 				}
 				return false;
 			}
+
 			case "not":
 				return !(await this.evalCondition(cond.not, args));
-
-			default:
-				return true;
 		}
 	}
 
@@ -404,6 +386,88 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				return cond.tags.some((t) => lower.includes(t.toLowerCase()));
 			case "allOf":
 				return cond.tags.every((t) => lower.includes(t.toLowerCase()));
+		}
+	}
+
+	private evalToolArg(cond: ToolArgCondition, args: unknown): boolean {
+		const arg = getByDotPath(args, cond.path);
+
+		if (arg === undefined) {
+			console.debug(
+				`[Handlebar] argument ${cond.path} not found in tool arg condition; evaluating 'false'`,
+			);
+			return false;
+		}
+
+		switch (cond.type) {
+			case "string": {
+				const isString = typeof arg === "string";
+				if (!isString) {
+					console.debug(
+						`[Handlebar] argument ${cond.path} is not a string; evaluating 'false'`,
+					);
+					return false;
+				}
+				switch (cond.op) {
+					case "contains":
+						return arg.includes(cond.value as string);
+					case "startsWith":
+						return arg.startsWith(cond.value as string);
+					case "endsWith":
+						return arg.endsWith(cond.value as string);
+					case "eq":
+						return arg === cond.value;
+					case "neq":
+						return arg !== cond.value;
+					case "in":
+						return cond.value.includes(arg);
+					default:
+						console.debug(
+							`[Handlebar] unknown operator ${JSON.stringify(cond)} for string condition; evaluating 'false'`,
+						);
+						return false;
+				}
+			}
+			case "number": {
+				const isNumber = typeof arg === "number";
+				if (!isNumber) {
+					console.debug(
+						`[Handlebar] argument ${cond.path} is not a number; evaluating 'false'`,
+					);
+					return false;
+				}
+
+				switch (cond.op) {
+					case "eq":
+						return arg === cond.value;
+					case "neq":
+						return arg !== cond.value;
+					case "lt":
+						return arg < cond.value;
+					case "lte":
+						return arg <= cond.value;
+					case "gt":
+						return arg > cond.value;
+					case "gte":
+						return arg >= cond.value;
+					default:
+						console.debug(
+							`[Handlebar] unknown operator ${JSON.stringify(cond)} for number condition; evaluating 'false'`,
+						);
+						return false;
+				}
+			}
+			case "boolean": {
+				const isBoolean = typeof arg === "boolean";
+				if (!isBoolean) {
+					console.debug(
+						`[Handlebar] argument ${cond.path} is not a boolean; evaluating 'false'`,
+					);
+					return false;
+				}
+
+				return cond.value === arg;
+			}
 		}
 	}
 
