@@ -1,11 +1,11 @@
 # Handlebar for AI SDK v5
 
-Add [Handlebar] runtime checks, controls and governance into the Vercel AI SDK `>= 5.0.0`.\
+Add [Handlebar] runtime checks, controls and governance into the Vercel AI SDK `^5.0.0`.\
 This package provides a wrapper around the `Experimental_Agent` class
 which allows you to configure runtime governance checks on your agent.
 Support for earlier versions is in development.
 
-_Note: This package in early development and the interface is subject to change._
+_Note: `ai@6` support is coming soon_
 
 ## Features
 
@@ -17,20 +17,28 @@ Short-term roadmap:
 - [X] Tool ordering + execution time checks
 - [X] custom checks for rules (numeric tracking; boolean evaluation)
 - [X] Audit telemetry + consumers
-- [ ] Agent lockdown + human-in-the-loop actions
+- [X] human-in-the-loop actions
+- [ ] Agent lockdown
 
 ### Roadmap
 
 Handlebar is in early development. We have a lot of functionality planned,
 but need your feedback on what you need to help you build better agents.
 
-- Refer to the [roadmap][root_roadmap] to see what we're cooking.
 - Please feel free to [open an issue](https://github.com/gethandlebar/handlebar-js/issues/new) if you have any feedback or suggestions
 - or [join our Discord][discord_invite] to talk to us directly
 
 See [contributing][root_contributing] for more information.
 
 ## Getting started
+
+### Handlebar setup
+
+1. Sign-up at [`https://app.gethandlebar.com`](https://app.gethandlebar.com) (get in touch with us if you're on the waitlist and want access)
+1. Org > settings > API Keys > Create API Key
+1. Copy this API key and add to your agent codebase's `.env` file as `HANDLEBAR_API_KEY=<key>`
+
+### Agent setup
 
 Install the package in your codebase
 
@@ -64,81 +72,21 @@ To get more out of handlebar,
 you can configure rules on tool use and behaviour
 for handlebar to enforce at runtime.
 
-### Audit logs
+### Auditable decision logs
 
-The `HandlebarAgent` collects audit logs for key events
+The `HandlebarAgent` collects logs for key events
 in the lifetime of an agent run,
 such as tool usage
 and agent rule evaluations
 (see below for more on Handlebar rules).
+When your agent runs,
+Handlebar will automatically emit key events to the [platform].
 
-You can export the logs to a local dashboard
-with [Handlebar lens][lens_repo],
-our opensource agent manager which is in early development.
-To do so,
-set the endpoint environment variable
-in your system running the `HandlebarAgent` class
-and then run **Handlebar Lens** (refer to [Lens' README][lens_repo] for this).
-Your agents logs will appear in the dashboard.
+### Enforce Rules on the Agent
 
-```bash
-// .env
-HANDLEBAR_API_ENDPOINT=http://localhost:7071
-// or use port configured on Handlebar Lens
-```
-
-N.b. Handlebar audit logs and **Lens** are in early and active development.
-Our near-term priorities include:
-
-- Combining audit logs with OTEL for LLMs and agents
-- Search, filtering, and run analysis on **Lens**
-
-### Rules and agent enforcement
-
-```js
-import { HandlebarAgent } from "@handlebar/core";
-import { and, block, configToRule, maxCalls, rule, sequence, toolName } from "@handlebar/core";
-const rules = [
-	// Block issueRefund requests after the first one.
-	rule.pre({
-		priority: 2,
-		if: maxCalls({
-			selector: { by: "toolName", patterns: ["issueRefund"] },
-			max: 1,
-		}),
-		do: [block()],
-	}),
-  
-	// Only allow issueRefund if humanApproval has been sought.
-	rule.pre({
-		priority: 10,
-		if: and(
-			toolName.eq("issueRefund"),
-			sequence({ mustHaveCalled: ["humanApproval"] }),
-		),
-		do: [block()],
-	}),
-].map(configToRule);
-
-const toolCategories = {
-  tool1: ["pii"],
-  tool2: ["some", "custom", "values"],
-}
-
-const agent = new HandlebarAgent({
-	system,
-	model,
-	tools,
-	governance: {
-		categories: toolCategories,
-		rules,
-	},
-});
-```
-
-Please refer to [`./examples/`][examples] for a runable demo of [Handlebar]
-applied to an ai sdk agent.\
-N.b. Our developer docs are incoming.
+Rules are configured on the Handlebar platform,
+or run the Claude Code skill (**coming soon**)
+to set up in your codebase.
 
 ## Contributing
 
@@ -157,3 +105,4 @@ Find out more at https://gethandlebar.com
 [examples]: https://github.com/gethandlebar/handlebar-js/blob/main/examples/ai-sdk-v5/
 [discord_invite]: https://discord.gg/Q6xwvccg
 [lens_repo]: https://github.com/gethandlebar/lens
+[platform]: https://app.gethandlebar.com
