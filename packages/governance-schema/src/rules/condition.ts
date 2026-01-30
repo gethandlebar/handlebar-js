@@ -17,7 +17,7 @@ import {
 
 const BaseRuleConditionSchema = z.union([
 	ToolNameConditionSchema,
-  ToolTagConditionSchema,
+	ToolTagConditionSchema,
 	ToolArgConditionSchema,
 	EndUserTagConditionSchema,
 	ExecutionTimeConditionSchema,
