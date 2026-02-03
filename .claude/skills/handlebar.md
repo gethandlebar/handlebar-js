@@ -477,4 +477,6 @@ Configuration saved to `.handlebar/agent-config.json`
 > "Please review the configuration above. Is this information correct?
 >
 > - If yes, you can proceed with `/handlebar_rule_generation` to generate governance rules
-> - If anything needs to be changed, let me know and I'll update the configuration"
+> - If anything needs to be changed, let me know and I'll update the configuration
+>
+> **Important**: Only proceed with rule generation once you are satisfied that the information mentioned above is accurate and complete. This configuration will be saved to `.handlebar/agent-config.json` and the generated rules will be based on it, so any inaccuracies here will affect the quality of your governance rules."
