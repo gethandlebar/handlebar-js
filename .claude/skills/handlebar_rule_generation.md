@@ -158,7 +158,7 @@ For each human-readable rule, generate the corresponding valid Handlebar JSON:
 ]
 ```
 
-**Write the rules to a file**: Save the JSON rules array to `handlebar-rules.json` in the project root.
+**Write the rules to a file**: Save the JSON rules array to `.handlebar/rules.json`.
 
 #### 2c: Output Rule Summary
 
@@ -172,7 +172,7 @@ After generating both formats, output the high-level rule descriptions to the us
 | 1 | ... | block | ... |
 | 2 | ... | hitl | ... |
 
-Rules have been saved to `handlebar-rules.json`
+Rules have been saved to `.handlebar/rules.json`
 ```
 
 ### Step 3: Create Policy
@@ -246,10 +246,10 @@ Upload the policy and rules to the Handlebar API.
 curl -X POST https://api.gethandlebar.com/v1/rules \
   -H "Authorization: Bearer $HANDLEBAR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d @handlebar-rules-upload.json
+  -d @.handlebar/rules-upload.json
 ```
 
-Before uploading, save the complete payload (policy + rules) to `handlebar-rules-upload.json`.
+Before uploading, save the complete payload (policy + rules) to `.handlebar/rules-upload.json`.
 
 **INFORM THE USER** of the result:
 
@@ -268,7 +268,7 @@ If the upload fails (e.g., no API key), inform the user:
 > curl -X POST https://api.gethandlebar.com/v1/rules \
 >   -H \"Authorization: Bearer $HANDLEBAR_API_KEY\" \
 >   -H \"Content-Type: application/json\" \
->   -d @handlebar-rules-upload.json
+>   -d @.handlebar/rules-upload.json
 > ```"
 
 ### Final Output
@@ -285,8 +285,8 @@ Provide a summary:
 - **Mode**: [enforce/shadow]
 
 ## Files Created
-- `handlebar-rules.json` - Rules array
-- `handlebar-rules-upload.json` - Full payload (policy + rules)
+- `.handlebar/rules.json` - Rules array
+- `.handlebar/rules-upload.json` - Full payload (policy + rules)
 
 ## Next Steps
 1. Review rules in Handlebar dashboard: https://app.gethandlebar.com
