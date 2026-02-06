@@ -1,6 +1,6 @@
 import type { LLMMessage } from "@handlebar/core";
 import type { MessageEventSchema } from "@handlebar/governance-schema";
-import type { ModelMessage, Prompt } from "ai";
+import { type AssistantContent, type FilePart, type ModelMessage, modelMessageSchema, type Prompt, type TextPart, type ToolCallPart, type ToolContent, type ToolResultPart } from "ai";
 import type { z } from "zod";
 
 type Message = z.infer<typeof MessageEventSchema>["data"];
@@ -21,15 +21,102 @@ function aiRoleToHandlebarKind(role: ModelMessage["role"]): Message["kind"] {
 	}
 }
 
-export function formatModelMessage(message: ModelMessage): FormattedMessageContent | undefined {
-  if (typeof message.content === "string") {
-		return {
-			content: message.content,
-			kind: aiRoleToHandlebarKind(message.role),
-			role: message.role,
-		};
+/**
+ * n.b. `ReasoningPart` not exported for some reason.
+ */
+function formatMessagePart(part: TextPart | FilePart | ToolCallPart | ToolResultPart): string | undefined {
+  if (part.type === "text") {
+    return part.text;
   }
-	// TODO: the other types of message content!!!
+
+  if (part.type === "tool-call") {
+    return JSON.stringify(part.input);
+  }
+
+  if (part.type === "tool-result") {
+    return JSON.stringify(part.output);
+  }
+
+  return undefined;
+}
+
+function formatToolContent(content: ToolContent, separator: string = "\n"): FormattedMessageContent {
+  const partContent: string[] = [];
+  for (const part of content) {
+    if (Array.isArray(part.output.value)) {
+      for (const subpart of part.output.value) {
+
+      }
+    }
+    partContent.push(JSON.stringify(part.output));
+  }
+
+  return {
+    content: partContent.join(separator),
+    kind: aiRoleToHandlebarKind("tool"),
+    role: "tool",
+  };
+}
+
+function formatAssistantContent(content: AssistantContent, separator: string = "\n"): FormattedMessageContent {
+  if (typeof content === "string") {
+    return {
+      content,
+      kind: aiRoleToHandlebarKind("assistant"),
+      role: "assistant",
+    };
+  }
+
+  const partContent: string[] = [];
+  for (const part of content) {
+    if (part.type === "reasoning") {
+      partContent.push(part.text);
+    } else {
+      const partString = formatMessagePart(part);
+      if (partString !== undefined) {
+        partContent.push(partString);
+      }
+    }
+  }
+
+  console.log(`Assistant msg ${partContent.join(separator)}`)
+  return {
+    content: partContent.join(separator),
+    role: "assistant",
+    kind: aiRoleToHandlebarKind("assistant"),
+  };
+}
+
+/**
+ * @todo Sort out this mess.
+ */
+export function formatModelMessage(message: ModelMessage): FormattedMessageContent | undefined {
+  const messageContent = modelMessageSchema.safeParse(message);
+  if (!messageContent.success) {
+    return undefined;
+  }
+
+  if (messageContent.data.role === "assistant") {
+    return formatAssistantContent(messageContent.data.content);
+  } else if (messageContent.data.role === "system") {
+    return {
+			content: messageContent.data.content,
+			kind: aiRoleToHandlebarKind(messageContent.data.role),
+			role: messageContent.data.role,
+		};
+  } else if (messageContent.data.role === "user") {
+    if (typeof messageContent.data.content === "string") {
+      return {
+  			content: messageContent.data.content,
+  			kind: aiRoleToHandlebarKind(messageContent.data.role),
+  			role: messageContent.data.role,
+  		};
+    } else {
+      // TODO: handle message parts https://ai-sdk.dev/docs/reference/ai-sdk-core/model-message#usermodelmessage
+    }
+  } else if (messageContent.data.role === "tool") {
+    return formatToolContent(messageContent.data.content);
+  }
 
   return undefined;
 }
@@ -68,6 +155,7 @@ export function formatPrompt(prompt: Prompt): FormattedMessageContent[] {
 
 export function combineMessageStrings(messages: ModelMessage[], opts: { includeLast?: boolean, separator?: string } = { includeLast: false, separator: " " }) {
   const messageParts = opts.includeLast ? messages : messages.slice(0, -1);
+  console.log(`First message parts ${messageParts.length}`);
   if (messageParts.length === 0) {
     return undefined;
   }
@@ -75,6 +163,7 @@ export function combineMessageStrings(messages: ModelMessage[], opts: { includeL
   let combinedMsg = "";
   for (const msg of messageParts) {
     const formattedMsg = formatModelMessage(msg);
+    console.log(`First part formatted ${formattedMsg?.content.length}`);
     if (formattedMsg) {
       combinedMsg += formattedMsg.content + opts.separator;
     }

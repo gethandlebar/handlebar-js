@@ -132,13 +132,14 @@ export class HandlebarAgent<
 				...t,
         async execute(args: unknown, options: ToolCallOptions) {
           const lastMessage = options.messages[options.messages.length - 1];
+          console.log(`Last message exist? ${lastMessage !== undefined}`)
           const lastMessageContent = lastMessage ? formatModelMessage(lastMessage)?.content : undefined;
+          console.log(`Last message content: ${lastMessageContent}`)
           const firstMessageContent = combineMessageStrings(options.messages, { includeLast: false });
 
-          if (lastMessageContent && firstMessageContent) {
-            engine.emitLLMResult(lastMessageContent, firstMessageContent, toLLMMessages(options.messages), model);
+          if (lastMessageContent) {
+            engine.emitLLMResult(lastMessageContent, firstMessageContent ?? "", toLLMMessages(options.messages), model);
           }
-
 
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
