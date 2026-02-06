@@ -25,6 +25,7 @@
 	"types": "./dist/index.d.ts",
 	"dependencies": {
 		"@handlebar/governance-schema": "0.0.6-dev.7",
+		"tiktoken": "^1.0.22",
 		"zod": "^4.1.12"
 	}
 }
