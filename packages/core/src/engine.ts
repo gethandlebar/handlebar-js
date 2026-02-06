@@ -1,5 +1,7 @@
 import type {
 	AppliedAction,
+	AuditEvent,
+	AuditEventByKind,
 	EndUserConfig,
 	EndUserGroupConfig,
 	EndUserTagCondition,
@@ -42,6 +44,7 @@ import {
 } from "./signals";
 import { type SubjectRef, SubjectRegistry, sanitiseSubjects } from "./subjects";
 import { hhmmToMinutes, nowToTimeParts } from "./time";
+import { type LLMMessage, tokeniseByKind, tokeniseCount } from "./tokens";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -159,10 +162,36 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		};
 	}
 
-	public emit<K extends any>(kind: any, data: any, extras?: any): void {
-		if (!this.api.agentId) return;
+	public emit<K extends AuditEvent["kind"]>(kind: K, data: AuditEventByKind[K]["data"], extras?: Partial<AuditEvent>): void {
+    if (!this.api.agentId) {
+      return;
+    }
 		emit(this.api.agentId, kind, data, extras);
-	}
+  }
+
+  /**
+   * Provide direct results of an llm call to be emitted as an event.
+   *
+   * Approximates in/out tokens using BPE, and source attribution if provded.
+   * Tokenisation is using an implementation of OpenAI's `tiktoken` library, so the values may not be exact for other providers.
+   */
+  public emitLLMResult(outText: string, inText: string, messages: LLMMessage[], model: { model: string; provider?: string }, meta?: { durationMs?: number }) {
+    const outTokens = tokeniseCount(outText);
+    const inTokens = tokeniseCount(inText);
+
+    this.emit("llm.result", {
+      messageCount: messages.length ?? 0, // TODO: decide if this should be optional
+      tokens: {
+        in: inTokens,
+        out: outTokens,
+      },
+      model,
+      debug: {
+        inTokenAttribution: tokeniseByKind(messages),
+      },
+      durationMs: meta?.durationMs,
+    },);
+  }
 
 	getTool(name: string) {
 		const t = this.tools.get(name);
