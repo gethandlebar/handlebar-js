@@ -48,3 +48,19 @@ export const MessageEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("message.raw.created"),
 	data: MessageSchema,
 });
+
+export const LLMResultEventSchema = AuditEnvelopeSchema.extend({
+	kind: z.literal("llm.result"),
+  data: z.object({
+    model: z.object({
+      model: z.string(),
+      provider: z.string().optional()
+    }),
+    tokens: z.object({
+      in: z.number().min(0),
+      out: z.number().min(0),
+    }),
+    messageCount: z.number().min(0),
+    durationMS: z.number().min(0),
+	}),
+});

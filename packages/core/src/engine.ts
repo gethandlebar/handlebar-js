@@ -13,7 +13,6 @@ import type {
 	RulePhase,
 	RuleSelector,
 	SequenceCondition,
-	SignalCondition,
 	TimeGateCondition,
 	ToolNameCondition,
 	ToolTagCondition,

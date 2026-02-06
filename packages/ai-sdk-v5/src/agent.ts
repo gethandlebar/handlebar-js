@@ -126,7 +126,7 @@ export class HandlebarAgent<
 
 			return {
 				...t,
-				async execute(args: unknown, options: ToolCallOptions) {
+        async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					// Early exit: Rule violations overwrite tool action
@@ -211,12 +211,12 @@ export class HandlebarAgent<
 				}
 
 				// TODO: do we need reasoning?
-			},
+      },
 			tools: wrapped,
 		});
 		this.governance = engine;
 		this.runCtx = runCtx;
-		this.agentConfig = agent;
+    this.agentConfig = agent;
 
 		if (rest.system) {
 			this.systemPrompt = rest.system;
