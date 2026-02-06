@@ -7,6 +7,7 @@ import {
 	HANDLEBAR_ACTION_STATUS,
 	type HandlebarRunOpts,
 	type RunContext,
+  tokeniseCount,
 	withRunContext,
 } from "@handlebar/core";
 import type { AgentTool } from "@handlebar/core/dist/api/types";
@@ -315,6 +316,10 @@ export class HandlebarAgent<
 			role,
 			kind,
       messageId: uuidv7(),
+      debug: {
+        approxTokens: tokeniseCount(messageFinal),
+        chars: message.length,
+      }
 		});
 	}
 

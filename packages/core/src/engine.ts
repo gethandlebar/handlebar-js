@@ -45,6 +45,7 @@ import {
 import { type SubjectRef, SubjectRegistry, sanitiseSubjects } from "./subjects";
 import { hhmmToMinutes, nowToTimeParts } from "./time";
 import { type LLMMessage, tokeniseByKind, tokeniseCount } from "./tokens";
+import { toolResultMetadata } from "./tool";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -890,6 +891,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }
           : undefined,
+        debug: toolResultMetadata(tr.result),
 				// TODO: add postDecision/subjects/signals once audit schema supports it
 			},
 			{ stepIndex: localStep, decisionId },
