@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { tokeniseCount } from "../src/tokens"
+import { tokeniseByKind, tokeniseCount } from "../src/tokens"
 
 describe("tokeniseCount", () => {
   it("Should have consistent token count", () => {
@@ -14,4 +14,34 @@ describe("tokeniseCount", () => {
     const tokens2 = tokeniseCount("a different one");
     expect(tokens1).toBeGreaterThan(tokens2);
   });
+
+  it("Should return 0 for empty string", () => {
+    const tokens = tokeniseCount("");
+    expect(tokens).toEqual(0);
+  });
 });
+
+describe("tokeniseByKind", () => {
+  it("Should return empty record if no messages", () => {
+    const counts = tokeniseByKind([]);
+    expect(counts).toEqual({});
+  });
+
+  it("Should return only types present in messages", () => {
+    const counts = tokeniseByKind([
+      { kind: "assistant", content: "Hello world" },
+      { kind: "system", content: "world" },
+      { kind: "tool", content: "!" }
+    ]);
+    expect(counts).toEqual({ assistant: 2, system: 1, tool: 1 });
+  });
+
+  it("Should add not overwrite tokens from multiple kinds", () => {
+    const counts = tokeniseByKind([
+      { kind: "assistant", content: "This is several more tokens than 1, so the result should be more than 1" },
+      { kind: "assistant", content: "a" }, // a single token.
+    ]);
+    expect(counts.assistant).not.toBeUndefined();
+    expect(counts.assistant).toBeGreaterThan(1);
+  })
+})
