@@ -46,7 +46,7 @@ export const MessageSchema = z.object({
 
 export const MessageEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("message.raw.created"),
-  data: MessageSchema.extend(z.object({
+  data: MessageSchema.and(z.object({
     debug: z.object({
       approxTokens: z.number().min(0).optional(),
       chars: z.number().min(0).optional(),
@@ -67,13 +67,7 @@ export const LLMResultEventSchema = AuditEnvelopeSchema.extend({
     }),
     debug: z.object({
       // APPROXIMATE sources of input tokens.
-      inTokenAttribution: z.object({
-        system: z.number().min(0).optional(),
-        user: z.number().min(0).optional(),
-        assistant: z.number().min(0).optional(),
-        tool: z.number().min(0).optional(), // Output of tools
-        other: z.number().min(0).optional()
-      }),
+      inTokenAttribution: z.partialRecord(MessageRoleSchema, z.number().min(0)),
     }).optional(),
     messageCount: z.number().min(0),
     durationMs: z.number().min(0).optional(),

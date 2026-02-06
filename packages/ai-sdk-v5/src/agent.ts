@@ -21,7 +21,7 @@ import {
 } from "ai";
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
-import { formatPrompt } from "./messages";
+import { combineMessageStrings, formatModelMessage, formatPrompt, toLLMMessages } from "./messages";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
@@ -115,7 +115,10 @@ export class HandlebarAgent<
 
 		const runCtx = engine.createRunContext(runId, {
 			enduser: governance?.enduser,
-		});
+    });
+
+    const modelStringParts = rest.model.toString().split("/");
+		const model = { model: modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(), provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined}
 
 		const wrapped = mapTools(tools, (name, t) => {
 			if (!t.execute) {
@@ -127,6 +130,15 @@ export class HandlebarAgent<
 			return {
 				...t,
         async execute(args: unknown, options: ToolCallOptions) {
+          const lastMessage = options.messages[options.messages.length - 1];
+          const lastMessageContent = lastMessage ? formatModelMessage(lastMessage)?.content : undefined;
+          const firstMessageContent = combineMessageStrings(options.messages, { includeLast: false });
+
+          if (lastMessageContent && firstMessageContent) {
+            engine.emitLLMResult(lastMessageContent, firstMessageContent, toLLMMessages(options.messages), model);
+          }
+
+
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					// Early exit: Rule violations overwrite tool action
@@ -221,7 +233,7 @@ export class HandlebarAgent<
 		if (rest.system) {
 			this.systemPrompt = rest.system;
 		}
-	}
+  }
 
 	private toolInfo() {
 		const infoTools: AgentTool[] = [];
@@ -302,7 +314,7 @@ export class HandlebarAgent<
 			contentTruncated: truncated,
 			role,
 			kind,
-			messageId: uuidv7(),
+      messageId: uuidv7(),
 		});
 	}
 
