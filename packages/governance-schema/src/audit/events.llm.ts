@@ -46,7 +46,12 @@ export const MessageSchema = z.object({
 
 export const MessageEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("message.raw.created"),
-	data: MessageSchema,
+  data: MessageSchema.extend(z.object({
+    debug: z.object({
+      approxTokens: z.number().min(0).optional(),
+      chars: z.number().min(0).optional(),
+    }).optional(),
+	})),
 });
 
 export const LLMResultEventSchema = AuditEnvelopeSchema.extend({
@@ -60,7 +65,17 @@ export const LLMResultEventSchema = AuditEnvelopeSchema.extend({
       in: z.number().min(0),
       out: z.number().min(0),
     }),
+    debug: z.object({
+      // APPROXIMATE sources of input tokens.
+      inTokenAttribution: z.object({
+        system: z.number().min(0).optional(),
+        user: z.number().min(0).optional(),
+        assistant: z.number().min(0).optional(),
+        tool: z.number().min(0).optional(), // Output of tools
+        other: z.number().min(0).optional()
+      }),
+    }).optional(),
     messageCount: z.number().min(0),
-    durationMS: z.number().min(0),
+    durationMs: z.number().min(0).optional(),
 	}),
 });

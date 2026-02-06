@@ -860,7 +860,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				metrics: currentMetrics,
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }
-					: undefined,
+          : undefined,
 				// TODO: add postDecision/subjects/signals once audit schema supports it
 			},
 			{ stepIndex: localStep, decisionId },
