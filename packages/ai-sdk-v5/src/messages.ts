@@ -40,12 +40,15 @@ function formatMessagePart(part: TextPart | FilePart | ToolCallPart | ToolResult
   return undefined;
 }
 
+/**
+ * @todo - Complete, clean, test.
+ */
 function formatToolContent(content: ToolContent, separator: string = "\n"): FormattedMessageContent {
   const partContent: string[] = [];
   for (const part of content) {
     if (Array.isArray(part.output.value)) {
       for (const subpart of part.output.value) {
-
+        // TODO: finish this!!!
       }
     }
     partContent.push(JSON.stringify(part.output));
@@ -79,7 +82,6 @@ function formatAssistantContent(content: AssistantContent, separator: string = "
     }
   }
 
-  console.log(`Assistant msg ${partContent.join(separator)}`)
   return {
     content: partContent.join(separator),
     role: "assistant",
@@ -90,7 +92,7 @@ function formatAssistantContent(content: AssistantContent, separator: string = "
 /**
  * @todo Sort out this mess.
  */
-export function formatModelMessage(message: ModelMessage): FormattedMessageContent | undefined {
+function formatModelMessage(message: ModelMessage): FormattedMessageContent | undefined {
   const messageContent = modelMessageSchema.safeParse(message);
   if (!messageContent.success) {
     return undefined;
@@ -151,41 +153,4 @@ export function formatPrompt(prompt: Prompt): FormattedMessageContent[] {
 	}
 
 	return [];
-}
-
-export function combineMessageStrings(messages: ModelMessage[], opts: { includeLast?: boolean, separator?: string } = { includeLast: false, separator: " " }) {
-  const messageParts = opts.includeLast ? messages : messages.slice(0, -1);
-  console.log(`First message parts ${messageParts.length}`);
-  if (messageParts.length === 0) {
-    return undefined;
-  }
-
-  let combinedMsg = "";
-  for (const msg of messageParts) {
-    const formattedMsg = formatModelMessage(msg);
-    console.log(`First part formatted ${formattedMsg?.content.length}`);
-    if (formattedMsg) {
-      combinedMsg += formattedMsg.content + opts.separator;
-    }
-  }
-
-  if (combinedMsg.length === 0) {
-    return undefined;
-  }
-
-  return combinedMsg;
-}
-
-
-export function toLLMMessages(messages: ModelMessage[]): LLMMessage[] {
-  return messages.reduce((llmMsgs, nextModelMsg) => {
-    const formatted = formatModelMessage(nextModelMsg);
-    if (formatted) {
-      llmMsgs.push({
-        content: formatted.content,
-        kind: formatted.role,
-      });
-    }
-    return llmMsgs;
-  }, [] as LLMMessage[]);
 }

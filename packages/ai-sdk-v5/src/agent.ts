@@ -22,7 +22,7 @@ import {
 } from "ai";
 import { uuidv7 } from "uuidv7";
 import type { z } from "zod";
-import { combineMessageStrings, formatModelMessage, formatPrompt, toLLMMessages } from "./messages";
+import { formatPrompt } from "./messages";
 
 type MessageEvent = z.infer<typeof MessageEventSchema>;
 
