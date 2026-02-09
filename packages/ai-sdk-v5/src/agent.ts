@@ -131,16 +131,6 @@ export class HandlebarAgent<
 			return {
 				...t,
         async execute(args: unknown, options: ToolCallOptions) {
-          const lastMessage = options.messages[options.messages.length - 1];
-          console.log(`Last message exist? ${lastMessage !== undefined}`)
-          const lastMessageContent = lastMessage ? formatModelMessage(lastMessage)?.content : undefined;
-          console.log(`Last message content: ${lastMessageContent}`)
-          const firstMessageContent = combineMessageStrings(options.messages, { includeLast: false });
-
-          if (lastMessageContent) {
-            engine.emitLLMResult(lastMessageContent, firstMessageContent ?? "", toLLMMessages(options.messages), model);
-          }
-
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					// Early exit: Rule violations overwrite tool action
@@ -210,7 +200,17 @@ export class HandlebarAgent<
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
 			stopWhen,
-			onStepFinish: async (step) => {
+      onStepFinish: async (step) => {
+        try {
+          this.governance.emitLLMResult({
+            inTokens: step.usage.inputTokens,
+            outTokens: step.usage.outputTokens,
+          }, [], model);
+        } catch {
+          // Can throw if tokens undefined.
+          // TODO: log here.
+        }
+
 				if (rest.onStepFinish) {
 					await rest.onStepFinish(step);
 				}

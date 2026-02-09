@@ -176,9 +176,25 @@ export class GovernanceEngine<T extends Tool = Tool> {
    * Approximates in/out tokens using BPE, and source attribution if provded.
    * Tokenisation is using an implementation of OpenAI's `tiktoken` library, so the values may not be exact for other providers.
    */
-  public emitLLMResult(outText: string, inText: string, messages: LLMMessage[], model: { model: string; provider?: string }, meta?: { durationMs?: number }) {
-    const outTokens = tokeniseCount(outText);
-    const inTokens = tokeniseCount(inText);
+  public emitLLMResult(inputs: { outText?: string, inText?: string; outTokens?: number, inTokens?: number }, messages: LLMMessage[], model: { model: string; provider?: string }, meta?: { durationMs?: number }) {
+    let outTokens: number;
+    let inTokens: number;
+
+    if (inputs.outTokens) {
+      outTokens = inputs.outTokens;
+    } else if (inputs.outText) {
+      outTokens = tokeniseCount(inputs.outText);
+    } else {
+      throw new Error("Invalid input: output tokens or text must be provided");
+    }
+
+    if (inputs.inTokens) {
+      inTokens = inputs.inTokens;
+    } else if (inputs.inText) {
+      inTokens = tokeniseCount(inputs.inText);
+    } else {
+      throw new Error("Invalid input: input tokens or text must be provided");
+    }
 
     this.emit("llm.result", {
       messageCount: messages.length ?? 0, // TODO: decide if this should be optional
