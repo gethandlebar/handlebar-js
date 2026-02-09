@@ -163,52 +163,66 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		};
 	}
 
-	public emit<K extends AuditEvent["kind"]>(kind: K, data: AuditEventByKind[K]["data"], extras?: Partial<AuditEvent>): void {
-    if (!this.api.agentId) {
-      return;
-    }
+	public emit<K extends AuditEvent["kind"]>(
+		kind: K,
+		data: AuditEventByKind[K]["data"],
+		extras?: Partial<AuditEvent>,
+	): void {
+		if (!this.api.agentId) {
+			return;
+		}
 		emit(this.api.agentId, kind, data, extras);
-  }
+	}
 
-  /**
-   * Provide direct results of an llm call to be emitted as an event.
-   *
-   * Approximates in/out tokens using BPE, and source attribution if provded.
-   * Tokenisation is using an implementation of OpenAI's `tiktoken` library, so the values may not be exact for other providers.
-   */
-  public emitLLMResult(inputs: { outText?: string, inText?: string; outTokens?: number, inTokens?: number }, messages: LLMMessage[], model: { model: string; provider?: string }, meta?: { durationMs?: number }) {
-    let outTokens: number;
-    let inTokens: number;
+	/**
+	 * Provide direct results of an llm call to be emitted as an event.
+	 *
+	 * Approximates in/out tokens using BPE, and source attribution if provded.
+	 * Tokenisation is using an implementation of OpenAI's `tiktoken` library, so the values may not be exact for other providers.
+	 */
+	public emitLLMResult(
+		inputs: {
+			outText?: string;
+			inText?: string;
+			outTokens?: number;
+			inTokens?: number;
+		},
+		messages: LLMMessage[],
+		model: { model: string; provider?: string },
+		meta?: { durationMs?: number },
+	) {
+		let outTokens: number;
+		let inTokens: number;
 
-    if (inputs.outTokens) {
-      outTokens = inputs.outTokens;
-    } else if (inputs.outText) {
-      outTokens = tokeniseCount(inputs.outText);
-    } else {
-      throw new Error("Invalid input: output tokens or text must be provided");
-    }
+		if (inputs.outTokens) {
+			outTokens = inputs.outTokens;
+		} else if (inputs.outText) {
+			outTokens = tokeniseCount(inputs.outText);
+		} else {
+			throw new Error("Invalid input: output tokens or text must be provided");
+		}
 
-    if (inputs.inTokens) {
-      inTokens = inputs.inTokens;
-    } else if (inputs.inText) {
-      inTokens = tokeniseCount(inputs.inText);
-    } else {
-      throw new Error("Invalid input: input tokens or text must be provided");
-    }
+		if (inputs.inTokens) {
+			inTokens = inputs.inTokens;
+		} else if (inputs.inText) {
+			inTokens = tokeniseCount(inputs.inText);
+		} else {
+			throw new Error("Invalid input: input tokens or text must be provided");
+		}
 
-    this.emit("llm.result", {
-      messageCount: messages.length ?? 0, // TODO: decide if this should be optional
-      tokens: {
-        in: inTokens,
-        out: outTokens,
-      },
-      model,
-      debug: {
-        inTokenAttribution: tokeniseByKind(messages),
-      },
-      durationMs: meta?.durationMs,
-    },);
-  }
+		this.emit("llm.result", {
+			messageCount: messages.length ?? 0, // TODO: decide if this should be optional
+			tokens: {
+				in: inTokens,
+				out: outTokens,
+			},
+			model,
+			debug: {
+				inTokenAttribution: tokeniseByKind(messages),
+			},
+			durationMs: meta?.durationMs,
+		});
+	}
 
 	getTool(name: string) {
 		const t = this.tools.get(name);
@@ -906,8 +920,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				metrics: currentMetrics,
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }
-          : undefined,
-        debug: toolResultMetadata(tr.result),
+					: undefined,
+				debug: toolResultMetadata(tr.result),
 				// TODO: add postDecision/subjects/signals once audit schema supports it
 			},
 			{ stepIndex: localStep, decisionId },

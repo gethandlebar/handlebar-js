@@ -7,7 +7,7 @@ import {
 	HANDLEBAR_ACTION_STATUS,
 	type HandlebarRunOpts,
 	type RunContext,
-  tokeniseCount,
+	tokeniseCount,
 	withRunContext,
 } from "@handlebar/core";
 import type { AgentTool } from "@handlebar/core/dist/api/types";
@@ -116,10 +116,14 @@ export class HandlebarAgent<
 
 		const runCtx = engine.createRunContext(runId, {
 			enduser: governance?.enduser,
-    });
+		});
 
-    const modelStringParts = rest.model.toString().split("/");
-		const model = { model: modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(), provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined}
+		const modelStringParts = rest.model.toString().split("/");
+		const model = {
+			model:
+				modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(),
+			provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
+		};
 
 		const wrapped = mapTools(tools, (name, t) => {
 			if (!t.execute) {
@@ -130,7 +134,7 @@ export class HandlebarAgent<
 
 			return {
 				...t,
-        async execute(args: unknown, options: ToolCallOptions) {
+				async execute(args: unknown, options: ToolCallOptions) {
 					const decision = await engine.beforeTool(runCtx, String(name), args);
 
 					// Early exit: Rule violations overwrite tool action
@@ -200,16 +204,20 @@ export class HandlebarAgent<
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
 			stopWhen,
-      onStepFinish: async (step) => {
-        try {
-          this.governance.emitLLMResult({
-            inTokens: step.usage.inputTokens,
-            outTokens: step.usage.outputTokens,
-          }, [], model);
-        } catch {
-          // Can throw if tokens undefined.
-          // TODO: log here.
-        }
+			onStepFinish: async (step) => {
+				try {
+					this.governance.emitLLMResult(
+						{
+							inTokens: step.usage.inputTokens,
+							outTokens: step.usage.outputTokens,
+						},
+						[],
+						model,
+					);
+				} catch {
+					// Can throw if tokens undefined.
+					// TODO: log here.
+				}
 
 				if (rest.onStepFinish) {
 					await rest.onStepFinish(step);
@@ -225,17 +233,17 @@ export class HandlebarAgent<
 				}
 
 				// TODO: do we need reasoning?
-      },
+			},
 			tools: wrapped,
 		});
 		this.governance = engine;
 		this.runCtx = runCtx;
-    this.agentConfig = agent;
+		this.agentConfig = agent;
 
 		if (rest.system) {
 			this.systemPrompt = rest.system;
 		}
-  }
+	}
 
 	private toolInfo() {
 		const infoTools: AgentTool[] = [];
@@ -316,11 +324,11 @@ export class HandlebarAgent<
 			contentTruncated: truncated,
 			role,
 			kind,
-      messageId: uuidv7(),
-      debug: {
-        approxTokens: tokeniseCount(messageFinal),
-        chars: message.length,
-      }
+			messageId: uuidv7(),
+			debug: {
+				approxTokens: tokeniseCount(messageFinal),
+				chars: message.length,
+			},
 		});
 	}
 

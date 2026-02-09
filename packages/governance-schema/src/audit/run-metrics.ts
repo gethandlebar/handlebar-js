@@ -5,8 +5,8 @@ export const InbuiltAgentMetricKind = z.enum([
 	"bytes_out",
 	"duration_ms",
 	"records_in",
-  "records_out",
-  "llm_tokens_in",
+	"records_out",
+	"llm_tokens_in",
 	"llm_tokens_out",
 ]);
 export const CustomAgentMetricKind = z

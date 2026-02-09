@@ -9,13 +9,13 @@ export function approxBytes(value: unknown): number | undefined {
 		return 0;
 	}
 
-  if (Buffer.isBuffer(value)) {
+	if (Buffer.isBuffer(value)) {
 		return value.byteLength;
 	}
 
 	if (value instanceof ArrayBuffer) {
 		return value.byteLength;
-  }
+	}
 
 	if (ArrayBuffer.isView?.(value)) {
 		return (value as ArrayBufferView).byteLength;
@@ -23,7 +23,7 @@ export function approxBytes(value: unknown): number | undefined {
 
 	if (typeof value === "string") {
 		return Buffer.byteLength(value, "utf8");
-  }
+	}
 
 	if (typeof value === "number" || typeof value === "boolean") {
 		return Buffer.byteLength(String(value), "utf8");

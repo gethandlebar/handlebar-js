@@ -73,7 +73,7 @@ export const AuditEventSchema = z.discriminatedUnion("kind", [
 	ToolResultEventSchema,
 	RunEndedEventSchema,
 	ErrorEventSchema,
-  MessageEventSchema,
+	MessageEventSchema,
 	LLMResultEventSchema,
 ]);
 
