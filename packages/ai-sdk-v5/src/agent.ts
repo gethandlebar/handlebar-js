@@ -7,6 +7,7 @@ import {
 	HANDLEBAR_ACTION_STATUS,
 	type HandlebarRunOpts,
 	type RunContext,
+	tokeniseCount,
 	withRunContext,
 } from "@handlebar/core";
 import type { AgentTool } from "@handlebar/core/dist/api/types";
@@ -113,8 +114,25 @@ export class HandlebarAgent<
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
+		let model: { name: string; provider?: string };
+
+		if (typeof rest.model === "object") {
+			// TODO: verify 'ai' provider schema. Sometimes appear with dot notation. E.g. "openai.responses" when we just want "openai"
+			const provider = rest.model.provider.split(".")[0] ?? rest.model.provider;
+			model = { name: rest.model.modelId, provider };
+		} else {
+			const modelStringParts = rest.model.toString().split("/");
+			model = {
+				name:
+					modelStringParts[modelStringParts.length - 1] ??
+					rest.model.toString(),
+				provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
+			};
+		}
+
 		const runCtx = engine.createRunContext(runId, {
 			enduser: governance?.enduser,
+			model,
 		});
 
 		const wrapped = mapTools(tools, (name, t) => {
@@ -197,6 +215,20 @@ export class HandlebarAgent<
 			...rest,
 			stopWhen,
 			onStepFinish: async (step) => {
+				try {
+					this.governance.emitLLMResult(
+						{
+							inTokens: step.usage.inputTokens,
+							outTokens: step.usage.outputTokens,
+						},
+						[],
+						model,
+					);
+				} catch {
+					// Can throw if tokens undefined.
+					// TODO: log here.
+				}
+
 				if (rest.onStepFinish) {
 					await rest.onStepFinish(step);
 				}
@@ -269,6 +301,7 @@ export class HandlebarAgent<
 
 					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
+						model: this.runCtx.model,
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 						enduser: this.runCtx.enduser,
 					});
@@ -303,6 +336,10 @@ export class HandlebarAgent<
 			role,
 			kind,
 			messageId: uuidv7(),
+			debug: {
+				approxTokens: tokeniseCount(messageFinal),
+				chars: message.length,
+			},
 		});
 	}
 

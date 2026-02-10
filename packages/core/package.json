@@ -1,6 +1,6 @@
 {
 	"name": "@handlebar/core",
-	"version": "0.0.6-dev.0",
+	"version": "0.0.6-dev.2",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
 	"files": [
@@ -24,7 +24,8 @@
 	"type": "module",
 	"types": "./dist/index.d.ts",
 	"dependencies": {
-		"@handlebar/governance-schema": "0.0.6-dev.7",
+		"@handlebar/governance-schema": "0.0.6-dev.12",
+		"tiktoken": "^1.0.22",
 		"zod": "^4.1.12"
 	}
 }

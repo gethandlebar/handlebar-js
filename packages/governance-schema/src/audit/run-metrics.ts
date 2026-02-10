@@ -6,6 +6,9 @@ export const InbuiltAgentMetricKind = z.enum([
 	"duration_ms",
 	"records_in",
 	"records_out",
+	"llm_tokens_in",
+	"llm_tokens_out",
+	"llm_cost_usd",
 ]);
 export const CustomAgentMetricKind = z
 	.string()

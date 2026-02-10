@@ -1,5 +1,7 @@
 import type {
 	AppliedAction,
+	AuditEvent,
+	AuditEventByKind,
 	EndUserConfig,
 	EndUserGroupConfig,
 	EndUserTagCondition,
@@ -13,7 +15,6 @@ import type {
 	RulePhase,
 	RuleSelector,
 	SequenceCondition,
-	SignalCondition,
 	TimeGateCondition,
 	ToolNameCondition,
 	ToolTagCondition,
@@ -43,6 +44,8 @@ import {
 } from "./signals";
 import { type SubjectRef, SubjectRegistry, sanitiseSubjects } from "./subjects";
 import { hhmmToMinutes, nowToTimeParts } from "./time";
+import { type LLMMessage, tokeniseByKind, tokeniseCount } from "./tokens";
+import { toolResultMetadata } from "./tool";
 import type {
 	CustomCheck,
 	GovernanceConfig,
@@ -143,6 +146,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		opts?: {
 			initialCounters?: Record<string, number>;
 			enduser?: EndUserConfig & { group?: EndUserGroupConfig };
+			model?: {
+				name: string;
+				provider?: string;
+			};
 		},
 		now = () => Date.now(),
 	): RunContext<T> {
@@ -156,13 +163,70 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			},
 			state: new Map(),
 			now,
+			model: opts?.model,
 			enduser: opts?.enduser,
 		};
 	}
 
-	public emit<K extends any>(kind: any, data: any, extras?: any): void {
-		if (!this.api.agentId) return;
+	public emit<K extends AuditEvent["kind"]>(
+		kind: K,
+		data: AuditEventByKind[K]["data"],
+		extras?: Partial<AuditEvent>,
+	): void {
+		if (!this.api.agentId) {
+			return;
+		}
 		emit(this.api.agentId, kind, data, extras);
+	}
+
+	/**
+	 * Provide direct results of an llm call to be emitted as an event.
+	 *
+	 * Approximates in/out tokens using BPE, and source attribution if provded.
+	 * Tokenisation is using an implementation of OpenAI's `tiktoken` library, so the values may not be exact for other providers.
+	 */
+	public emitLLMResult(
+		inputs: {
+			outText?: string;
+			inText?: string;
+			outTokens?: number;
+			inTokens?: number;
+		},
+		messages: LLMMessage[],
+		model: { name: string; provider?: string },
+		meta?: { durationMs?: number },
+	) {
+		let outTokens: number;
+		let inTokens: number;
+
+		if (inputs.outTokens) {
+			outTokens = inputs.outTokens;
+		} else if (inputs.outText) {
+			outTokens = tokeniseCount(inputs.outText);
+		} else {
+			throw new Error("Invalid input: output tokens or text must be provided");
+		}
+
+		if (inputs.inTokens) {
+			inTokens = inputs.inTokens;
+		} else if (inputs.inText) {
+			inTokens = tokeniseCount(inputs.inText);
+		} else {
+			throw new Error("Invalid input: input tokens or text must be provided");
+		}
+
+		this.emit("llm.result", {
+			messageCount: messages.length ?? 0, // TODO: decide if this should be optional
+			tokens: {
+				in: inTokens,
+				out: outTokens,
+			},
+			model,
+			debug: {
+				inTokenAttribution: tokeniseByKind(messages),
+			},
+			durationMs: meta?.durationMs,
+		});
 	}
 
 	getTool(name: string) {
@@ -862,6 +926,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				error: errorAsError
 					? { name: errorAsError.name, message: errorAsError.message }
 					: undefined,
+				debug: toolResultMetadata(tr.result),
 				// TODO: add postDecision/subjects/signals once audit schema supports it
 			},
 			{ stepIndex: localStep, decisionId },

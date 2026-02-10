@@ -4,7 +4,7 @@ import {
 	EndUserGroupConfigSchema,
 } from "../enduser.types";
 import { AuditEnvelopeSchema } from "./events.base";
-import { MessageEventSchema } from "./events.llm";
+import { LLMResultEventSchema, MessageEventSchema } from "./events.llm";
 import { ToolDecisionEventSchema, ToolResultEventSchema } from "./events.tools";
 
 export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
@@ -74,6 +74,7 @@ export const AuditEventSchema = z.discriminatedUnion("kind", [
 	RunEndedEventSchema,
 	ErrorEventSchema,
 	MessageEventSchema,
+	LLMResultEventSchema,
 ]);
 
 export type AuditEvent = z.infer<typeof AuditEventSchema>;

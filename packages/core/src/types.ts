@@ -62,5 +62,6 @@ export type RunContext<T extends Tool = Tool> = {
 	counters: Record<string, number>;
 	state: Map<string, unknown>;
 	now: () => number;
+	model?: { name: string; provider?: string };
 	enduser?: EndUserConfig & { group?: EndUserGroupConfig };
 } & HandlebarRunOpts;
