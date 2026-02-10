@@ -58,10 +58,10 @@ export type GovernanceConfig<T extends Tool = Tool> = {
 export type RunContext<T extends Tool = Tool> = {
 	runId: string;
 	stepIndex: number;
-  history: ToolResult<T>[];
+	history: ToolResult<T>[];
 	counters: Record<string, number>;
 	state: Map<string, unknown>;
 	now: () => number;
-  model?: { name: string; provider?: string };
+	model?: { name: string; provider?: string };
 	enduser?: EndUserConfig & { group?: EndUserGroupConfig };
 } & HandlebarRunOpts;
