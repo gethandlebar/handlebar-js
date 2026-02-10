@@ -5,7 +5,6 @@ import {
 } from "@handlebar/core";
 import { stepCountIs } from "ai";
 import dotenv from "dotenv";
-import minimist from "minimist";
 import {
 	addSupportNote,
 	exportUserData,

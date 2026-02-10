@@ -114,11 +114,19 @@ export class HandlebarAgent<
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
-    const modelStringParts = rest.model.toString().split("/");
-		const model = {
-			name: modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(),
-			provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
-    };
+    let model: { name: string; provider?: string };
+
+    if (typeof rest.model === 'object') {
+      // TODO: verify 'ai' provider schema. Sometimes appear with dot notation. E.g. "openai.responses" when we just want "openai"
+      const provider = rest.model.provider.split(".")[0] ?? rest.model.provider;
+      model = { name: rest.model.modelId, provider };
+    } else {
+      const modelStringParts = rest.model.toString().split("/");
+  		model = {
+  			name: modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(),
+  			provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
+      };
+    }
 
 		const runCtx = engine.createRunContext(runId, {
       enduser: governance?.enduser,
