@@ -145,7 +145,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		runId: string,
 		opts?: {
 			initialCounters?: Record<string, number>;
-			enduser?: EndUserConfig & { group?: EndUserGroupConfig };
+      enduser?: EndUserConfig & { group?: EndUserGroupConfig };
+			model?: {
+        name: string;
+        provider?: string;
+      };
 		},
 		now = () => Date.now(),
 	): RunContext<T> {
@@ -158,7 +162,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				[TOTAL_DURATION_COUNTER]: 0,
 			},
 			state: new Map(),
-			now,
+      now,
+			model: opts?.model,
 			enduser: opts?.enduser,
 		};
 	}
@@ -188,7 +193,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			inTokens?: number;
 		},
 		messages: LLMMessage[],
-		model: { model: string; provider?: string },
+		model: { name: string; provider?: string },
 		meta?: { durationMs?: number },
 	) {
 		let outTokens: number;

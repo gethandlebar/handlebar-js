@@ -114,16 +114,16 @@ export class HandlebarAgent<
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
-		const runCtx = engine.createRunContext(runId, {
-			enduser: governance?.enduser,
-		});
-
-		const modelStringParts = rest.model.toString().split("/");
+    const modelStringParts = rest.model.toString().split("/");
 		const model = {
-			model:
-				modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(),
+			name: modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(),
 			provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
-		};
+    };
+
+		const runCtx = engine.createRunContext(runId, {
+      enduser: governance?.enduser,
+			model,
+		});
 
 		const wrapped = mapTools(tools, (name, t) => {
 			if (!t.execute) {
@@ -290,7 +290,8 @@ export class HandlebarAgent<
 					this.runStarted = true;
 
 					this.governance.emit("run.started", {
-						agent: { framework: "ai-sdk" },
+            agent: { framework: "ai-sdk" },
+            model: this.runCtx.model,
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 						enduser: this.runCtx.enduser,
 					});
