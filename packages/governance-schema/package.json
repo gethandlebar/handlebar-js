@@ -1,6 +1,6 @@
 {
 	"name": "@handlebar/governance-schema",
-	"version": "0.0.6-dev.10",
+	"version": "0.0.6-dev.12",
 	"private": false,
 	"type": "module",
 	"main": "./dist/index.cjs",

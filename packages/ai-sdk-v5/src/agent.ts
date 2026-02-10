@@ -114,16 +114,26 @@ export class HandlebarAgent<
 		const runId =
 			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
+		let model: { name: string; provider?: string };
+
+		if (typeof rest.model === "object") {
+			// TODO: verify 'ai' provider schema. Sometimes appear with dot notation. E.g. "openai.responses" when we just want "openai"
+			const provider = rest.model.provider.split(".")[0] ?? rest.model.provider;
+			model = { name: rest.model.modelId, provider };
+		} else {
+			const modelStringParts = rest.model.toString().split("/");
+			model = {
+				name:
+					modelStringParts[modelStringParts.length - 1] ??
+					rest.model.toString(),
+				provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
+			};
+		}
+
 		const runCtx = engine.createRunContext(runId, {
 			enduser: governance?.enduser,
+			model,
 		});
-
-		const modelStringParts = rest.model.toString().split("/");
-		const model = {
-			model:
-				modelStringParts[modelStringParts.length - 1] ?? rest.model.toString(),
-			provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
-		};
 
 		const wrapped = mapTools(tools, (name, t) => {
 			if (!t.execute) {
@@ -291,6 +301,7 @@ export class HandlebarAgent<
 
 					this.governance.emit("run.started", {
 						agent: { framework: "ai-sdk" },
+						model: this.runCtx.model,
 						adapter: { name: "@handlebar/ai-sdk-v5" },
 						enduser: this.runCtx.enduser,
 					});

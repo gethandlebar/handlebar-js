@@ -62,7 +62,7 @@ export const LLMResultEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("llm.result"),
 	data: z.object({
 		model: z.object({
-			model: z.string(),
+			name: z.string(),
 			provider: z.string().optional(),
 		}),
 		tokens: z.object({
