@@ -13,8 +13,8 @@
 		"build": "bun run build.ts && tsc -p tsconfig.json"
 	},
 	"dependencies": {
-		"@handlebar/core": "0.0.6-dev.0",
-		"@handlebar/governance-schema": "0.0.6-dev.7",
+		"@handlebar/core": "0.0.6-dev.1",
+		"@handlebar/governance-schema": "0.0.6-dev.11",
 		"uuidv7": "^1.1.0",
 		"zod": "^4.3.6"
 	},
