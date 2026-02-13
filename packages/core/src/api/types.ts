@@ -37,6 +37,7 @@ export const BudgetGrantSchema = z.object({
 	grant: z.number().nullable(),
 	computed: z.object({ kind: AggregateTypes, value: z.number() }).nullable(),
 });
+export type BudgetGrant = z.infer<typeof BudgetGrantSchema>;
 
 export const BudgetGrantResponseSchema = z.object({
 	expires_seconds: z

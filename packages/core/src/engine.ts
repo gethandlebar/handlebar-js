@@ -8,6 +8,7 @@ import type {
 	ExecutionTimeCondition,
 	GovernanceDecision,
 	MaxCallsCondition,
+	MetricWindowCondition,
 	RequireSubjectCondition,
 	Rule,
 	RuleCondition,
@@ -26,6 +27,7 @@ import type { AgentTool } from "./api/types";
 import { emit } from "./audit";
 import type { AuditBus } from "./audit/bus";
 import { getRunContext, incStep } from "./audit/context";
+import { BudgetManager } from "./budget-manager";
 import {
 	AgentMetricCollector,
 	type AgentMetricHook,
@@ -75,13 +77,15 @@ export const HANDLEBAR_ACTION_STATUS = {
 const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
 
 export class GovernanceEngine<T extends Tool = Tool> {
+  private agentId: string | null;
 	private tools: Map<string, ToolMeta<T>>;
 	private rules: Rule[];
 	private checks: CustomCheck<T>[];
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
 
-	private api: ApiManager;
+  private api: ApiManager;
+  private budgetManager: BudgetManager;
 
 	// per-tool-call collector (do not keep globally)
 	private metrics: AgentMetricCollector | null;
@@ -94,14 +98,16 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	constructor(
 		cfg: GovernanceConfig<T>,
 		public bus?: AuditBus,
-	) {
+  ) {
+    this.agentId = null;
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
 		this.rules = cfg.rules ?? [];
 		this.checks = cfg.checks ?? [];
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
 
-		this.api = new ApiManager({});
+    this.api = new ApiManager({});
+		this.budgetManager = new BudgetManager();
 		this.metrics = null;
 		this.metricHooks = new AgentMetricHookRegistry();
 	}
@@ -120,7 +126,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			return null;
 		}
 
-		this.rules.push(...((output.rules ?? []) as Rule[]));
+    this.rules.push(...((output.rules ?? []) as Rule[]));
+    this.agentId = output.agentId;
 		return output.agentId;
 	}
 
@@ -305,26 +312,27 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			cond.timezone?.source === "enduserTag" ? cond.timezone.tag : undefined;
 		const tz = tzTag ? enduser?.metadata?.[tzTag] : undefined;
 
-		// fallback "org" not implemented in MVP client. If missing => fail closed.
+		// fallback "org" not implemented. If missing => fail closed.
 		if (typeof tz !== "string" || tz.length === 0) {
 			return false;
 		}
 
-		if (typeof tz !== "string" || !tz.length) return false;
+    if (typeof tz !== "string" || !tz.length) { return false; }
 
 		const { dow, hhmm } = nowToTimeParts(ctx.now(), tz);
 		const nowMin = hhmmToMinutes(hhmm);
 
 		for (const w of cond.windows) {
-			if (!w.days.includes(dow as any)) continue;
+      if (!w.days.includes(dow as any)) { continue; }
 			const startMin = hhmmToMinutes(w.start);
 			const endMin = hhmmToMinutes(w.end);
-			if (startMin <= nowMin && nowMin <= endMin) return true;
+      if (startMin <= nowMin && nowMin <= endMin) { return true; }
 		}
 		return false;
 	}
 
-	private async evalCondition(
+  private async evalCondition(
+    ruleId: string,
 		cond: RuleCondition,
 		args: EvalArgs<T>,
 	): Promise<boolean> {
@@ -378,9 +386,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				return compareSignal(cond.op, res.value, cond.value);
 			}
 
-			case "metricWindow":
-				// server-enforced: cannot evaluate client-side => do NOT match rule locally.
-				return false;
+      case "metricWindow":
+        return await this.evalMetricWindow(ruleId);
 
 			case "custom":
 				// Prefer signals over custom functions in V2; treat as not supported in core.
@@ -391,7 +398,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 					return true;
 				}
 				for (const child of cond.all) {
-					if (!(await this.evalCondition(child, args))) {
+					if (!(await this.evalCondition(ruleId, child, args))) {
 						return false;
 					}
 				}
@@ -403,7 +410,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 					return false;
 				}
 				for (const child of cond.any) {
-					if (await this.evalCondition(child, args)) {
+					if (await this.evalCondition(ruleId, child, args)) {
 						return true;
 					}
 				}
@@ -411,9 +418,30 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			}
 
 			case "not":
-				return !(await this.evalCondition(cond.not, args));
+				return !(await this.evalCondition(ruleId, cond.not, args));
 		}
-	}
+  }
+
+  private async evalMetricWindow(ruleId: string): Promise<boolean> {
+    const shouldEvaluate = this.budgetManager.reevaluate();
+    if (this.agentId &&shouldEvaluate) {
+      const budgets = await this.api.evaluateMetrics(this.agentId, this.rules);
+      if (budgets === null) {
+        return false;
+      }
+      this.budgetManager.updateBudgets(budgets.expires_seconds, budgets.responses);
+    }
+
+    for (const budget of this.budgetManager.budgets) {
+      if (budget.id === ruleId && budget.decision === "block") {
+        // Budget has been exhausted: "block".
+        // Actual enforcement is left to the rule effect, which happens outside this function.
+        return true;
+      }
+    }
+
+    return false;
+  }
 
 	private evalToolName(cond: ToolNameCondition, toolName: string): boolean {
 		const name = toolName.toLowerCase();
@@ -668,7 +696,7 @@ export class GovernanceEngine<T extends Tool = Tool> {
 
 		for (const rule of applicable) {
 			// evaluate condition
-			const matched = await this.evalCondition(rule.condition, {
+			const matched = await this.evalCondition(rule.id, rule.condition, {
 				phase,
 				ctx,
 				call,
