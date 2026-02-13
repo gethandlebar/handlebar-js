@@ -8,7 +8,6 @@ import type {
 	ExecutionTimeCondition,
 	GovernanceDecision,
 	MaxCallsCondition,
-	MetricWindowCondition,
 	RequireSubjectCondition,
 	Rule,
 	RuleCondition,
@@ -36,6 +35,7 @@ import {
 	approxBytes,
 	approxRecords,
 } from "./metrics";
+import type { MetricInfo } from "./metrics/types";
 import {
 	compareSignal,
 	resultToSignalSchema,
@@ -127,6 +127,11 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		}
 
     this.rules.push(...((output.rules ?? []) as Rule[]));
+
+    if (output.budget) {
+      this.budgetManager.updateBudgets(output.budget.expires_seconds, output.budget.responses)
+    }
+
     this.agentId = output.agentId;
 		return output.agentId;
 	}
@@ -940,7 +945,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			subjects,
 		);
 
-		const currentMetrics = this.metrics.toEventPayload({ aggregate: true });
+    const currentMetrics = this.metrics.toEventPayload({ aggregate: true });
+    if (currentMetrics) {
+      this.matchMetricsRules(currentMetrics);
+    }
 
 		const errorAsError = error instanceof Error ? error : null;
 		this.emit(
@@ -961,7 +969,34 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		);
 
 		incStep();
-	}
+  }
+
+  /**
+   * Match updated, tracked metrics to rules which rely on them, and update budgets accordingly.
+   */
+  private matchMetricsRules(metrics: { inbuilt: Record<string, MetricInfo>, custom: Record<string, MetricInfo> }) {
+    const ruleMetricUsage: Record<string, number> = {};
+
+    for (const rule of this.rules) {
+      if (rule.condition.kind !== "metricWindow") {
+        continue;
+      }
+
+      const conditionMetric = rule.condition.metric;
+      let metricData: MetricInfo | undefined;
+      if (conditionMetric.kind === "inbuilt") {
+        metricData = metrics.inbuilt[conditionMetric.key];
+      } else {
+        metricData = metrics.custom[conditionMetric.key];
+      }
+
+      if (metricData) {
+        ruleMetricUsage[rule.id] = metricData.value;
+      }
+    }
+
+    this.budgetManager.usage(ruleMetricUsage);
+  }
 
 	public decisionAction(decision: GovernanceDecision) {
 		if (this.mode === "monitor" || decision.effect === "allow") {

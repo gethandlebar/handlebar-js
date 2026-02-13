@@ -1,3 +1,4 @@
+import type { Rule } from "@handlebar/governance-schema";
 import type { BudgetGrant } from "./api/types";
 
 export class BudgetManager {
@@ -17,10 +18,12 @@ export class BudgetManager {
     this.lastEvaluatedMs = Date.now();
   }
 
-  public useRuleBudget(ruleMetricUpdates: Map<string, number>): void {
+  public usage(ruleMetricUpdates: Record<string, number>): void {
     const newBudgets: BudgetGrant[] = [];
+    const metricMap = new Map(Object.entries(ruleMetricUpdates));
+
     for (const budget of this.budgets) {
-      const grantUsage = ruleMetricUpdates.get(budget.id);
+      const grantUsage = metricMap.get(budget.id);
       let newBudget: BudgetGrant;
 
       if (budget.grant !== null && grantUsage !== undefined) {
