@@ -1,5 +1,6 @@
-import type { Rule } from "@handlebar/governance-schema";
-import type { AgentTool, ApiConfig } from "./types";
+import type { MetricWindowCondition, Rule } from "@handlebar/governance-schema";
+import type z from "zod";
+import { type AgentTool, type ApiConfig, type BudgetGrantResponse, BudgetGrantResponseSchema, type MetricBudgetRequest } from "./types";
 
 type HitlResponse = {
 	hitlId: string;
@@ -66,13 +67,14 @@ export class ApiManager {
 			tags?: string[];
 		},
 		tools: AgentTool[],
-	): Promise<{ agentId: string; rules: Rule[] | null } | null> {
+  ): Promise<{ agentId: string; rules: Rule[] | null; budget: BudgetGrantResponse | null } | null> {
 		if (!this.useApi) {
 			return null;
 		}
 
 		let agentId: string;
-		let rules: Rule[] | null = null;
+    let rules: Rule[] | null = null;
+		let budget: BudgetGrantResponse | null = null;
 
 		try {
 			agentId = await this.upsertAgent(agentInfo, tools);
@@ -88,9 +90,15 @@ export class ApiManager {
 		} catch (error) {
 			console.error("Error fetching rules:", error);
 			return null;
-		}
+    }
 
-		return { agentId, rules };
+    try {
+      budget = await this.evaluateMetrics(agentId, rules ?? []);
+    } catch {
+      return null;
+    }
+
+		return { agentId, rules, budget };
 	}
 
 	private headers(mode?: "json"): Record<string, string> {
@@ -104,7 +112,60 @@ export class ApiManager {
 		}
 
 		return baseHeaders;
-	}
+  }
+
+  async evaluateMetrics(agentId: string, rules: Rule[]): Promise<BudgetGrantResponse | null> {
+    const ruleConditions = rules.reduce((metricConditions, nextRule) => {
+      if (nextRule.condition.kind === "metricWindow") {
+        metricConditions.push({
+          id: nextRule.id,
+          ...nextRule.condition,
+        });
+      }
+      // TODO handle and/or/not which include metric windows
+      return metricConditions;
+    }, [] as ({ id: string } & MetricWindowCondition)[]);
+
+    if (ruleConditions.length === 0) {
+      return null;
+    }
+
+    const url = new URL(`/v1/agents/${agentId}`, this.apiEndpoint);
+
+    const metricRequest: z.infer<typeof MetricBudgetRequest>[] = [];
+
+    for (const condition of ruleConditions) {
+      metricRequest.push({
+        id: condition.id,
+        aggregate: condition.aggregate,
+        budget: condition.value,
+        budget_request: condition.value,
+        metric: condition.metric.key,
+        op: condition.op,
+        scope: condition.scope,
+        time_window_seconds: condition.windowSeconds
+      });
+    }
+
+    try {
+			const response = await fetch(url.toString(), {
+				method: "POST",
+				headers: this.headers("json"),
+        body: JSON.stringify(metricRequest),
+			});
+			const data = await response.json();
+
+      const parsedData = BudgetGrantResponseSchema.safeParse(data);
+      if (!parsedData.success) {
+        throw new Error("Invalid metric budget");
+      }
+
+      return parsedData.data;
+		} catch (error) {
+			console.error("[Handlebar] Error requesting budget:", error);
+			throw error;
+		}
+  }
 
 	private async upsertAgent(
 		agentInfo: {
@@ -115,7 +176,7 @@ export class ApiManager {
 		},
 		tools: AgentTool[],
 	): Promise<string> {
-		const url = new URL("/v1/agent", this.apiEndpoint);
+		const url = new URL("/v1/agents", this.apiEndpoint);
 
 		try {
 			const agentData = JSON.stringify({
