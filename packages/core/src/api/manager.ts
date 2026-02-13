@@ -103,8 +103,9 @@ export class ApiManager {
 		}
 
 		try {
-			budget = await this.evaluateMetrics(agentId, rules ?? []);
-		} catch {
+      budget = await this.evaluateMetrics(agentId, rules ?? []);
+		} catch (error) {
+			console.error("Error evaluating metrics:", error);
 			return null;
 		}
 
@@ -142,11 +143,12 @@ export class ApiManager {
 			[] as ({ id: string } & MetricWindowCondition)[],
 		);
 
+    console.log(`${ruleConditions.length} evalMetrics rule conditions`);
 		if (ruleConditions.length === 0) {
 			return null;
 		}
 
-		const url = new URL(`/v1/agents/${agentId}`, this.apiEndpoint);
+		const url = new URL(`/v1/agents/${agentId}/metrics/budget`, this.apiEndpoint);
 
 		const metricRequest: z.infer<typeof MetricBudgetRequest>[] = [];
 
