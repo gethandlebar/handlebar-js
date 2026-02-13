@@ -77,15 +77,15 @@ export const HANDLEBAR_ACTION_STATUS = {
 const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
 
 export class GovernanceEngine<T extends Tool = Tool> {
-  private agentId: string | null;
+	private agentId: string | null;
 	private tools: Map<string, ToolMeta<T>>;
 	private rules: Rule[];
 	private checks: CustomCheck<T>[];
 	private mode: "monitor" | "enforce";
 	private verbose: boolean;
 
-  private api: ApiManager;
-  private budgetManager: BudgetManager;
+	private api: ApiManager;
+	private budgetManager: BudgetManager;
 
 	// per-tool-call collector (do not keep globally)
 	private metrics: AgentMetricCollector | null;
@@ -98,15 +98,15 @@ export class GovernanceEngine<T extends Tool = Tool> {
 	constructor(
 		cfg: GovernanceConfig<T>,
 		public bus?: AuditBus,
-  ) {
-    this.agentId = null;
+	) {
+		this.agentId = null;
 		this.tools = new Map(cfg.tools.map((t) => [t.name, t]));
 		this.rules = cfg.rules ?? [];
 		this.checks = cfg.checks ?? [];
 		this.mode = cfg.mode ?? "enforce";
 		this.verbose = Boolean(cfg.verbose);
 
-    this.api = new ApiManager({});
+		this.api = new ApiManager({});
 		this.budgetManager = new BudgetManager();
 		this.metrics = null;
 		this.metricHooks = new AgentMetricHookRegistry();
@@ -126,13 +126,16 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			return null;
 		}
 
-    this.rules.push(...((output.rules ?? []) as Rule[]));
+		this.rules.push(...((output.rules ?? []) as Rule[]));
 
-    if (output.budget) {
-      this.budgetManager.updateBudgets(output.budget.expires_seconds, output.budget.responses)
-    }
+		if (output.budget) {
+			this.budgetManager.updateBudgets(
+				output.budget.expires_seconds,
+				output.budget.responses,
+			);
+		}
 
-    this.agentId = output.agentId;
+		this.agentId = output.agentId;
 		return output.agentId;
 	}
 
@@ -322,22 +325,28 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			return false;
 		}
 
-    if (typeof tz !== "string" || !tz.length) { return false; }
+		if (typeof tz !== "string" || !tz.length) {
+			return false;
+		}
 
 		const { dow, hhmm } = nowToTimeParts(ctx.now(), tz);
 		const nowMin = hhmmToMinutes(hhmm);
 
 		for (const w of cond.windows) {
-      if (!w.days.includes(dow as any)) { continue; }
+			if (!w.days.includes(dow as any)) {
+				continue;
+			}
 			const startMin = hhmmToMinutes(w.start);
 			const endMin = hhmmToMinutes(w.end);
-      if (startMin <= nowMin && nowMin <= endMin) { return true; }
+			if (startMin <= nowMin && nowMin <= endMin) {
+				return true;
+			}
 		}
 		return false;
 	}
 
-  private async evalCondition(
-    ruleId: string,
+	private async evalCondition(
+		ruleId: string,
 		cond: RuleCondition,
 		args: EvalArgs<T>,
 	): Promise<boolean> {
@@ -391,8 +400,8 @@ export class GovernanceEngine<T extends Tool = Tool> {
 				return compareSignal(cond.op, res.value, cond.value);
 			}
 
-      case "metricWindow":
-        return await this.evalMetricWindow(ruleId);
+			case "metricWindow":
+				return await this.evalMetricWindow(ruleId);
 
 			case "custom":
 				// Prefer signals over custom functions in V2; treat as not supported in core.
@@ -425,28 +434,31 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			case "not":
 				return !(await this.evalCondition(ruleId, cond.not, args));
 		}
-  }
+	}
 
-  private async evalMetricWindow(ruleId: string): Promise<boolean> {
-    const shouldEvaluate = this.budgetManager.reevaluate();
-    if (this.agentId &&shouldEvaluate) {
-      const budgets = await this.api.evaluateMetrics(this.agentId, this.rules);
-      if (budgets === null) {
-        return false;
-      }
-      this.budgetManager.updateBudgets(budgets.expires_seconds, budgets.responses);
-    }
+	private async evalMetricWindow(ruleId: string): Promise<boolean> {
+		const shouldEvaluate = this.budgetManager.reevaluate();
+		if (this.agentId && shouldEvaluate) {
+			const budgets = await this.api.evaluateMetrics(this.agentId, this.rules);
+			if (budgets === null) {
+				return false;
+			}
+			this.budgetManager.updateBudgets(
+				budgets.expires_seconds,
+				budgets.responses,
+			);
+		}
 
-    for (const budget of this.budgetManager.budgets) {
-      if (budget.id === ruleId && budget.decision === "block") {
-        // Budget has been exhausted: "block".
-        // Actual enforcement is left to the rule effect, which happens outside this function.
-        return true;
-      }
-    }
+		for (const budget of this.budgetManager.budgets) {
+			if (budget.id === ruleId && budget.decision === "block") {
+				// Budget has been exhausted: "block".
+				// Actual enforcement is left to the rule effect, which happens outside this function.
+				return true;
+			}
+		}
 
-    return false;
-  }
+		return false;
+	}
 
 	private evalToolName(cond: ToolNameCondition, toolName: string): boolean {
 		const name = toolName.toLowerCase();
@@ -945,10 +957,10 @@ export class GovernanceEngine<T extends Tool = Tool> {
 			subjects,
 		);
 
-    const currentMetrics = this.metrics.toEventPayload({ aggregate: true });
-    if (currentMetrics) {
-      this.matchMetricsRules(currentMetrics);
-    }
+		const currentMetrics = this.metrics.toEventPayload({ aggregate: true });
+		if (currentMetrics) {
+			this.matchMetricsRules(currentMetrics);
+		}
 
 		const errorAsError = error instanceof Error ? error : null;
 		this.emit(
@@ -969,34 +981,37 @@ export class GovernanceEngine<T extends Tool = Tool> {
 		);
 
 		incStep();
-  }
+	}
 
-  /**
-   * Match updated, tracked metrics to rules which rely on them, and update budgets accordingly.
-   */
-  private matchMetricsRules(metrics: { inbuilt: Record<string, MetricInfo>, custom: Record<string, MetricInfo> }) {
-    const ruleMetricUsage: Record<string, number> = {};
+	/**
+	 * Match updated, tracked metrics to rules which rely on them, and update budgets accordingly.
+	 */
+	private matchMetricsRules(metrics: {
+		inbuilt: Record<string, MetricInfo>;
+		custom: Record<string, MetricInfo>;
+	}) {
+		const ruleMetricUsage: Record<string, number> = {};
 
-    for (const rule of this.rules) {
-      if (rule.condition.kind !== "metricWindow") {
-        continue;
-      }
+		for (const rule of this.rules) {
+			if (rule.condition.kind !== "metricWindow") {
+				continue;
+			}
 
-      const conditionMetric = rule.condition.metric;
-      let metricData: MetricInfo | undefined;
-      if (conditionMetric.kind === "inbuilt") {
-        metricData = metrics.inbuilt[conditionMetric.key];
-      } else {
-        metricData = metrics.custom[conditionMetric.key];
-      }
+			const conditionMetric = rule.condition.metric;
+			let metricData: MetricInfo | undefined;
+			if (conditionMetric.kind === "inbuilt") {
+				metricData = metrics.inbuilt[conditionMetric.key];
+			} else {
+				metricData = metrics.custom[conditionMetric.key];
+			}
 
-      if (metricData) {
-        ruleMetricUsage[rule.id] = metricData.value;
-      }
-    }
+			if (metricData) {
+				ruleMetricUsage[rule.id] = metricData.value;
+			}
+		}
 
-    this.budgetManager.usage(ruleMetricUsage);
-  }
+		this.budgetManager.usage(ruleMetricUsage);
+	}
 
 	public decisionAction(decision: GovernanceDecision) {
 		if (this.mode === "monitor" || decision.effect === "allow") {
