@@ -165,11 +165,12 @@ export class ApiManager {
 			});
 		}
 
+    const metricRequestBody = { requests: metricRequest };
 		try {
 			const response = await fetch(url.toString(), {
 				method: "POST",
 				headers: this.headers("json"),
-				body: JSON.stringify(metricRequest),
+				body: JSON.stringify(metricRequestBody),
 			});
 			const data = await response.json();
 
