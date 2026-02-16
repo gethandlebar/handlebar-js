@@ -143,7 +143,6 @@ export class ApiManager {
 			[] as ({ id: string } & MetricWindowCondition)[],
 		);
 
-		console.log(`${ruleConditions.length} evalMetrics rule conditions`);
 		if (ruleConditions.length === 0) {
 			return null;
 		}
