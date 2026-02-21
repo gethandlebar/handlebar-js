@@ -308,8 +308,20 @@ export class HandlebarAgent<
 					this.maybeEmitSystemPrompt();
 				}
 
-				const out = await fn();
-				return out;
+        try {
+          const out = await fn();
+            this.governance.emit("run.ended", {
+              totalSteps: this.runCtx.stepIndex,
+              status: "ok",
+            });
+            return out;
+        } catch (e) {
+          this.governance.emit("run.ended", {
+            totalSteps: this.runCtx.stepIndex,
+            status: "error",
+          });
+          throw e;
+				}
 			},
 		);
 	}
