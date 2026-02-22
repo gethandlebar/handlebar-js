@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
-	SignalRegistry,
 	compareSignal,
 	resultToSignalSchema,
+	SignalRegistry,
 	sanitiseSignals,
 } from "../src/signals";
 import type { SubjectRef } from "../src/subjects";
@@ -276,8 +276,8 @@ describe("sanitiseSignals", () => {
 
 	it("error result is passed through unchanged", () => {
 		const err = new Error("oops");
-		const signals = [{ key: "k", result: { ok: false as const, error: err }, args: undefined }];
-		expect(sanitiseSignals(signals)[0].result).toEqual({ ok: false, error: err });
+		const signals = [{ key: "k", result: { ok: false as const, error: String(err) }, args: undefined }];
+		expect(sanitiseSignals(signals)[0].result).toEqual({ ok: false, error: String(err) });
 	});
 
 	it("truncates args to 100 items and each arg to 256 chars", () => {
