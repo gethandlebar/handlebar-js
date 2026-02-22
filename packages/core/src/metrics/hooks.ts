@@ -1,7 +1,8 @@
 import type {
 	AgentMetricHook,
-	AgentMetricHookPhase,
 	AgentMetricHookContext,
+	AgentMetricHookPhase,
+	MetricInfo,
 } from "./types";
 import { validateMetricKey } from "./utils";
 
@@ -42,12 +43,24 @@ export class AgentMetricHookRegistry {
 				continue;
 			}
 
-			const res = await hook.run(ctx);
-			if (!res) {
-				continue;
+			let runPromise: Promise<MetricInfo | void> = Promise.resolve(hook.run(ctx));
+
+			if (hook.timeoutMs !== undefined) {
+				runPromise = Promise.race([
+					runPromise,
+					new Promise<void>((resolve) => setTimeout(resolve, hook.timeoutMs)),
+				]);
 			}
 
-			onMetric(hookKey, res.value, res.unit);
+			const emit = (res: MetricInfo | void) => {
+        if (res) { onMetric(hookKey, res.value, res.unit); }
+			};
+
+			if (hook.blocking === false) {
+				runPromise.then(emit).catch(() => {});
+			} else {
+				emit(await runPromise);
+			}
 		}
 	}
 }

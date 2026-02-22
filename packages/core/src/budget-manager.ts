@@ -43,7 +43,6 @@ export class BudgetManager {
 		const timeSinceLastEvaluation = evaluationTime - this.lastEvaluatedMs;
 		const timeUntilNextEvaluation =
 			this.globalTtlSeconds * 1000 - timeSinceLastEvaluation;
-		this.lastEvaluatedMs = evaluationTime;
 
 		if (timeUntilNextEvaluation <= 0) {
 			// All need to be reevaluated on the server.
