@@ -231,20 +231,20 @@ Tests the full flow from agent initialisation through to budget exhaustion drivi
 
 ---
 
-### Bugs identified during implementation
+### Bugs identified and fixed
 
-**1. `sanitiseSignals` uses incorrect slice semantics** (`src/signals.ts:187–194`)
+**1. `sanitiseSignals` uses incorrect slice semantics** (`src/signals.ts`) — **FIXED**
 
-All slice calls use `slice(N)` (drop first N) instead of `slice(0, N)` (keep first N), which is the opposite of the intended truncation. With fewer than 100 signals the function returns an empty array; with signal keys or values shorter than 256 chars the key/value is dropped entirely. Compare with `sanitiseSubjects` which correctly uses `slice(0, 100)` / `slice(0, 256)`.
+All slice calls used `slice(N)` (drop first N) instead of `slice(0, N)` (keep first N). Fixed to `slice(0, 100)` / `slice(0, 256)` throughout. Tests updated in `signals.test.ts`.
 
-**2. `BudgetManager.reevaluate()` resets the TTL timer on every call** (`src/budget-manager.ts:41–61`)
+**2. `BudgetManager.reevaluate()` resets the TTL timer on every call** (`src/budget-manager.ts`) — **FIXED**
 
-`this.lastEvaluatedMs = evaluationTime` is set unconditionally at the top of `reevaluate()`. Because `reevaluate()` is called on every tool invocation (via `evalMetricWindow`), the TTL window restarts on each call and can never expire in practice. Time-based re-evaluation is therefore dead code; only grant exhaustion (`grant ≤ 0`) can trigger a refresh. The assignment should only occur inside `updateBudgets`, where an actual refresh has taken place.
+`this.lastEvaluatedMs = evaluationTime` was set unconditionally at the top of `reevaluate()`, restarting the TTL on every invocation and making time-based re-evaluation unreachable. Removed the assignment from `reevaluate()`; only `updateBudgets` now resets the clock. New regression test added in `budget-manager.test.ts`.
 
-**3. `initialiseAgent` returns `null` if budget evaluation fails, discarding valid rules** (`src/api/manager.ts:105–112`)
+**3. `initialiseAgent` returns `null` if budget evaluation fails, discarding valid rules** (`src/api/manager.ts`) — **FIXED**
 
-If `evaluateMetrics` throws (e.g. transient network error or malformed response), the entire `initialiseAgent` call returns `null`. The caller (`GovernanceEngine.initAgentRules`) then skips pushing the fetched rules into the engine, meaning a transient metrics API failure prevents all rules from loading. Budget evaluation should be treated as a best-effort step; failures should be logged and the function should still return the agent ID and rules.
+Budget evaluation is now treated as best-effort: failures are logged and the function continues to return `{ agentId, rules, budget: null }`. New test added in `api-manager.test.ts`.
 
-**4. `AgentMetricHookRegistry.runPhase` does not implement `timeoutMs` or `blocking`** (`src/metrics/hooks.ts:33–52`)
+**4. `AgentMetricHookRegistry.runPhase` does not implement `timeoutMs` or `blocking`** (`src/metrics/hooks.ts`) — **FIXED**
 
-Both fields are declared on `AgentMetricHook` in the type definition but are never read in `runPhase`. Every hook is currently awaited inline regardless of these settings. Any code that registers hooks expecting timeout or non-blocking behaviour is silently ignored.
+`runPhase` now honours both fields: hooks with `blocking: false` are fire-and-forget; hooks with `timeoutMs` are raced against a `setTimeout` and their result is discarded on expiry. New tests added in `metrics-hooks.test.ts`.

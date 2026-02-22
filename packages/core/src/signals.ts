@@ -184,11 +184,11 @@ export class SignalRegistry {
 }
 
 export function sanitiseSignals(signals: Signal[]): Signal[] {
-	return signals.slice(100).map((signal) => ({
-		key: signal.key.slice(256),
+	return signals.slice(0, 100).map((signal) => ({
+		key: signal.key.slice(0, 256),
 		result: signal.result.ok
-			? { ok: true, value: signal.result.value.slice(256) }
+			? { ok: true, value: signal.result.value.slice(0, 256) }
 			: signal.result,
-		args: signal.args?.slice(100).map((a) => a.slice(256)),
+		args: signal.args?.slice(0, 100).map((a) => a.slice(0, 256)),
 	}));
 }

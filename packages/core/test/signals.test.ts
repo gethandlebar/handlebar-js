@@ -242,19 +242,52 @@ describe("resultToSignalSchema", () => {
 });
 
 // ---------------------------------------------------------------------------
-// sanitiseSignals – bug note in spec; testing actual (buggy) behaviour
+// sanitiseSignals
 // ---------------------------------------------------------------------------
 
-describe("sanitiseSignals (documents current behaviour)", () => {
-	it("with < 100 items, slice(100) returns an empty array (bug: should preserve items)", () => {
+describe("sanitiseSignals", () => {
+	it("preserves signals when count < 100", () => {
 		const signals = Array.from({ length: 5 }, (_, i) => ({
 			key: `sig-${i}`,
 			result: { ok: true as const, value: "v" },
 			args: undefined,
 		}));
-		// Current implementation uses .slice(100) not .slice(0, 100)
-		// so fewer than 100 signals are dropped entirely
+		expect(sanitiseSignals(signals)).toHaveLength(5);
+	});
+
+	it("truncates to 100 signals", () => {
+		const signals = Array.from({ length: 150 }, (_, i) => ({
+			key: `s${i}`,
+			result: { ok: true as const, value: "v" },
+			args: undefined,
+		}));
+		expect(sanitiseSignals(signals)).toHaveLength(100);
+	});
+
+	it("truncates key to 256 chars", () => {
+		const signals = [{ key: "k".repeat(300), result: { ok: true as const, value: "v" }, args: undefined }];
+		expect(sanitiseSignals(signals)[0].key).toHaveLength(256);
+	});
+
+	it("truncates ok result value to 256 chars", () => {
+		const signals = [{ key: "k", result: { ok: true as const, value: "v".repeat(300) }, args: undefined }];
+		expect((sanitiseSignals(signals)[0].result as any).value).toHaveLength(256);
+	});
+
+	it("error result is passed through unchanged", () => {
+		const err = new Error("oops");
+		const signals = [{ key: "k", result: { ok: false as const, error: err }, args: undefined }];
+		expect(sanitiseSignals(signals)[0].result).toEqual({ ok: false, error: err });
+	});
+
+	it("truncates args to 100 items and each arg to 256 chars", () => {
+		const signals = [{
+			key: "k",
+			result: { ok: true as const, value: "v" },
+			args: Array(120).fill("x".repeat(300)),
+		}];
 		const result = sanitiseSignals(signals);
-		expect(result).toHaveLength(0);
+		expect(result[0].args).toHaveLength(100);
+		expect(result[0].args![0]).toHaveLength(256);
 	});
 });

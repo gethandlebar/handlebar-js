@@ -163,6 +163,84 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		expect(collected).toHaveLength(0);
 	});
 
+	it("hook with timeoutMs exceeded → result discarded", async () => {
+		const reg = new AgentMetricHookRegistry();
+		reg.registerHook({
+			key: "slow_hook",
+			phase: "tool.before",
+			timeoutMs: 10,
+			run: async () => {
+				await new Promise((resolve) => setTimeout(resolve, 100));
+				return { value: 99 };
+			},
+		});
+
+		const collected: number[] = [];
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		expect(collected).toHaveLength(0);
+	});
+
+	it("hook with timeoutMs not exceeded → result captured", async () => {
+		const reg = new AgentMetricHookRegistry();
+		reg.registerHook({
+			key: "fast_hook",
+			phase: "tool.before",
+			timeoutMs: 500,
+			run: async () => {
+				await new Promise((resolve) => setTimeout(resolve, 10));
+				return { value: 5 };
+			},
+		});
+
+		const collected: number[] = [];
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		expect(collected).toEqual([5]);
+	});
+
+	it("non-blocking hook (blocking: false) does not delay runPhase", async () => {
+		const reg = new AgentMetricHookRegistry();
+		let hookCompleted = false;
+		reg.registerHook({
+			key: "nb_hook",
+			phase: "tool.before",
+			blocking: false,
+			run: async () => {
+				await new Promise((resolve) => setTimeout(resolve, 50));
+				hookCompleted = true;
+				return { value: 1 };
+			},
+		});
+
+		const start = Date.now();
+		await reg.runPhase("tool.before", makeBeforeCtx(), () => {});
+		const elapsed = Date.now() - start;
+
+		expect(elapsed).toBeLessThan(30);
+		expect(hookCompleted).toBe(false);
+
+		// Allow background hook to complete
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(hookCompleted).toBe(true);
+	});
+
+	it("blocking: true awaits hook before runPhase returns", async () => {
+		const reg = new AgentMetricHookRegistry();
+		let hookCompleted = false;
+		reg.registerHook({
+			key: "blocking_hook",
+			phase: "tool.before",
+			blocking: true,
+			run: async () => {
+				await new Promise((resolve) => setTimeout(resolve, 20));
+				hookCompleted = true;
+				return { value: 1 };
+			},
+		});
+
+		await reg.runPhase("tool.before", makeBeforeCtx(), () => {});
+		expect(hookCompleted).toBe(true);
+	});
+
 	it("multiple hooks in same phase all fire", async () => {
 		const reg = new AgentMetricHookRegistry();
 		reg.registerHook({ key: "m1", phase: "tool.before", run: () => ({ value: 1 }) });

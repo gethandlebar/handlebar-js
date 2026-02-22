@@ -106,7 +106,7 @@ export class ApiManager {
 			budget = await this.evaluateMetrics(agentId, rules ?? []);
 		} catch (error) {
 			console.error("Error evaluating metrics:", error);
-			return null;
+			// best-effort — don't discard already-fetched rules on a transient budget failure
 		}
 
 		return { agentId, rules, budget };

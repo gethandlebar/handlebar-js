@@ -126,6 +126,22 @@ describe("ApiManager.initialiseAgent", () => {
 		expect(result?.budget).toBeNull();
 	});
 
+	it("budget evaluation fails → still returns agentId and rules with null budget", async () => {
+		globalThis.fetch = makeFetch({
+			"/metrics/budget": () => new Response("server error", { status: 500 }),
+			"/v1/rules": () =>
+				new Response(JSON.stringify({ rules: [makeMetricRule()] }), { status: 200 }),
+			"/v1/agents": () =>
+				new Response(JSON.stringify({ agentId: "a1" }), { status: 200 }),
+		}) as any;
+
+		const api = makeApi();
+		const result = await api.initialiseAgent({ slug: "my-agent" }, []);
+		expect(result?.agentId).toBe("a1");
+		expect(result?.rules).toHaveLength(1);
+		expect(result?.budget).toBeNull();
+	});
+
 	it("sets agentId on the instance after success", async () => {
 		globalThis.fetch = makeFetch({
 			"/v1/agents": () =>

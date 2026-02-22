@@ -157,4 +157,15 @@ describe("BudgetManager.reevaluate", () => {
 		bm.updateBudgets(60, [makeGrant()]);
 		expect(bm.reevaluate()).toBe(false); // TTL reset by updateBudgets
 	});
+
+	it("reevaluate() returning true does not reset TTL — repeated calls still return true until updateBudgets is called", () => {
+		let t = 1_000_000;
+		Date.now = mock(() => t);
+
+		const bm = new BudgetManager({ globalTtlSeconds: 60 });
+		t += 61_000;
+
+		expect(bm.reevaluate()).toBe(true); // TTL expired
+		expect(bm.reevaluate()).toBe(true); // still expired — updateBudgets not called
+	});
 });
