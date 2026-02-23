@@ -18,7 +18,10 @@ export const AuditEnvelopeSchema = z.object({
 	// ID of enduser the agent is acting on behalf of as present in the Handlebar user's system.
 	// NOT the Handlebar ID for this enduser.
 	enduserExternalId: z.string().optional(),
-	// sessionId: z.string().optional(),
+	sessionId: z.string().optional(),
+	// ID of actor (enduser / system / agent) the run is acting on behalf of,
+	// as present in the Handlebar user's system. Supersedes enduserExternalId.
+	actorExternalId: z.string().optional(),
 	otel: z
 		.object({
 			traceId: z.string().optional(),
