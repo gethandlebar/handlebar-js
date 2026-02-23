@@ -5,11 +5,12 @@ import {
 	type RunConfig,
 	withRun,
 } from "@handlebar/core";
+import { Runnable, type RunnableConfig } from "@langchain/core/runnables";
 import { uuidv7 } from "uuidv7";
 import { HandlebarCallbackHandler } from "./callback";
 import { HandlebarTerminationError } from "./tool";
 
-// Per-call run configuration — passed as the second argument to invoke().
+// Handlebar-specific per-call options — passed via RunnableConfig.configurable.
 export type RunCallOpts = {
 	/** The user or system this request is acting on behalf of. */
 	actor?: Actor;
@@ -19,13 +20,8 @@ export type RunCallOpts = {
 	tags?: Record<string, string>;
 };
 
-// Duck-typed executor interface — compatible with LangChain AgentExecutor and any Runnable.
-// Typed loosely to avoid a hard dependency on the `langchain` package.
-type RunnableExecutor = {
-	invoke(
-		input: Record<string, unknown>,
-		options?: { callbacks?: unknown[] },
-	): Promise<Record<string, unknown>>;
+export type HandlebarConfig = RunnableConfig & {
+	configurable?: RunCallOpts;
 };
 
 export type HandlebarAgentExecutorOpts = {
@@ -35,7 +31,7 @@ export type HandlebarAgentExecutorOpts = {
 	 * The LangChain AgentExecutor (or any compatible Runnable) to wrap.
 	 * Tools should be pre-wrapped with wrapTools() before being added to the executor.
 	 */
-	executor: RunnableExecutor;
+	executor: Runnable<Record<string, unknown>, Record<string, unknown>>;
 	/** Model info attached to run.started and llm.result events. */
 	model: ModelInfo;
 	/**
@@ -46,33 +42,40 @@ export type HandlebarAgentExecutorOpts = {
 };
 
 /**
- * Wraps a LangChain AgentExecutor (or any compatible Runnable) with Handlebar governance.
+ * Wraps a LangChain Runnable (AgentExecutor or any chain) with Handlebar governance.
+ * Extends Runnable so it can be composed in LangChain chains via .pipe().
  *
- * Responsibilities:
- * - Starts a Run for each invoke() call (emits run.started).
- * - Binds the Run in AsyncLocalStorage so wrapTools() can call beforeTool/afterTool.
- * - Attaches a HandlebarCallbackHandler to emit beforeLlm/afterLlm events per LLM step.
- * - Ends the Run on completion, error, or governance-triggered termination.
+ * Handlebar-specific options (actor, sessionId, tags) are passed via
+ * RunnableConfig.configurable so they flow naturally through LangChain's config
+ * propagation system.
  *
  * @example
- * const tools = wrapTools([new SearchTool(), new CodeTool()], {
- *   toolTags: { search: ["read-only"] },
- * });
- * const agent = await createOpenAIToolsAgent(llm, tools, prompt);
- * const executor = AgentExecutor.fromAgentAndTools({ agent, tools });
+ * // Direct invocation
+ * const result = await hbExecutor.invoke(
+ *   { input: "..." },
+ *   { configurable: { actor: { externalId: "user-123" }, sessionId: "s-1" } },
+ * );
  *
- * const hbExecutor = new HandlebarAgentExecutor({ hb, executor, model: { name: "gpt-4o", provider: "openai" } });
- * const result = await hbExecutor.invoke({ input: "..." }, { actor: { externalId: "user-123" } });
+ * @example
+ * // In a chain
+ * const chain = preprocess.pipe(hbExecutor).pipe(postprocess);
+ * await chain.invoke({ input: "..." }, { configurable: { actor: { externalId: "user-123" } } });
  */
-export class HandlebarAgentExecutor {
+export class HandlebarAgentExecutor extends Runnable<
+	Record<string, unknown>,
+	Record<string, unknown>
+> {
+	lc_namespace = ["handlebar", "langchain"];
+
 	private readonly hb: HandlebarClient;
-	private readonly executor: RunnableExecutor;
+	private readonly executor: Runnable<Record<string, unknown>, Record<string, unknown>>;
 	private readonly model: ModelInfo;
 	private readonly runDefaults:
 		| Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">
 		| undefined;
 
 	constructor(opts: HandlebarAgentExecutorOpts) {
+		super();
 		this.hb = opts.hb;
 		this.executor = opts.executor;
 		this.model = opts.model;
@@ -81,8 +84,9 @@ export class HandlebarAgentExecutor {
 
 	async invoke(
 		input: Record<string, unknown>,
-		callOpts?: RunCallOpts,
+		config?: HandlebarConfig,
 	): Promise<Record<string, unknown>> {
+		const callOpts = config?.configurable;
 		const run = await this.hb.startRun({
 			runId: uuidv7(),
 			model: this.model,
@@ -94,10 +98,15 @@ export class HandlebarAgentExecutor {
 
 		const handler = new HandlebarCallbackHandler(run, this.model);
 
+		// Merge our callback handler with any existing callbacks from the parent chain.
+		// When used in a .pipe() chain, LangChain passes callbacks via config — preserve them.
+		const existingCbs = Array.isArray(config?.callbacks) ? config.callbacks : [];
+
 		return withRun(run, async () => {
 			try {
 				const result = await this.executor.invoke(input, {
-					callbacks: [handler],
+					...config,
+					callbacks: [handler, ...existingCbs],
 				});
 				await run.end("success");
 				return result;

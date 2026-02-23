@@ -1,6 +1,8 @@
 # Handlebar + LangChain JS
 
-The `@handlebar/langchain` adapter wraps a LangChain `AgentExecutor` (or any compatible `Runnable`) with full Handlebar governance — run lifecycle, LLM event logging, and tool-call enforcement.
+The `@handlebar/langchain` adapter wraps any LangChain `Runnable` with full Handlebar governance — run lifecycle, LLM event logging, and tool-call enforcement.
+
+`HandlebarAgentExecutor` extends LangChain's `Runnable`, so it can be composed in chains via `.pipe()` and passed anywhere a `Runnable` is expected.
 
 ---
 
@@ -60,10 +62,10 @@ const hbExecutor = new HandlebarAgentExecutor({
   model: { name: "gpt-4o", provider: "openai" },
 });
 
-// 6. Invoke per request, passing actor / session info.
+// 6. Invoke per request. Handlebar options go in `configurable`.
 const result = await hbExecutor.invoke(
   { input: "What is the capital of France?" },
-  { actor: { externalId: "user-123" }, sessionId: "session-abc" },
+  { configurable: { actor: { externalId: "user-123" }, sessionId: "session-abc" } },
 );
 console.log(result.output);
 ```
@@ -123,27 +125,48 @@ Wraps a single tool. Use when you need to wrap tools individually.
 
 ### `HandlebarAgentExecutor`
 
+Extends LangChain's `Runnable` — composable in chains and usable anywhere a `Runnable` is expected.
+
+Handlebar-specific options are passed via `RunnableConfig.configurable`, which LangChain propagates automatically through `.pipe()` chains.
+
 ```ts
 const hbExecutor = new HandlebarAgentExecutor({
   hb,                                        // HandlebarClient from Handlebar.init()
-  executor,                                  // AgentExecutor or any compatible Runnable
+  executor,                                  // AgentExecutor or any Runnable
   model: { name: "gpt-4o", provider: "openai" },
   runDefaults: { runTtlMs: 60_000 },         // optional: applied to every run
 });
 
+// Direct invocation
 const result = await hbExecutor.invoke(
   { input: "..." },
   {
-    actor: { externalId: "user-123" },        // optional
-    sessionId: "session-abc",                 // optional: groups runs into a session
-    tags: { environment: "production" },      // optional: arbitrary run tags
+    configurable: {
+      actor: { externalId: "user-123" },     // optional
+      sessionId: "session-abc",              // optional: groups runs into a session
+      tags: { environment: "production" },   // optional: arbitrary run tags
+    },
   },
 );
+
+// In a .pipe() chain — configurable propagates automatically
+const chain = preprocess.pipe(hbExecutor).pipe(postprocess);
+const result = await chain.invoke(
+  { input: "..." },
+  { configurable: { actor: { externalId: "user-123" } } },
+);
+
+// Or wrap it with your own Runnable — it satisfies the interface
+class MyMonitoringWrapper extends Runnable<...> {
+  constructor(private inner: Runnable<...>) { super(); }
+  async invoke(input, config) { return this.inner.invoke(input, config); }
+}
+const monitored = new MyMonitoringWrapper(hbExecutor);
 ```
 
 ### `HandlebarCallbackHandler`
 
-If you need the callback handler outside of `HandlebarAgentExecutor` (e.g. to attach to a chain rather than an executor):
+If you need the callback handler standalone (e.g. to attach to a chain rather than an executor):
 
 ```ts
 import { HandlebarCallbackHandler } from "@handlebar/langchain";
