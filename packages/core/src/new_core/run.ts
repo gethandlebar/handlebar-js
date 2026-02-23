@@ -1,4 +1,5 @@
 import type { AuditEvent } from "@handlebar/governance-schema";
+import { uuidv7 } from "uuidv7";
 import type {
 	ApiManager,
 	EvaluateAfterRequest,
@@ -205,26 +206,31 @@ export class Run {
 		messages: LLMMessage[],
 		meta?: { model?: ModelInfo },
 	): Promise<LLMMessage[]> {
-		if (this.state !== "active") return messages;
+    if (this.state !== "active") {
+      return messages;
+    }
+
 		// Future: evaluate LLM-level rules, redact PII, estimate tokens.
 		// For now: emit event and return messages unmodified.
-		this.emit({
-			schema: "handlebar.audit.v1",
-			ts: new Date(),
-			runId: this.runId,
-			sessionId: this.sessionId,
-			actorExternalId: this.actor?.externalId,
-			stepIndex: this.stepIndex,
-			kind: "message.raw.created",
-			data: {
-				messageId:
-					crypto.randomUUID() as `${string}-${string}-${string}-${string}-${string}`,
-				role: "user",
-				kind: "input",
-				content: JSON.stringify(messages),
-				contentTruncated: false,
-			},
-		});
+    for (const msg of messages) {
+  		this.emit({
+  			schema: "handlebar.audit.v1",
+  			ts: new Date(),
+  			runId: this.runId,
+  			sessionId: this.sessionId,
+  			actorExternalId: this.actor?.externalId,
+  			stepIndex: this.stepIndex,
+  			kind: "message.raw.created",
+  			data: {
+  				messageId: uuidv7(),
+  				role: msg.role,
+  				kind: "input",
+  				content: JSON.stringify(msg),
+  				contentTruncated: false,
+  			},
+      });
+		}
+
 		return messages;
 	}
 

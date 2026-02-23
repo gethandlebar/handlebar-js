@@ -14,6 +14,7 @@ import {
 	type ToolSet,
 } from "ai";
 import { uuidv7 } from "uuidv7";
+import { modelMessageToLlmMessage } from "./messages";
 
 // biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 type ToolSetBase = Record<string, Tool<any, any>>;
@@ -147,6 +148,17 @@ export class HandlebarAgent<
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
 			stopWhen,
+			prepareStep: async (opts) => {
+				const run = getCurrentRun();
+        if (run) {
+          const llmMessages = opts.messages.map((msg) => modelMessageToLlmMessage(msg)).filter(msg => msg !== undefined);
+					await run.beforeLlm(llmMessages);
+				}
+				if (rest.prepareStep) {
+					return rest.prepareStep(opts);
+				}
+				return undefined;
+			},
 			onStepFinish: async (step) => {
 				const run = getCurrentRun();
 				if (run && (step.usage.inputTokens !== undefined || step.usage.outputTokens !== undefined)) {
