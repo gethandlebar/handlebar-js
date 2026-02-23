@@ -76,6 +76,15 @@ export const HANDLEBAR_ACTION_STATUS = {
 
 const TOTAL_DURATION_COUNTER = "__hb_totalDurationMs";
 
+/**
+ * @deprecated Use the new core API instead:
+ *   `Handlebar.init(config)` → `client.startRun(runConfig)` → `run.beforeTool / afterTool / afterLlm / end`
+ *
+ * Import from `@handlebar/core` — the `Handlebar`, `HandlebarClient`, `Run`,
+ * `withRun`, and `getCurrentRun` exports are the new equivalents.
+ *
+ * `GovernanceEngine` will be removed once `@handlebar/ai-sdk-v5` has fully migrated.
+ */
 export class GovernanceEngine<T extends Tool = Tool> {
 	private agentId: string | null;
 	private tools: Map<string, ToolMeta<T>>;

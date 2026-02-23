@@ -1,13 +1,18 @@
 import {
-	type Tool as CoreTool,
 	type CustomCheck,
+	FAILOPEN_DECISION,
 	type GovernanceConfig,
 	GovernanceEngine,
-	generateSlug,
-	HANDLEBAR_ACTION_STATUS,
+	type HandlebarClient,
 	type HandlebarRunOpts,
+	type ModelInfo,
+	type RunConfig,
 	type RunContext,
+	type Tool as CoreTool,
+	generateSlug,
+	getCurrentRun,
 	tokeniseCount,
+	withRun,
 	withRunContext,
 } from "@handlebar/core";
 import type { AgentTool } from "@handlebar/core/dist/api/types";
@@ -54,18 +59,37 @@ function mapTools<ToolSet extends ToolSetBase>(
 	for (const name in tools) {
 		out[name] = wrap(name as any, tools[name]);
 	}
-
 	return out as ToolSet;
 }
+
+// Response injected into tool output to signal the agent loop to stop.
+// Detected by the stopWhen condition below.
+const EXIT_RUN_CODE = "HANDLEBAR_EXIT_RUN";
+const TOOL_BLOCK_CODE = "HANDLEBAR_TOOL_BLOCK";
 
 type HandlebarAgentOpts<
 	TOOLSET extends ToolSet,
 	Ctx,
 	Memory,
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
+	// ---------------------------------------------------------------------------
+	// New core path (recommended)
+	// ---------------------------------------------------------------------------
+	// Pre-initialised HandlebarClient. Use Handlebar.init(config) to create one.
+	hb?: HandlebarClient;
+	// Run config overrides applied to each run started by this agent.
+	runDefaults?: Omit<RunConfig, "runId">;
+	// Per-tool tags for governance rule matching.
+	toolTags?: Record<string, string[]>;
+
+	// ---------------------------------------------------------------------------
+	// Legacy path (deprecated — use hb instead)
+	// ---------------------------------------------------------------------------
+	/** @deprecated Use `hb` (HandlebarClient) instead. */
 	governance?: Omit<GovernanceConfig<ToCoreTool<TOOLSET>>, "tools"> & {
-		categories?: Record<string, string[]>; // tool categories by name
+		categories?: Record<string, string[]>;
 	} & HandlebarRunOpts;
+	/** @deprecated Pass agent config to Handlebar.init() instead. */
 	agent?: {
 		slug: string;
 		name?: string;
@@ -80,108 +104,38 @@ export class HandlebarAgent<
 	Memory = unknown,
 > {
 	private inner: Agent<ToolSet, Ctx, Memory>;
-	public governance: GovernanceEngine<ToCoreTool<ToolSet>>;
-	private runCtx: RunContext<ToCoreTool<ToolSet>>;
-	private runStarted = false;
 
+	// ---------------------------------------------------------------------------
+	// New core state
+	// ---------------------------------------------------------------------------
+	private hb: HandlebarClient | undefined;
+	private runDefaults: Omit<RunConfig, "runId"> | undefined;
+	private readonly toolTagsMap: Record<string, string[]>;
+
+	// ---------------------------------------------------------------------------
+	// Legacy state (retained while governance path is in use)
+	// ---------------------------------------------------------------------------
+	/** @deprecated */
+	public governance: GovernanceEngine<ToCoreTool<ToolSet>> | undefined;
+	/** @deprecated */
+	private runCtx: RunContext<ToCoreTool<ToolSet>> | undefined;
+	private runStarted = false;
 	private systemPrompt: string | undefined = undefined;
 	private emittedSystemPrompt = false;
 	private hasInitialisedEngine = false;
 	private agentConfig:
-		| {
-				slug: string;
-				name?: string;
-				description?: string;
-				tags?: string[];
-		  }
+		| { slug: string; name?: string; description?: string; tags?: string[] }
 		| undefined;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
-		const { tools = {} as ToolSet, governance, agent, ...rest } = opts;
+		const { tools = {} as ToolSet, hb, runDefaults, toolTags = {}, governance, agent, ...rest } = opts;
 
-		const toolMeta = (Object.keys(tools) as Array<keyof ToolSet & string>).map(
-			(name) => ({
-				name,
-				categories: governance?.categories?.[name] ?? [],
-			}),
-		);
+		this.hb = hb;
+		this.runDefaults = runDefaults;
+		this.toolTagsMap = toolTags;
+		this.agentConfig = agent;
 
-		const engine = new GovernanceEngine<ToCoreTool<ToolSet>>({
-			tools: toolMeta,
-			...governance,
-		});
-
-		const runId =
-			globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-
-		let model: { name: string; provider?: string };
-
-		if (typeof rest.model === "object") {
-			// TODO: verify 'ai' provider schema. Sometimes appear with dot notation. E.g. "openai.responses" when we just want "openai"
-			const provider = rest.model.provider.split(".")[0] ?? rest.model.provider;
-			model = { name: rest.model.modelId, provider };
-		} else {
-			const modelStringParts = rest.model.toString().split("/");
-			model = {
-				name:
-					modelStringParts[modelStringParts.length - 1] ??
-					rest.model.toString(),
-				provider: modelStringParts.length > 1 ? modelStringParts[0] : undefined,
-			};
-		}
-
-		const runCtx = engine.createRunContext(runId, {
-			enduser: governance?.enduser,
-			model,
-		});
-
-		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) {
-				return t;
-			}
-
-			const exec = t.execute.bind(t);
-
-			return {
-				...t,
-				async execute(args: unknown, options: ToolCallOptions) {
-					const decision = await engine.beforeTool(runCtx, String(name), args);
-
-					// Early exit: Rule violations overwrite tool action
-					const handlebarResponse = engine.decisionAction(decision);
-					if (handlebarResponse) {
-						return handlebarResponse;
-					}
-
-					try {
-						const start = Date.now();
-						const res = await exec(args as never, options);
-						const end = Date.now();
-
-						await engine.afterTool(
-							runCtx,
-							String(name),
-							end - start,
-							args,
-							res,
-						);
-
-						return res as never;
-					} catch (e) {
-						await engine.afterTool(
-							runCtx,
-							String(name),
-							null,
-							args,
-							undefined,
-							e,
-						);
-						throw e;
-					}
-				},
-			} as typeof t;
-		});
-
+		let wrapped: ToolSet;
 		let stopWhen: StopCondition<NoInfer<ToolSet>>[];
 
 		if (opts.stopWhen === undefined) {
@@ -189,21 +143,16 @@ export class HandlebarAgent<
 		} else if (!Array.isArray(opts.stopWhen)) {
 			stopWhen = [opts.stopWhen];
 		} else {
-			stopWhen = opts.stopWhen;
+			stopWhen = [...opts.stopWhen];
 		}
 
-		// Look for HANDLEBAR_RULE_VIOLATION_CODE from response
-		// to indicate that there was a exit-worthy rule violation
+		// Unified stop condition: detect EXIT_RUN_CODE in any tool output.
 		stopWhen.push(({ steps }) => {
 			const lastStep = steps[steps.length - 1];
-			if (lastStep === undefined) {
-				return false;
-			}
-
+			if (!lastStep) return false;
 			for (const toolResult of lastStep.toolResults) {
 				try {
-					const output = JSON.stringify(toolResult.output);
-					if (output.includes(HANDLEBAR_ACTION_STATUS.EXIT_RUN_CODE)) {
+					if (JSON.stringify(toolResult.output).includes(EXIT_RUN_CODE)) {
 						return true;
 					}
 				} catch {}
@@ -211,22 +160,145 @@ export class HandlebarAgent<
 			return false;
 		});
 
+		if (hb) {
+			// -----------------------------------------------------------------------
+			// New core path: tools are wrapped using ALS — getCurrentRun() fetches
+			// the run bound by withRun() in generate/stream/respond.
+			// -----------------------------------------------------------------------
+			wrapped = mapTools(tools, (name, t) => {
+				if (!t.execute) return t;
+				const exec = t.execute.bind(t);
+				const tags = toolTags[name as string] ?? [];
+
+				return {
+					...t,
+					async execute(args: unknown, options: ToolCallOptions) {
+						const run = getCurrentRun();
+						if (!run) {
+							// No run bound — governance skipped (should not happen in normal flow).
+							return exec(args as never, options);
+						}
+
+						const decision = await run.beforeTool(String(name), args, tags);
+
+						if (decision.verdict === "BLOCK") {
+							if (decision.control === "TERMINATE") {
+								return {
+									code: EXIT_RUN_CODE,
+									agentNextStep:
+										"The tool call has violated Handlebar governance. The run will end. Do not reference Handlebar or rule violations in further commentary.",
+									reason: decision.message,
+								};
+							}
+							return {
+								code: TOOL_BLOCK_CODE,
+								agentNextStep:
+									"The tool call has violated Handlebar governance and has been blocked. Do not reference Handlebar or rule violations in further commentary.",
+								reason: decision.message,
+							};
+						}
+
+						const start = Date.now();
+						try {
+							const res = await exec(args as never, options);
+							await run.afterTool(String(name), args, res, Date.now() - start, undefined, tags);
+							return res as never;
+						} catch (e) {
+							await run.afterTool(String(name), args, undefined, Date.now() - start, e, tags);
+							throw e;
+						}
+					},
+				} as typeof t;
+			});
+		} else {
+			// -----------------------------------------------------------------------
+			// Legacy path: GovernanceEngine-based wrapping (deprecated).
+			// -----------------------------------------------------------------------
+			const toolMeta = (Object.keys(tools) as Array<keyof ToolSet & string>).map(
+				(name) => ({
+					name,
+					categories: governance?.categories?.[name] ?? [],
+				}),
+			);
+
+			const engine = new GovernanceEngine<ToCoreTool<ToolSet>>({
+				tools: toolMeta,
+				...governance,
+			});
+
+			let model: ModelInfo;
+			if (typeof rest.model === "object") {
+				const provider = rest.model.provider.split(".")[0] ?? rest.model.provider;
+				model = { name: rest.model.modelId, provider };
+			} else {
+				const parts = rest.model.toString().split("/");
+				model = {
+					name: parts[parts.length - 1] ?? rest.model.toString(),
+					provider: parts.length > 1 ? parts[0] : undefined,
+				};
+			}
+
+			const runCtx = engine.createRunContext(uuidv7(), {
+				enduser: governance?.enduser,
+				model,
+			});
+
+			wrapped = mapTools(tools, (name, t) => {
+				if (!t.execute) return t;
+				const exec = t.execute.bind(t);
+
+				return {
+					...t,
+					async execute(args: unknown, options: ToolCallOptions) {
+						const decision = await engine.beforeTool(runCtx, String(name), args);
+						const handlebarResponse = engine.decisionAction(decision);
+						if (handlebarResponse) return handlebarResponse;
+
+						try {
+							const start = Date.now();
+							const res = await exec(args as never, options);
+							await engine.afterTool(runCtx, String(name), Date.now() - start, args, res);
+							return res as never;
+						} catch (e) {
+							await engine.afterTool(runCtx, String(name), null, args, undefined, e);
+							throw e;
+						}
+					},
+				} as typeof t;
+			});
+
+			this.governance = engine;
+			this.runCtx = runCtx;
+		}
+
 		this.inner = new Agent<ToolSet, Ctx, Memory>({
 			...rest,
 			stopWhen,
 			onStepFinish: async (step) => {
-				try {
-					this.governance.emitLLMResult(
-						{
-							inTokens: step.usage.inputTokens,
-							outTokens: step.usage.outputTokens,
-						},
-						[],
-						model,
-					);
-				} catch {
-					// Can throw if tokens undefined.
-					// TODO: log here.
+				if (this.hb) {
+					// New core: emit LLM result via the run bound in ALS.
+					const run = getCurrentRun();
+					if (run && (step.usage.inputTokens !== undefined || step.usage.outputTokens !== undefined)) {
+						const model = this.resolveModel(rest.model);
+						await run.afterLlm({
+							content: step.text ? [{ type: "text", text: step.text }] : [],
+							model,
+							usage: {
+								inputTokens: step.usage.inputTokens,
+								outputTokens: step.usage.outputTokens,
+							},
+						});
+					}
+				} else if (this.governance) {
+					// Legacy path.
+					try {
+						const model = this.resolveModel(rest.model);
+						this.governance.emitLLMResult(
+							{ inTokens: step.usage.inputTokens, outTokens: step.usage.outputTokens },
+							[],
+							model,
+						);
+					} catch {}
 				}
 
 				if (rest.onStepFinish) {
@@ -234,36 +306,42 @@ export class HandlebarAgent<
 				}
 
 				if (step.text.trim()) {
-					this.emitMessage(
-						step.text,
-						"assistant",
-						"output",
-						// tags: ["step_output"],
-					);
+					this.emitMessage(step.text, "assistant", "output");
 				}
-
-				// TODO: do we need reasoning?
 			},
 			tools: wrapped,
 		});
-		this.governance = engine;
-		this.runCtx = runCtx;
-		this.agentConfig = agent;
 
 		if (rest.system) {
 			this.systemPrompt = rest.system;
 		}
 	}
 
+	// ---------------------------------------------------------------------------
+	// New core helpers
+	// ---------------------------------------------------------------------------
+
+	private resolveModel(model: HandlebarAgentOpts<ToolSet, Ctx, Memory>["model"]): ModelInfo {
+		if (typeof model === "object") {
+			const provider = model.provider.split(".")[0] ?? model.provider;
+			return { name: model.modelId, provider };
+		}
+		const parts = model.toString().split("/");
+		return {
+			name: parts[parts.length - 1] ?? model.toString(),
+			provider: parts.length > 1 ? parts[0] : undefined,
+		};
+	}
+
+	// ---------------------------------------------------------------------------
+	// Legacy helpers
+	// ---------------------------------------------------------------------------
+
 	private toolInfo() {
 		const infoTools: AgentTool[] = [];
-
 		for (const name in this.inner.tools) {
 			const tool = this.inner.tools[name];
-			if (!tool) {
-				continue;
-			}
-
+			if (!tool) continue;
 			infoTools.push({
 				name,
 				description: tool.description,
@@ -272,15 +350,12 @@ export class HandlebarAgent<
 				kind: "function",
 			});
 		}
-
 		return infoTools;
 	}
 
+	/** @deprecated Only used in legacy governance path. */
 	public async initEngine() {
-		if (this.hasInitialisedEngine) {
-			return;
-		}
-
+		if (!this.governance || this.hasInitialisedEngine) return;
 		await this.governance.initAgentRules(
 			this.agentConfig ?? { slug: generateSlug() },
 			this.toolInfo(),
@@ -288,28 +363,25 @@ export class HandlebarAgent<
 		this.hasInitialisedEngine = true;
 	}
 
-	private withRun<T>(fn: () => Promise<T> | T): Promise<T> | T {
+	private withRunLegacy<T>(fn: () => Promise<T> | T): Promise<T> | T {
 		return withRunContext(
 			{
-				runId: this.runCtx.runId,
-				stepIndex: this.runCtx.stepIndex,
-				enduser: this.runCtx.enduser,
+				runId: this.runCtx!.runId,
+				stepIndex: this.runCtx!.stepIndex,
+				enduser: this.runCtx!.enduser,
 			},
 			async () => {
 				if (!this.runStarted) {
 					this.runStarted = true;
-
-					this.governance.emit("run.started", {
+					this.governance!.emit("run.started", {
 						agent: { framework: "ai-sdk" },
-						model: this.runCtx.model,
+						model: this.runCtx!.model,
 						adapter: { name: "@handlebar/ai-sdk-v5" },
-						enduser: this.runCtx.enduser,
+						enduser: this.runCtx!.enduser,
 					});
 					this.maybeEmitSystemPrompt();
 				}
-
-				const out = await fn();
-				return out;
+				return fn();
 			},
 		);
 	}
@@ -319,81 +391,127 @@ export class HandlebarAgent<
 		role: MessageEvent["data"]["role"],
 		kind: MessageEvent["data"]["kind"],
 	) {
-		let truncated = false;
-		let messageFinal = message;
-
-		// TODO: set reasonable limit
 		const messageCharLimit = 10000;
+		const truncated = message.length > messageCharLimit;
+		const messageFinal = truncated ? message.slice(0, messageCharLimit) : message;
 
-		if (message.length > messageCharLimit) {
-			truncated = true;
-			messageFinal = message.slice(0, messageCharLimit);
+		// Emit via legacy engine if present, otherwise via current run in ALS.
+		if (this.governance) {
+			this.governance.emit("message.raw.created", {
+				content: messageFinal,
+				contentTruncated: truncated,
+				role,
+				kind,
+				messageId: uuidv7(),
+				debug: { approxTokens: tokeniseCount(messageFinal), chars: message.length },
+			});
 		}
-
-		this.governance.emit("message.raw.created", {
-			content: messageFinal,
-			contentTruncated: truncated,
-			role,
-			kind,
-			messageId: uuidv7(),
-			debug: {
-				approxTokens: tokeniseCount(messageFinal),
-				chars: message.length,
-			},
-		});
 	}
 
 	private maybeEmitSystemPrompt() {
-		if (this.emittedSystemPrompt || this.systemPrompt === undefined) {
-			return;
-		}
+		if (this.emittedSystemPrompt || this.systemPrompt === undefined) return;
 		this.emitMessage(this.systemPrompt, "system", "observation");
 		this.emittedSystemPrompt = true;
 	}
 
 	private emitMessages(prompts: Prompt[]) {
 		for (const prompt of prompts) {
-			const formattedMessages = formatPrompt(prompt);
-			for (const message of formattedMessages) {
+			for (const message of formatPrompt(prompt)) {
 				if (message.role === "system") {
 					this.systemPrompt = message.content;
 					this.maybeEmitSystemPrompt();
 				} else {
-					this.emitMessage(message.content, message.role, message.kind);
+					this.emitMessage(message.content, message.role as MessageEvent["data"]["role"], message.kind);
 				}
 			}
 		}
 	}
 
+	/** @deprecated Only used in legacy governance path. */
 	public with(opts: HandlebarRunOpts) {
-		this.runCtx.enduser = opts.enduser;
+		if (this.runCtx) {
+			this.runCtx.enduser = opts.enduser;
+		}
 		return this;
 	}
+
+	// ---------------------------------------------------------------------------
+	// Public API
+	// ---------------------------------------------------------------------------
 
 	async generate(
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>
 	) {
+		if (this.hb) {
+			const run = await this.hb.startRun({
+				runId: uuidv7(),
+				...this.runDefaults,
+			});
+			return withRun(run, async () => {
+				this.emitMessages(params);
+				try {
+					const result = await this.inner.generate(...params);
+					await run.end("success");
+					return result;
+				} catch (e) {
+					await run.end("error");
+					throw e;
+				}
+			});
+		}
+
 		await this.initEngine();
-		return this.withRun(() => {
+		return this.withRunLegacy(() => {
 			this.emitMessages(params);
 			return this.inner.generate(...params);
 		});
 	}
 
 	async stream(...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
+		if (this.hb) {
+			const run = await this.hb.startRun({
+				runId: uuidv7(),
+				...this.runDefaults,
+			});
+			return withRun(run, async () => {
+				this.emitMessages(params);
+				try {
+					const result = await this.inner.stream(...params);
+					await run.end("success");
+					return result;
+				} catch (e) {
+					await run.end("error");
+					throw e;
+				}
+			});
+		}
+
 		await this.initEngine();
-		// TODO: emit streamed messages as audit events.
-		return this.withRun(() => {
+		return this.withRunLegacy(() => {
 			this.emitMessages(params);
 			return this.inner.stream(...params);
 		});
 	}
 
 	async respond(...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
+		if (this.hb) {
+			const run = await this.hb.startRun({
+				runId: uuidv7(),
+				...this.runDefaults,
+			});
+			return withRun(run, async () => {
+				try {
+					const result = await this.inner.respond(...params);
+					await run.end("success");
+					return result;
+				} catch (e) {
+					await run.end("error");
+					throw e;
+				}
+			});
+		}
+
 		await this.initEngine();
-		return this.withRun(() => {
-			// this.emitMessages(params); // TODO: fix type error.
-			return this.inner.respond(...params);
-		});
+		return this.withRunLegacy(() => this.inner.respond(...params));
 	}
 }
