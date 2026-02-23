@@ -1,16 +1,16 @@
 import {
+	type Tool as CoreTool,
 	type CustomCheck,
 	FAILOPEN_DECISION,
 	type GovernanceConfig,
 	GovernanceEngine,
+	generateSlug,
+	getCurrentRun,
 	type HandlebarClient,
 	type HandlebarRunOpts,
 	type ModelInfo,
 	type RunConfig,
 	type RunContext,
-	type Tool as CoreTool,
-	generateSlug,
-	getCurrentRun,
 	tokeniseCount,
 	withRun,
 	withRunContext,
@@ -108,7 +108,8 @@ export class HandlebarAgent<
 	// ---------------------------------------------------------------------------
 	// New core state
 	// ---------------------------------------------------------------------------
-	private hb: HandlebarClient | undefined;
+  private hb: HandlebarClient | undefined;
+  private model: ModelInfo | undefined;
 	private runDefaults: Omit<RunConfig, "runId"> | undefined;
 	private readonly toolTagsMap: Record<string, string[]>;
 
@@ -259,7 +260,8 @@ export class HandlebarAgent<
 					name: parts[parts.length - 1] ?? rest.model.toString(),
 					provider: parts.length > 1 ? parts[0] : undefined,
 				};
-			}
+      }
+      this.model = model;
 
 			const runCtx = engine.createRunContext(uuidv7(), {
 				enduser: governance?.enduser,
@@ -502,7 +504,9 @@ export class HandlebarAgent<
 	) {
 		if (this.hb) {
 			const run = await this.hb.startRun({
-				runId: uuidv7(),
+        runId: uuidv7(),
+        model: this.model,
+				// TODO: add enduser data.
 				...this.runDefaults,
 			});
 			return withRun(run, async () => {
@@ -528,7 +532,8 @@ export class HandlebarAgent<
 	async stream(...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
 		if (this.hb) {
 			const run = await this.hb.startRun({
-				runId: uuidv7(),
+        runId: uuidv7(),
+				model: this.model,
 				...this.runDefaults,
 			});
 			return withRun(run, async () => {
@@ -554,7 +559,8 @@ export class HandlebarAgent<
 	async respond(...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
 		if (this.hb) {
 			const run = await this.hb.startRun({
-				runId: uuidv7(),
+        runId: uuidv7(),
+				model: this.model,
 				...this.runDefaults,
 			});
 			return withRun(run, async () => {

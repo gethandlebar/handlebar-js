@@ -208,7 +208,9 @@ export class ApiManager {
     const body = { agentId, status };
 
 		try {
-			const res = await this.post(url, body);
+			const res = await this.postWithRetry(url, body, {
+				retryBaseMs: this.retryBaseMs,
+			});
 			if (!res.ok) {
 				console.warn(
 					`[Handlebar] Run end returned ${res.status}`,
@@ -217,7 +219,7 @@ export class ApiManager {
 			}
       return;
 		} catch (err) {
-			console.error("[Handlebar] Run start error:", err);
+			console.error("[Handlebar] Run end error:", err);
       return;
 		}
   }
