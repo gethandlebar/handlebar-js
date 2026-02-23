@@ -189,7 +189,43 @@ afterLlm(response: LLMResponse, meta: { model?: ModelInfo; usage?: TokenUsage; d
 // LLMResponse is a provider-agnostic output shape (TBD — at minimum: text content + tool calls)
 ```
 
-`LLMResponse` type needs designing before implementation — at minimum it needs to carry text content and any tool calls the LLM made, so that `afterLlm` can inspect and potentially modify them.
+`LLMResponse` is fully normalised (no provider-specific fields):
+
+```ts
+type LLMResponsePart =
+  | { type: "text"; text: string }
+  | { type: "tool_call"; toolCallId: string; toolName: string; args: unknown }
+  | { type: "refusal"; refusal: string };
+
+type LLMResponse = {
+  // Required. Canonical structured output.
+  content: LLMResponsePart[];
+
+  // Convenience: concatenated text from all text-type parts.
+  // If not provided by the caller, the core auto-derives it from `content`.
+  // If `afterLlm` modifies `content`, the core re-derives `outputText` from the result.
+  // If only a flat string is available (e.g. simple provider wrapper), set this and leave `content` empty.
+  outputText?: string;
+
+  // Required. Model that produced the response.
+  model: { name: string; provider?: string };
+
+  // Provider-reported token counts. Canonical over client-side estimates when present.
+  usage?: { inputTokens?: number; outputTokens?: number };
+
+  // Wall-clock duration of the LLM call. Canonical over client-side estimates when present.
+  durationMs?: number;
+};
+
+// Hook signatures (on Run):
+// beforeLlm: returns possibly-modified messages. Model provided for token estimation.
+beforeLlm(messages: LLMMessage[], meta: { model?: ModelInfo }): Promise<LLMMessage[]>
+
+// afterLlm: returns possibly-modified response. Core re-derives outputText from content after return.
+afterLlm(response: LLMResponse): Promise<LLMResponse>
+```
+
+**`outputText` convention:** `content` is the canonical representation. `outputText` exists for convenience and for integrations where only a flat string is available. The core always re-derives `outputText` from text parts in `content` after `afterLlm` returns, so callers only need to modify `content`.
 
 ### Q7: `Run.end(status?)` type
 `status` is undefined. Should be:

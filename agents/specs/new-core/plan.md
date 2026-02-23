@@ -17,9 +17,7 @@ Work directory: `packages/core/src/new_core/`
 
 ## Remaining open design question
 
-- [ ] Q9: `LLMResponse` type shape — needs designing before `afterLlm` implementation. Minimum: text content + tool calls emitted by the LLM. Does it carry provider-specific metadata or is it fully normalised?
-
-**Answer:** fully normalised. I agree that it should have text content and tool calls, in addition to optional usage tokens and execution time, required model name and optional provider name. Should we have an "output_text" string (maybe optional?) in addition to array of content parts and tool calls?
+- [x] Q9: `LLMResponse` type shape — fully normalised. See `design.md` for resolved type definition.
 
 ---
 
