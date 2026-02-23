@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { approxBytes, approxRecords, validateMetricKey } from "../src/metrics/utils";
+import {
+	approxBytes,
+	approxRecords,
+	validateMetricKey,
+} from "../src/metrics/utils";
 
 // ---------------------------------------------------------------------------
 // approxBytes
@@ -30,12 +34,16 @@ describe("approxBytes", () => {
 
 	it("object → JSON byte count", () => {
 		const obj = { a: 1 };
-		expect(approxBytes(obj)).toBe(Buffer.byteLength(JSON.stringify(obj), "utf8"));
+		expect(approxBytes(obj)).toBe(
+			Buffer.byteLength(JSON.stringify(obj), "utf8"),
+		);
 	});
 
 	it("array → JSON byte count", () => {
 		const arr = [1, 2, 3];
-		expect(approxBytes(arr)).toBe(Buffer.byteLength(JSON.stringify(arr), "utf8"));
+		expect(approxBytes(arr)).toBe(
+			Buffer.byteLength(JSON.stringify(arr), "utf8"),
+		);
 	});
 });
 

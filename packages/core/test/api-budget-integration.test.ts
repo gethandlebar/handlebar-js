@@ -34,18 +34,31 @@ const metricRule: Rule = {
 function buildFetch(budgetDecision: "allow" | "block", grant = 100) {
 	return mock(async (url: string) => {
 		const u = String(url);
-		if (u.includes("/v1/agents") && !u.includes("rules") && !u.includes("metrics")) {
-			return new Response(JSON.stringify({ agentId: AGENT_ID }), { status: 200 });
+		if (
+			u.includes("/v1/agents") &&
+			!u.includes("rules") &&
+			!u.includes("metrics")
+		) {
+			return new Response(JSON.stringify({ agentId: AGENT_ID }), {
+				status: 200,
+			});
 		}
 		if (u.includes("/v1/rules")) {
-			return new Response(JSON.stringify({ rules: [metricRule] }), { status: 200 });
+			return new Response(JSON.stringify({ rules: [metricRule] }), {
+				status: 200,
+			});
 		}
 		if (u.includes("/metrics/budget")) {
 			return new Response(
 				JSON.stringify({
 					expires_seconds: 60,
 					responses: [
-						{ id: "bytes-budget", decision: budgetDecision, grant, computed: null },
+						{
+							id: "bytes-budget",
+							decision: budgetDecision,
+							grant,
+							computed: null,
+						},
 					],
 				}),
 				{ status: 200 },
@@ -72,7 +85,10 @@ describe("ApiManager ↔ BudgetManager integration", () => {
 	it("initAgentRules populates BudgetManager; reevaluate() is false right after", async () => {
 		globalThis.fetch = buildFetch("allow", 500) as any;
 
-		const engine = new GovernanceEngine({ tools: [{ name: "test_tool" }], rules: [] });
+		const engine = new GovernanceEngine({
+			tools: [{ name: "test_tool" }],
+			rules: [],
+		});
 		await engine.initAgentRules({ slug: "test" }, []);
 
 		// Grant is 500 (allow) and TTL just reset — no re-eval needed
@@ -87,11 +103,19 @@ describe("ApiManager ↔ BudgetManager integration", () => {
 		let budgetCallCount = 0;
 		globalThis.fetch = mock(async (url: string) => {
 			const u = String(url);
-			if (u.includes("/v1/agents") && !u.includes("rules") && !u.includes("metrics")) {
-				return new Response(JSON.stringify({ agentId: AGENT_ID }), { status: 200 });
+			if (
+				u.includes("/v1/agents") &&
+				!u.includes("rules") &&
+				!u.includes("metrics")
+			) {
+				return new Response(JSON.stringify({ agentId: AGENT_ID }), {
+					status: 200,
+				});
 			}
 			if (u.includes("/v1/rules")) {
-				return new Response(JSON.stringify({ rules: [metricRule] }), { status: 200 });
+				return new Response(JSON.stringify({ rules: [metricRule] }), {
+					status: 200,
+				});
 			}
 			if (u.includes("/metrics/budget")) {
 				budgetCallCount++;
@@ -102,7 +126,12 @@ describe("ApiManager ↔ BudgetManager integration", () => {
 					JSON.stringify({
 						expires_seconds: 60,
 						responses: [
-							{ id: "bytes-budget", decision: first ? "allow" : "block", grant: first ? 5 : 0, computed: null },
+							{
+								id: "bytes-budget",
+								decision: first ? "allow" : "block",
+								grant: first ? 5 : 0,
+								computed: null,
+							},
 						],
 					}),
 					{ status: 200 },
@@ -111,7 +140,10 @@ describe("ApiManager ↔ BudgetManager integration", () => {
 			return new Response(JSON.stringify(null), { status: 200 });
 		}) as any;
 
-		const engine = new GovernanceEngine({ tools: [{ name: "test_tool" }], rules: [] });
+		const engine = new GovernanceEngine({
+			tools: [{ name: "test_tool" }],
+			rules: [],
+		});
 		await engine.initAgentRules({ slug: "test" }, []);
 
 		const ctx = engine.createRunContext("run-1");
@@ -121,15 +153,15 @@ describe("ApiManager ↔ BudgetManager integration", () => {
 		// 3 cycles: grant goes 5→3→1→-1; on the 4th beforeTool, reevaluate() triggers the API.
 		const d1 = await engine.beforeTool(ctx, "test_tool", {}); // grant=5, allow
 		expect(d1.effect).toBe("allow");
-		await engine.afterTool(ctx, "test_tool", 10, {}, "ok");  // grant≈3
+		await engine.afterTool(ctx, "test_tool", 10, {}, "ok"); // grant≈3
 
 		const d2 = await engine.beforeTool(ctx, "test_tool", {}); // grant≈3, allow
 		expect(d2.effect).toBe("allow");
-		await engine.afterTool(ctx, "test_tool", 10, {}, "ok");  // grant≈1
+		await engine.afterTool(ctx, "test_tool", 10, {}, "ok"); // grant≈1
 
 		const d3 = await engine.beforeTool(ctx, "test_tool", {}); // grant≈1, allow
 		expect(d3.effect).toBe("allow");
-		await engine.afterTool(ctx, "test_tool", 10, {}, "ok");  // grant≈-1
+		await engine.afterTool(ctx, "test_tool", 10, {}, "ok"); // grant≈-1
 
 		// reevaluate() sees grant ≤ 0 → calls API → block decision loaded
 		const d4 = await engine.beforeTool(ctx, "test_tool", {});
@@ -140,7 +172,10 @@ describe("ApiManager ↔ BudgetManager integration", () => {
 	it("API-side block decision in initial budget load → immediate block on first beforeTool", async () => {
 		globalThis.fetch = buildFetch("block", 0) as any;
 
-		const engine = new GovernanceEngine({ tools: [{ name: "test_tool" }], rules: [] });
+		const engine = new GovernanceEngine({
+			tools: [{ name: "test_tool" }],
+			rules: [],
+		});
 		await engine.initAgentRules({ slug: "test" }, []);
 
 		const ctx = engine.createRunContext("run-1");

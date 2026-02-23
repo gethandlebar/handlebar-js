@@ -42,6 +42,10 @@ export type {
 	FAILOPEN_DECISION as FailOpenDecision,
 	FAILCLOSED_DECISION as FailClosedDecision,
 } from "./new_core/types";
-export { FAILOPEN_DECISION, FAILCLOSED_DECISION, deriveOutputText } from "./new_core/types";
+export {
+	FAILOPEN_DECISION,
+	FAILCLOSED_DECISION,
+	deriveOutputText,
+} from "./new_core/types";
 export { SinkBus, createConsoleSink, createHttpSink } from "./new_core/sinks";
 export type { Sink } from "./new_core/sinks";

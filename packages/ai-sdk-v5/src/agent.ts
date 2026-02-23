@@ -128,7 +128,15 @@ export class HandlebarAgent<
 		| undefined;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
-		const { tools = {} as ToolSet, hb, runDefaults, toolTags = {}, governance, agent, ...rest } = opts;
+		const {
+			tools = {} as ToolSet,
+			hb,
+			runDefaults,
+			toolTags = {},
+			governance,
+			agent,
+			...rest
+		} = opts;
 
 		this.hb = hb;
 		this.runDefaults = runDefaults;
@@ -201,10 +209,24 @@ export class HandlebarAgent<
 						const start = Date.now();
 						try {
 							const res = await exec(args as never, options);
-							await run.afterTool(String(name), args, res, Date.now() - start, undefined, tags);
+							await run.afterTool(
+								String(name),
+								args,
+								res,
+								Date.now() - start,
+								undefined,
+								tags,
+							);
 							return res as never;
 						} catch (e) {
-							await run.afterTool(String(name), args, undefined, Date.now() - start, e, tags);
+							await run.afterTool(
+								String(name),
+								args,
+								undefined,
+								Date.now() - start,
+								e,
+								tags,
+							);
 							throw e;
 						}
 					},
@@ -214,12 +236,12 @@ export class HandlebarAgent<
 			// -----------------------------------------------------------------------
 			// Legacy path: GovernanceEngine-based wrapping (deprecated).
 			// -----------------------------------------------------------------------
-			const toolMeta = (Object.keys(tools) as Array<keyof ToolSet & string>).map(
-				(name) => ({
-					name,
-					categories: governance?.categories?.[name] ?? [],
-				}),
-			);
+			const toolMeta = (
+				Object.keys(tools) as Array<keyof ToolSet & string>
+			).map((name) => ({
+				name,
+				categories: governance?.categories?.[name] ?? [],
+			}));
 
 			const engine = new GovernanceEngine<ToCoreTool<ToolSet>>({
 				tools: toolMeta,
@@ -228,7 +250,8 @@ export class HandlebarAgent<
 
 			let model: ModelInfo;
 			if (typeof rest.model === "object") {
-				const provider = rest.model.provider.split(".")[0] ?? rest.model.provider;
+				const provider =
+					rest.model.provider.split(".")[0] ?? rest.model.provider;
 				model = { name: rest.model.modelId, provider };
 			} else {
 				const parts = rest.model.toString().split("/");
@@ -250,17 +273,34 @@ export class HandlebarAgent<
 				return {
 					...t,
 					async execute(args: unknown, options: ToolCallOptions) {
-						const decision = await engine.beforeTool(runCtx, String(name), args);
+						const decision = await engine.beforeTool(
+							runCtx,
+							String(name),
+							args,
+						);
 						const handlebarResponse = engine.decisionAction(decision);
 						if (handlebarResponse) return handlebarResponse;
 
 						try {
 							const start = Date.now();
 							const res = await exec(args as never, options);
-							await engine.afterTool(runCtx, String(name), Date.now() - start, args, res);
+							await engine.afterTool(
+								runCtx,
+								String(name),
+								Date.now() - start,
+								args,
+								res,
+							);
 							return res as never;
 						} catch (e) {
-							await engine.afterTool(runCtx, String(name), null, args, undefined, e);
+							await engine.afterTool(
+								runCtx,
+								String(name),
+								null,
+								args,
+								undefined,
+								e,
+							);
 							throw e;
 						}
 					},
@@ -278,7 +318,11 @@ export class HandlebarAgent<
 				if (this.hb) {
 					// New core: emit LLM result via the run bound in ALS.
 					const run = getCurrentRun();
-					if (run && (step.usage.inputTokens !== undefined || step.usage.outputTokens !== undefined)) {
+					if (
+						run &&
+						(step.usage.inputTokens !== undefined ||
+							step.usage.outputTokens !== undefined)
+					) {
 						const model = this.resolveModel(rest.model);
 						await run.afterLlm({
 							content: step.text ? [{ type: "text", text: step.text }] : [],
@@ -294,7 +338,10 @@ export class HandlebarAgent<
 					try {
 						const model = this.resolveModel(rest.model);
 						this.governance.emitLLMResult(
-							{ inTokens: step.usage.inputTokens, outTokens: step.usage.outputTokens },
+							{
+								inTokens: step.usage.inputTokens,
+								outTokens: step.usage.outputTokens,
+							},
 							[],
 							model,
 						);
@@ -321,7 +368,9 @@ export class HandlebarAgent<
 	// New core helpers
 	// ---------------------------------------------------------------------------
 
-	private resolveModel(model: HandlebarAgentOpts<ToolSet, Ctx, Memory>["model"]): ModelInfo {
+	private resolveModel(
+		model: HandlebarAgentOpts<ToolSet, Ctx, Memory>["model"],
+	): ModelInfo {
 		if (typeof model === "object") {
 			const provider = model.provider.split(".")[0] ?? model.provider;
 			return { name: model.modelId, provider };
@@ -393,7 +442,9 @@ export class HandlebarAgent<
 	) {
 		const messageCharLimit = 10000;
 		const truncated = message.length > messageCharLimit;
-		const messageFinal = truncated ? message.slice(0, messageCharLimit) : message;
+		const messageFinal = truncated
+			? message.slice(0, messageCharLimit)
+			: message;
 
 		// Emit via legacy engine if present, otherwise via current run in ALS.
 		if (this.governance) {
@@ -403,7 +454,10 @@ export class HandlebarAgent<
 				role,
 				kind,
 				messageId: uuidv7(),
-				debug: { approxTokens: tokeniseCount(messageFinal), chars: message.length },
+				debug: {
+					approxTokens: tokeniseCount(messageFinal),
+					chars: message.length,
+				},
 			});
 		}
 	}
@@ -421,7 +475,11 @@ export class HandlebarAgent<
 					this.systemPrompt = message.content;
 					this.maybeEmitSystemPrompt();
 				} else {
-					this.emitMessage(message.content, message.role as MessageEvent["data"]["role"], message.kind);
+					this.emitMessage(
+						message.content,
+						message.role as MessageEvent["data"]["role"],
+						message.kind,
+					);
 				}
 			}
 		}

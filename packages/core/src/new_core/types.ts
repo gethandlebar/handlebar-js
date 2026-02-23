@@ -5,7 +5,10 @@ import type {
 	RunControl,
 	Verdict,
 } from "@handlebar/governance-schema";
-import type { EndUserConfig, EndUserGroupConfig } from "@handlebar/governance-schema";
+import type {
+	EndUserConfig,
+	EndUserGroupConfig,
+} from "@handlebar/governance-schema";
 
 // Re-export decision types from governance-schema for convenience.
 export type { Decision, DecisionCause, RuleEval, RunControl, Verdict };
@@ -205,7 +208,9 @@ export type LLMResponse = {
 // Utility: derive outputText from LLMResponse.content.
 export function deriveOutputText(response: LLMResponse): string {
 	return response.content
-		.filter((p): p is Extract<LLMResponsePart, { type: "text" }> => p.type === "text")
+		.filter(
+			(p): p is Extract<LLMResponsePart, { type: "text" }> => p.type === "text",
+		)
 		.map((p) => p.text)
 		.join("");
 }

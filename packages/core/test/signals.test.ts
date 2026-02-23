@@ -11,7 +11,9 @@ import type { SubjectRef } from "../src/subjects";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeEnv(overrides: Partial<Parameters<SignalRegistry["eval"]>[2]> = {}) {
+function makeEnv(
+	overrides: Partial<Parameters<SignalRegistry["eval"]>[2]> = {},
+) {
 	return {
 		ctx: {
 			runId: "run-1",
@@ -74,7 +76,9 @@ describe("SignalRegistry.eval", () => {
 
 	it("provider that throws → ok: false with error", async () => {
 		const reg = new SignalRegistry();
-		reg.register("bad", async () => { throw new Error("fail"); });
+		reg.register("bad", async () => {
+			throw new Error("fail");
+		});
 		const result = await reg.eval("bad", {}, makeEnv(), new Map());
 		expect(result.ok).toBe(false);
 		expect((result as any).error).toBeInstanceOf(Error);
@@ -83,7 +87,10 @@ describe("SignalRegistry.eval", () => {
 	it("same key+args cached within a call (provider not invoked twice)", async () => {
 		const reg = new SignalRegistry();
 		let calls = 0;
-		reg.register("counted", async () => { calls++; return 1; });
+		reg.register("counted", async () => {
+			calls++;
+			return 1;
+		});
 
 		const cache = new Map();
 		const args = { x: { from: "const" as const, value: 5 } };
@@ -95,11 +102,24 @@ describe("SignalRegistry.eval", () => {
 	it("different args produce different cache entries", async () => {
 		const reg = new SignalRegistry();
 		let calls = 0;
-		reg.register("multi", async (a) => { calls++; return a.x; });
+		reg.register("multi", async (a) => {
+			calls++;
+			return a.x;
+		});
 
 		const cache = new Map();
-		await reg.eval("multi", { x: { from: "const", value: 1 } }, makeEnv(), cache);
-		await reg.eval("multi", { x: { from: "const", value: 2 } }, makeEnv(), cache);
+		await reg.eval(
+			"multi",
+			{ x: { from: "const", value: 1 } },
+			makeEnv(),
+			cache,
+		);
+		await reg.eval(
+			"multi",
+			{ x: { from: "const", value: 2 } },
+			makeEnv(),
+			cache,
+		);
 		expect(calls).toBe(2);
 	});
 });
@@ -112,57 +132,105 @@ describe("SignalRegistry bind (via eval)", () => {
 	it("const binding passes literal value", async () => {
 		const reg = new SignalRegistry();
 		let received: unknown;
-		reg.register("probe", async (args) => { received = args.v; return null; });
+		reg.register("probe", async (args) => {
+			received = args.v;
+			return null;
+		});
 
-		await reg.eval("probe", { v: { from: "const", value: "literal" } }, makeEnv(), new Map());
+		await reg.eval(
+			"probe",
+			{ v: { from: "const", value: "literal" } },
+			makeEnv(),
+			new Map(),
+		);
 		expect(received).toBe("literal");
 	});
 
 	it("enduserId binding", async () => {
 		const reg = new SignalRegistry();
 		let received: unknown;
-		reg.register("probe", async (args) => { received = args.id; return null; });
+		reg.register("probe", async (args) => {
+			received = args.id;
+			return null;
+		});
 
-		await reg.eval("probe", { id: { from: "enduserId" } }, makeEnv(), new Map());
+		await reg.eval(
+			"probe",
+			{ id: { from: "enduserId" } },
+			makeEnv(),
+			new Map(),
+		);
 		expect(received).toBe("u1");
 	});
 
 	it("enduserTag binding", async () => {
 		const reg = new SignalRegistry();
 		let received: unknown;
-		reg.register("probe", async (args) => { received = args.r; return null; });
+		reg.register("probe", async (args) => {
+			received = args.r;
+			return null;
+		});
 
-		await reg.eval("probe", { r: { from: "enduserTag", tag: "role" } }, makeEnv(), new Map());
+		await reg.eval(
+			"probe",
+			{ r: { from: "enduserTag", tag: "role" } },
+			makeEnv(),
+			new Map(),
+		);
 		expect(received).toBe("admin");
 	});
 
 	it("toolArg binding resolves dot-path", async () => {
 		const reg = new SignalRegistry();
 		let received: unknown;
-		reg.register("probe", async (args) => { received = args.k; return null; });
+		reg.register("probe", async (args) => {
+			received = args.k;
+			return null;
+		});
 
-		await reg.eval("probe", { k: { from: "toolArg", path: "nested.key" } }, makeEnv(), new Map());
+		await reg.eval(
+			"probe",
+			{ k: { from: "toolArg", path: "nested.key" } },
+			makeEnv(),
+			new Map(),
+		);
 		expect(received).toBe("value");
 	});
 
 	it("subject binding returns first matching subject value", async () => {
 		const reg = new SignalRegistry();
 		let received: unknown;
-		reg.register("probe", async (args) => { received = args.s; return null; });
+		reg.register("probe", async (args) => {
+			received = args.s;
+			return null;
+		});
 
 		const env = makeEnv({
 			subjects: [{ subjectType: "user", value: "alice" }],
 		});
-		await reg.eval("probe", { s: { from: "subject", subjectType: "user" } }, env, new Map());
+		await reg.eval(
+			"probe",
+			{ s: { from: "subject", subjectType: "user" } },
+			env,
+			new Map(),
+		);
 		expect(received).toBe("alice");
 	});
 
 	it("subject binding returns undefined when no match", async () => {
 		const reg = new SignalRegistry();
 		let received: unknown = "not-set";
-		reg.register("probe", async (args) => { received = args.s; return null; });
+		reg.register("probe", async (args) => {
+			received = args.s;
+			return null;
+		});
 
-		await reg.eval("probe", { s: { from: "subject", subjectType: "account" } }, makeEnv(), new Map());
+		await reg.eval(
+			"probe",
+			{ s: { from: "subject", subjectType: "account" } },
+			makeEnv(),
+			new Map(),
+		);
 		expect(received).toBeUndefined();
 	});
 });
@@ -229,7 +297,10 @@ describe("resultToSignalSchema", () => {
 	});
 
 	it("error result is serialised", () => {
-		const schema = resultToSignalSchema("my_signal", { ok: false, error: new Error("fail") });
+		const schema = resultToSignalSchema("my_signal", {
+			ok: false,
+			error: new Error("fail"),
+		});
 		expect(schema?.result.ok).toBe(false);
 	});
 
@@ -265,27 +336,50 @@ describe("sanitiseSignals", () => {
 	});
 
 	it("truncates key to 256 chars", () => {
-		const signals = [{ key: "k".repeat(300), result: { ok: true as const, value: "v" }, args: undefined }];
+		const signals = [
+			{
+				key: "k".repeat(300),
+				result: { ok: true as const, value: "v" },
+				args: undefined,
+			},
+		];
 		expect(sanitiseSignals(signals)[0].key).toHaveLength(256);
 	});
 
 	it("truncates ok result value to 256 chars", () => {
-		const signals = [{ key: "k", result: { ok: true as const, value: "v".repeat(300) }, args: undefined }];
+		const signals = [
+			{
+				key: "k",
+				result: { ok: true as const, value: "v".repeat(300) },
+				args: undefined,
+			},
+		];
 		expect((sanitiseSignals(signals)[0].result as any).value).toHaveLength(256);
 	});
 
 	it("error result is passed through unchanged", () => {
 		const err = new Error("oops");
-		const signals = [{ key: "k", result: { ok: false as const, error: String(err) }, args: undefined }];
-		expect(sanitiseSignals(signals)[0].result).toEqual({ ok: false, error: String(err) });
+		const signals = [
+			{
+				key: "k",
+				result: { ok: false as const, error: String(err) },
+				args: undefined,
+			},
+		];
+		expect(sanitiseSignals(signals)[0].result).toEqual({
+			ok: false,
+			error: String(err),
+		});
 	});
 
 	it("truncates args to 100 items and each arg to 256 chars", () => {
-		const signals = [{
-			key: "k",
-			result: { ok: true as const, value: "v" },
-			args: Array(120).fill("x".repeat(300)),
-		}];
+		const signals = [
+			{
+				key: "k",
+				result: { ok: true as const, value: "v" },
+				args: Array(120).fill("x".repeat(300)),
+			},
+		];
 		const result = sanitiseSignals(signals);
 		expect(result[0].args).toHaveLength(100);
 		expect(result[0].args![0]).toHaveLength(256);

@@ -86,14 +86,10 @@ export class HandlebarClient {
 		if (existing && !existing.isEnded) return existing;
 
 		// Check lockdown by starting the run on the server.
-		const lockdown = await this.api.startRun(
-			config.runId,
-			this.agentId ?? "",
-			{
-				sessionId: config.sessionId,
-				actorExternalId: config.actor?.externalId,
-			},
-		);
+		const lockdown = await this.api.startRun(config.runId, this.agentId ?? "", {
+			sessionId: config.sessionId,
+			actorExternalId: config.actor?.externalId,
+		});
 
 		if (lockdown.active) {
 			console.warn(
@@ -129,14 +125,18 @@ export class HandlebarClient {
 	private async initSinks(sinks?: SinkConfig[]): Promise<void> {
 		if (!sinks || sinks.length === 0) {
 			// Default: HTTP sink to Handlebar API.
-			const endpoint = this.config.apiEndpoint ?? "https://api.gethandlebar.com";
+			const endpoint =
+				this.config.apiEndpoint ?? "https://api.gethandlebar.com";
 			this.bus.add(createHttpSink(endpoint, this.config.apiKey));
 		} else {
 			for (const sinkConfig of sinks) {
 				if (sinkConfig.type === "console") {
 					this.bus.add(createConsoleSink({ format: sinkConfig.format }));
 				} else if (sinkConfig.type === "http") {
-					const endpoint = sinkConfig.endpoint ?? this.config.apiEndpoint ?? "https://api.gethandlebar.com";
+					const endpoint =
+						sinkConfig.endpoint ??
+						this.config.apiEndpoint ??
+						"https://api.gethandlebar.com";
 					const apiKey = sinkConfig.apiKey ?? this.config.apiKey;
 					this.bus.add(createHttpSink(endpoint, apiKey, sinkConfig));
 				}

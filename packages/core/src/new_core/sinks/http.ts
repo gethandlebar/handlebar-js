@@ -40,9 +40,14 @@ export function createHttpSink(
 		queue.push({ agentId, event });
 	}
 
-	async function sendBatch(agentId: string, events: AuditEvent[]): Promise<void> {
+	async function sendBatch(
+		agentId: string,
+		events: AuditEvent[],
+	): Promise<void> {
 		const url = `${endpoint}/v1/runs/events`;
-		const headers: Record<string, string> = { "content-type": "application/json" };
+		const headers: Record<string, string> = {
+			"content-type": "application/json",
+		};
 		if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
 		let attempt = 0;
@@ -56,13 +61,18 @@ export function createHttpSink(
 				if (res.ok) return;
 				// 4xx errors are not retryable (bad request / auth).
 				if (res.status >= 400 && res.status < 500) {
-					console.error(`[Handlebar] HttpSink: non-retryable ${res.status} from ${url}`);
+					console.error(
+						`[Handlebar] HttpSink: non-retryable ${res.status} from ${url}`,
+					);
 					return;
 				}
 				throw new Error(`HTTP ${res.status}`);
 			} catch (err) {
 				if (attempt === DEFAULTS.maxRetries) {
-					console.error(`[Handlebar] HttpSink: giving up after ${attempt + 1} attempts:`, err);
+					console.error(
+						`[Handlebar] HttpSink: giving up after ${attempt + 1} attempts:`,
+						err,
+					);
 					return;
 				}
 				const backoffMs = Math.min(

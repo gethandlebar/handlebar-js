@@ -57,8 +57,10 @@ describe("BudgetManager.updateBudgets", () => {
 
 describe("BudgetManager.usage", () => {
 	it("decrements grant for matching rule", () => {
-		const bm = new BudgetManager({ budgets: [makeGrant({ id: "r1", grant: 100 })] });
-		bm.usage({ "r1": 30 });
+		const bm = new BudgetManager({
+			budgets: [makeGrant({ id: "r1", grant: 100 })],
+		});
+		bm.usage({ r1: 30 });
 		expect(bm.budgets[0].grant).toBe(70);
 	});
 
@@ -69,25 +71,31 @@ describe("BudgetManager.usage", () => {
 				makeGrant({ id: "r2", grant: 50 }),
 			],
 		});
-		bm.usage({ "r1": 10 });
+		bm.usage({ r1: 10 });
 		expect(bm.budgets[1].grant).toBe(50);
 	});
 
 	it("no usage entry for rule → grant unchanged", () => {
-		const bm = new BudgetManager({ budgets: [makeGrant({ id: "r1", grant: 100 })] });
-		bm.usage({ "r2": 10 });
+		const bm = new BudgetManager({
+			budgets: [makeGrant({ id: "r1", grant: 100 })],
+		});
+		bm.usage({ r2: 10 });
 		expect(bm.budgets[0].grant).toBe(100);
 	});
 
 	it("null grant is not modified (server-controlled)", () => {
-		const bm = new BudgetManager({ budgets: [makeGrant({ id: "r1", grant: null })] });
-		bm.usage({ "r1": 50 });
+		const bm = new BudgetManager({
+			budgets: [makeGrant({ id: "r1", grant: null })],
+		});
+		bm.usage({ r1: 50 });
 		expect(bm.budgets[0].grant).toBeNull();
 	});
 
 	it("grant can go negative", () => {
-		const bm = new BudgetManager({ budgets: [makeGrant({ id: "r1", grant: 10 })] });
-		bm.usage({ "r1": 50 });
+		const bm = new BudgetManager({
+			budgets: [makeGrant({ id: "r1", grant: 10 })],
+		});
+		bm.usage({ r1: 50 });
 		expect(bm.budgets[0].grant).toBe(-40);
 	});
 });
@@ -140,8 +148,10 @@ describe("BudgetManager.reevaluate", () => {
 	});
 
 	it("usage to zero then reevaluate returns true", () => {
-		const bm = new BudgetManager({ budgets: [makeGrant({ id: "r1", grant: 10 })] });
-		bm.usage({ "r1": 10 });
+		const bm = new BudgetManager({
+			budgets: [makeGrant({ id: "r1", grant: 10 })],
+		});
+		bm.usage({ r1: 10 });
 		expect(bm.reevaluate()).toBe(true);
 	});
 

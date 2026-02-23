@@ -43,7 +43,9 @@ export class AgentMetricHookRegistry {
 				continue;
 			}
 
-			let runPromise: Promise<MetricInfo | void> = Promise.resolve(hook.run(ctx));
+			let runPromise: Promise<MetricInfo | void> = Promise.resolve(
+				hook.run(ctx),
+			);
 
 			if (hook.timeoutMs !== undefined) {
 				runPromise = Promise.race([
@@ -53,7 +55,9 @@ export class AgentMetricHookRegistry {
 			}
 
 			const emit = (res: MetricInfo | void) => {
-        if (res) { onMetric(hookKey, res.value, res.unit); }
+				if (res) {
+					onMetric(hookKey, res.value, res.unit);
+				}
 			};
 
 			if (hook.blocking === false) {

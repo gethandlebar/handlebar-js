@@ -2,7 +2,9 @@ import type { AuditEvent } from "@handlebar/governance-schema";
 import type { ConsoleSinkConfig } from "../types";
 import type { Sink } from "./types";
 
-export function createConsoleSink(config?: Pick<ConsoleSinkConfig, "format">): Sink {
+export function createConsoleSink(
+	config?: Pick<ConsoleSinkConfig, "format">,
+): Sink {
 	const format = config?.format ?? "json";
 	return {
 		writeBatch(_agentId: string, events: AuditEvent[]) {

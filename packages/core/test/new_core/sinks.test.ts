@@ -6,7 +6,9 @@ import { createHttpSink } from "../../src/new_core/sinks/http";
 import type { Sink } from "../../src/new_core/sinks/types";
 
 // Minimal valid audit event for testing.
-function makeEvent(kind: "run.started" | "run.ended" = "run.ended"): AuditEvent {
+function makeEvent(
+	kind: "run.started" | "run.ended" = "run.ended",
+): AuditEvent {
 	if (kind === "run.started") {
 		return {
 			schema: "handlebar.audit.v1",
@@ -145,7 +147,10 @@ describe("HttpSink", () => {
 	beforeEach(() => {
 		fetchCalls = [];
 		globalThis.fetch = mock(async (url: string | URL, init?: RequestInit) => {
-			fetchCalls.push({ url: url.toString(), body: JSON.parse(init?.body as string) });
+			fetchCalls.push({
+				url: url.toString(),
+				body: JSON.parse(init?.body as string),
+			});
 			return new Response(null, { status: 200 });
 		}) as typeof fetch;
 	});
@@ -165,7 +170,9 @@ describe("HttpSink", () => {
 
 		expect(fetchCalls).toHaveLength(1);
 		expect(fetchCalls[0].url).toContain("/v1/runs/events");
-		expect((fetchCalls[0].body as { events: unknown[] }).events).toHaveLength(2);
+		expect((fetchCalls[0].body as { events: unknown[] }).events).toHaveLength(
+			2,
+		);
 	});
 
 	test("batches events up to maxBatchSize", async () => {
@@ -182,7 +189,9 @@ describe("HttpSink", () => {
 		await sink.close?.();
 
 		expect(fetchCalls).toHaveLength(3);
-		const sizes = fetchCalls.map((c) => (c.body as { events: unknown[] }).events.length);
+		const sizes = fetchCalls.map(
+			(c) => (c.body as { events: unknown[] }).events.length,
+		);
 		expect(sizes).toEqual([3, 3, 1]);
 	});
 
@@ -209,7 +218,10 @@ describe("HttpSink", () => {
 	test("retries on 5xx and succeeds on second attempt", async () => {
 		let attempt = 0;
 		globalThis.fetch = mock(async (_url: string | URL, init?: RequestInit) => {
-			fetchCalls.push({ url: _url.toString(), body: JSON.parse(init?.body as string) });
+			fetchCalls.push({
+				url: _url.toString(),
+				body: JSON.parse(init?.body as string),
+			});
 			attempt++;
 			if (attempt === 1) return new Response(null, { status: 503 });
 			return new Response(null, { status: 200 });
@@ -230,7 +242,10 @@ describe("HttpSink", () => {
 
 	test("does not retry on 4xx", async () => {
 		globalThis.fetch = mock(async (_url: string | URL, init?: RequestInit) => {
-			fetchCalls.push({ url: _url.toString(), body: JSON.parse(init?.body as string) });
+			fetchCalls.push({
+				url: _url.toString(),
+				body: JSON.parse(init?.body as string),
+			});
 			return new Response(null, { status: 401 });
 		}) as typeof fetch;
 

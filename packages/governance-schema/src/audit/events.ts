@@ -54,7 +54,14 @@ export const RunEndedEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("run.ended"),
 	data: z.object({
 		// "ok"/"blocked" are legacy values from old core. New core uses "success"/"interrupted".
-		status: z.enum(["ok", "error", "blocked", "success", "timeout", "interrupted"]),
+		status: z.enum([
+			"ok",
+			"error",
+			"blocked",
+			"success",
+			"timeout",
+			"interrupted",
+		]),
 		totalSteps: z.number().min(0),
 		firstErrorDecisionId: z.string().optional(), // DEPRECATED.
 		summary: z.string().optional(),

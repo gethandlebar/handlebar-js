@@ -1,5 +1,9 @@
 import type { AuditEvent } from "@handlebar/governance-schema";
-import type { ApiManager, EvaluateAfterRequest, EvaluateBeforeRequest } from "./api/manager";
+import type {
+	ApiManager,
+	EvaluateAfterRequest,
+	EvaluateBeforeRequest,
+} from "./api/manager";
 import type { SinkBus } from "./sinks/bus";
 import type {
 	Actor,
@@ -12,7 +16,7 @@ import type {
 	ToolCall,
 	ToolResult,
 } from "./types";
-import { FAILOPEN_DECISION, deriveOutputText } from "./types";
+import { deriveOutputText, FAILOPEN_DECISION } from "./types";
 
 export type RunState = "active" | "ended";
 
@@ -56,7 +60,11 @@ export class Run {
 			this.ttlTimer = setTimeout(() => {
 				void this.end("timeout");
 			}, config.runConfig.runTtlMs);
-			if (typeof this.ttlTimer === "object" && this.ttlTimer !== null && "unref" in this.ttlTimer) {
+			if (
+				typeof this.ttlTimer === "object" &&
+				this.ttlTimer !== null &&
+				"unref" in this.ttlTimer
+			) {
 				(this.ttlTimer as { unref(): void }).unref();
 			}
 		}
@@ -109,7 +117,9 @@ export class Run {
 				// Required legacy fields (satisfy schema — new core leaves them empty).
 				effect: decision.verdict === "ALLOW" ? "allow" : "block",
 				// biome-ignore lint/suspicious/noExplicitAny: legacy schema compat
-				code: (decision.verdict === "ALLOW" ? "ALLOWED" : "BLOCKED_RULE") as any,
+				code: (decision.verdict === "ALLOW"
+					? "ALLOWED"
+					: "BLOCKED_RULE") as any,
 				matchedRuleIds: decision.evaluatedRules
 					.filter((r) => r.matched)
 					.map((r) => r.ruleId),
@@ -135,7 +145,13 @@ export class Run {
 	): Promise<Decision> {
 		if (this.state !== "active") return FAILOPEN_DECISION;
 
-		const toolResult: ToolResult = { toolName, args, result, error, durationMs };
+		const toolResult: ToolResult = {
+			toolName,
+			args,
+			result,
+			error,
+			durationMs,
+		};
 		this.history.push(toolResult);
 
 		const metrics = buildMetrics(args, result, durationMs);
@@ -151,9 +167,10 @@ export class Run {
 			metrics,
 		};
 
-		const decision = this.enforceMode === "off"
-			? FAILOPEN_DECISION
-			: await this.api.evaluate(this.runId, req);
+		const decision =
+			this.enforceMode === "off"
+				? FAILOPEN_DECISION
+				: await this.api.evaluate(this.runId, req);
 
 		// Emit tool.result event.
 		const errorAsError = error instanceof Error ? error : null;
@@ -197,7 +214,8 @@ export class Run {
 			stepIndex: this.stepIndex,
 			kind: "message.raw.created",
 			data: {
-				messageId: crypto.randomUUID() as `${string}-${string}-${string}-${string}-${string}`,
+				messageId:
+					crypto.randomUUID() as `${string}-${string}-${string}-${string}-${string}`,
 				role: "user",
 				kind: "input",
 				content: JSON.stringify(messages),
@@ -231,7 +249,10 @@ export class Run {
 				stepIndex: this.stepIndex,
 				kind: "llm.result",
 				data: {
-					model: { name: resolved.model.name, provider: resolved.model.provider },
+					model: {
+						name: resolved.model.name,
+						provider: resolved.model.provider,
+					},
 					tokens: { in: inTokens ?? 0, out: outTokens ?? 0 },
 					messageCount: resolved.content.length,
 					durationMs: resolved.durationMs,

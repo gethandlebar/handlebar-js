@@ -13,7 +13,10 @@ export type ToolMeta = {
 // Example:
 //   const search = wrapTool({ name: "search", execute: ... }, { tags: ["read-only"] });
 //   const d = await run.beforeTool(search.name, args, search.tags);
-export function wrapTool<T extends Tool>(tool: T, meta: ToolMeta): T & Required<ToolMeta> {
+export function wrapTool<T extends Tool>(
+	tool: T,
+	meta: ToolMeta,
+): T & Required<ToolMeta> {
 	return {
 		...tool,
 		tags: meta.tags ?? tool.tags ?? [],

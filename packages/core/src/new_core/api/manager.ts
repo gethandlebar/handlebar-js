@@ -64,7 +64,9 @@ export class ApiManager {
 		},
 	) {
 		this.endpoint =
-			config.apiEndpoint ?? process.env.HANDLEBAR_API_ENDPOINT ?? DEFAULT_ENDPOINT;
+			config.apiEndpoint ??
+			process.env.HANDLEBAR_API_ENDPOINT ??
+			DEFAULT_ENDPOINT;
 		this.apiKey = config.apiKey ?? process.env.HANDLEBAR_API_KEY;
 		this.failClosed = config.failClosed ?? false;
 		this.retryBaseMs = config._retryBaseMs ?? RETRY_DEFAULTS.baseMs;
@@ -91,7 +93,11 @@ export class ApiManager {
 			tags: agent.tags,
 		};
 		if (tools?.length) {
-			body.tools = tools.map((t) => ({ name: t.name, description: t.description, tags: t.tags }));
+			body.tools = tools.map((t) => ({
+				name: t.name,
+				description: t.description,
+				tags: t.tags,
+			}));
 		}
 
 		try {
@@ -114,7 +120,11 @@ export class ApiManager {
 
 		const url = this.url(`/v1/agents/${agentId}/tools`);
 		const body = {
-			tools: tools.map((t) => ({ name: t.name, description: t.description, tags: t.tags })),
+			tools: tools.map((t) => ({
+				name: t.name,
+				description: t.description,
+				tags: t.tags,
+			})),
 		};
 
 		try {
@@ -151,11 +161,17 @@ export class ApiManager {
 		try {
 			const res = await this.post(url, body);
 			if (!res.ok) {
-				console.warn(`[Handlebar] Run start returned ${res.status}; assuming no lockdown`);
+				console.warn(
+					`[Handlebar] Run start returned ${res.status}; assuming no lockdown`,
+				);
 				return { active: false };
 			}
 			const data = (await res.json()) as {
-				lockdown: { active: boolean; reason?: string; until_ts?: number | null };
+				lockdown: {
+					active: boolean;
+					reason?: string;
+					until_ts?: number | null;
+				};
 			};
 			return {
 				active: data.lockdown.active,
@@ -182,7 +198,9 @@ export class ApiManager {
 		const url = this.url(`/v1/runs/${runId}/evaluate`);
 
 		try {
-			const res = await this.postWithRetry(url, req, { retryBaseMs: this.retryBaseMs });
+			const res = await this.postWithRetry(url, req, {
+				retryBaseMs: this.retryBaseMs,
+			});
 			if (!res.ok) {
 				console.error(`[Handlebar] Evaluate returned ${res.status}`);
 				return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
@@ -190,7 +208,10 @@ export class ApiManager {
 			const raw = await res.json();
 			const parsed = DecisionSchema.safeParse(raw);
 			if (!parsed.success) {
-				console.error("[Handlebar] Evaluate response invalid:", parsed.error.message);
+				console.error(
+					"[Handlebar] Evaluate response invalid:",
+					parsed.error.message,
+				);
 				return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
 			}
 			return parsed.data;

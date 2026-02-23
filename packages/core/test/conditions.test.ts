@@ -36,7 +36,11 @@ const beforeSelector = (toolName = "test_tool"): Rule["selector"] => ({
 	tool: { name: toolName },
 });
 
-async function decide(rule: Rule, args: unknown = {}, extraTools: string[] = []) {
+async function decide(
+	rule: Rule,
+	args: unknown = {},
+	extraTools: string[] = [],
+) {
 	const engine = makeEngine(rule, extraTools);
 	const ctx = engine.createRunContext("run-1");
 	return engine.beforeTool(ctx, "test_tool", args);
@@ -50,62 +54,126 @@ describe("toolName condition", () => {
 	const sel = beforeSelector();
 
 	it("eq: exact match → block", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "eq", value: "test_tool" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "eq", value: "test_tool" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("eq: no match → allow", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "eq", value: "other_tool" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "eq", value: "other_tool" },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 
 	it("eq: case-insensitive", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "eq", value: "TEST_TOOL" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "eq", value: "TEST_TOOL" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("neq: different name → block", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "neq", value: "other_tool" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "neq", value: "other_tool" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("neq: same name → allow", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "neq", value: "test_tool" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "neq", value: "test_tool" },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 
 	it("contains: substring match", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "contains", value: "test" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "contains", value: "test" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("startsWith", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "startsWith", value: "test" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "startsWith", value: "test" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("endsWith", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "endsWith", value: "_tool" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "endsWith", value: "_tool" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("glob: wildcard match", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "glob", value: "test_*" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "glob", value: "test_*" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("glob: no match", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "glob", value: "send_*" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "glob", value: "send_*" },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 
 	it("in: name is in list", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "in", value: ["other_tool", "test_tool"] } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolName",
+					op: "in",
+					value: ["other_tool", "test_tool"],
+				},
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("in: name not in list", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolName", op: "in", value: ["other_tool"] } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolName", op: "in", value: ["other_tool"] },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 });
@@ -118,32 +186,62 @@ describe("toolTag condition", () => {
 	const sel = beforeSelector();
 
 	it("has: tag present → block", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolTag", op: "has", tag: "cat-a" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolTag", op: "has", tag: "cat-a" },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("has: tag absent → allow", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolTag", op: "has", tag: "missing-tag" } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolTag", op: "has", tag: "missing-tag" },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 
 	it("anyOf: at least one match", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolTag", op: "anyOf", tags: ["missing", "cat-b"] } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolTag", op: "anyOf", tags: ["missing", "cat-b"] },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("anyOf: no matches → allow", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolTag", op: "anyOf", tags: ["x", "y"] } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolTag", op: "anyOf", tags: ["x", "y"] },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 
 	it("allOf: all present → block", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolTag", op: "allOf", tags: ["cat-a", "cat-b"] } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolTag", op: "allOf", tags: ["cat-a", "cat-b"] },
+			}),
+		);
 		expect(d.effect).toBe("block");
 	});
 
 	it("allOf: partial match → allow", async () => {
-		const d = await decide(makeRule({ selector: sel, condition: { kind: "toolTag", op: "allOf", tags: ["cat-a", "missing"] } }));
+		const d = await decide(
+			makeRule({
+				selector: sel,
+				condition: { kind: "toolTag", op: "allOf", tags: ["cat-a", "missing"] },
+			}),
+		);
 		expect(d.effect).toBe("allow");
 	});
 });
@@ -157,7 +255,16 @@ describe("toolArg condition", () => {
 
 	it("string eq: exact match", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "eq", path: "name", value: "alice" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "eq",
+					path: "name",
+					value: "alice",
+				},
+			}),
 			{ name: "alice" },
 		);
 		expect(d.effect).toBe("block");
@@ -165,7 +272,16 @@ describe("toolArg condition", () => {
 
 	it("string neq: different value", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "neq", path: "name", value: "bob" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "neq",
+					path: "name",
+					value: "bob",
+				},
+			}),
 			{ name: "alice" },
 		);
 		expect(d.effect).toBe("block");
@@ -173,7 +289,16 @@ describe("toolArg condition", () => {
 
 	it("string contains", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "contains", path: "msg", value: "urgent" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "contains",
+					path: "msg",
+					value: "urgent",
+				},
+			}),
 			{ msg: "this is urgent please" },
 		);
 		expect(d.effect).toBe("block");
@@ -181,7 +306,16 @@ describe("toolArg condition", () => {
 
 	it("string startsWith", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "startsWith", path: "cmd", value: "rm" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "startsWith",
+					path: "cmd",
+					value: "rm",
+				},
+			}),
 			{ cmd: "rm -rf /" },
 		);
 		expect(d.effect).toBe("block");
@@ -189,7 +323,16 @@ describe("toolArg condition", () => {
 
 	it("string in: value in list", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "in", path: "role", value: "admin" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "in",
+					path: "role",
+					value: "admin",
+				},
+			}),
 			{ role: "admin" },
 		);
 		expect(d.effect).toBe("block");
@@ -197,7 +340,16 @@ describe("toolArg condition", () => {
 
 	it("number gt", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "number", op: "gt", path: "amount", value: 100 } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "number",
+					op: "gt",
+					path: "amount",
+					value: 100,
+				},
+			}),
 			{ amount: 150 },
 		);
 		expect(d.effect).toBe("block");
@@ -205,25 +357,61 @@ describe("toolArg condition", () => {
 
 	it("number lt: not exceeded → allow", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "number", op: "gt", path: "amount", value: 100 } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "number",
+					op: "gt",
+					path: "amount",
+					value: 100,
+				},
+			}),
 			{ amount: 50 },
 		);
 		expect(d.effect).toBe("allow");
 	});
 
 	it("number gte/lte boundaries", async () => {
-		const lte = makeRule({ selector: sel, condition: { kind: "toolArg", type: "number", op: "lte", path: "n", value: 10 } });
+		const lte = makeRule({
+			selector: sel,
+			condition: {
+				kind: "toolArg",
+				type: "number",
+				op: "lte",
+				path: "n",
+				value: 10,
+			},
+		});
 		expect((await decide(lte, { n: 10 })).effect).toBe("block");
 		expect((await decide(lte, { n: 11 })).effect).toBe("allow");
 
-		const gte = makeRule({ selector: sel, condition: { kind: "toolArg", type: "number", op: "gte", path: "n", value: 5 } });
+		const gte = makeRule({
+			selector: sel,
+			condition: {
+				kind: "toolArg",
+				type: "number",
+				op: "gte",
+				path: "n",
+				value: 5,
+			},
+		});
 		expect((await decide(gte, { n: 5 })).effect).toBe("block");
 		expect((await decide(gte, { n: 4 })).effect).toBe("allow");
 	});
 
 	it("boolean eq: true", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "boolean", op: "eq", path: "dry_run", value: false } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "boolean",
+					op: "eq",
+					path: "dry_run",
+					value: false,
+				},
+			}),
 			{ dry_run: false },
 		);
 		expect(d.effect).toBe("block");
@@ -231,7 +419,16 @@ describe("toolArg condition", () => {
 
 	it("nested dot-path access", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "eq", path: "user.role", value: "admin" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "eq",
+					path: "user.role",
+					value: "admin",
+				},
+			}),
 			{ user: { role: "admin" } },
 		);
 		expect(d.effect).toBe("block");
@@ -239,7 +436,16 @@ describe("toolArg condition", () => {
 
 	it("missing path → condition false → allow", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "eq", path: "missing.key", value: "x" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "eq",
+					path: "missing.key",
+					value: "x",
+				},
+			}),
 			{ other: "value" },
 		);
 		expect(d.effect).toBe("allow");
@@ -247,7 +453,16 @@ describe("toolArg condition", () => {
 
 	it("wrong type (number path, string condition) → allow", async () => {
 		const d = await decide(
-			makeRule({ selector: sel, condition: { kind: "toolArg", type: "string", op: "eq", path: "count", value: "5" } }),
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "toolArg",
+					type: "string",
+					op: "eq",
+					path: "count",
+					value: "5",
+				},
+			}),
 			{ count: 5 },
 		);
 		expect(d.effect).toBe("allow");
@@ -262,35 +477,78 @@ describe("enduserTag condition", () => {
 	const sel = beforeSelector();
 
 	it("has: tag present and truthy → block", async () => {
-		const engine = makeEngine(makeRule({ selector: sel, condition: { kind: "enduserTag", op: "has", tag: "is_admin" } }));
-		const ctx = engine.createRunContext("run-1", { enduser: { externalId: "u1", metadata: { is_admin: "true" } } });
+		const engine = makeEngine(
+			makeRule({
+				selector: sel,
+				condition: { kind: "enduserTag", op: "has", tag: "is_admin" },
+			}),
+		);
+		const ctx = engine.createRunContext("run-1", {
+			enduser: { externalId: "u1", metadata: { is_admin: "true" } },
+		});
 		const d = await engine.beforeTool(ctx, "test_tool", {});
 		expect(d.effect).toBe("block");
 	});
 
 	it("has: tag absent → allow", async () => {
-		const engine = makeEngine(makeRule({ selector: sel, condition: { kind: "enduserTag", op: "has", tag: "is_admin" } }));
-		const ctx = engine.createRunContext("run-1", { enduser: { externalId: "u1", metadata: {} } });
+		const engine = makeEngine(
+			makeRule({
+				selector: sel,
+				condition: { kind: "enduserTag", op: "has", tag: "is_admin" },
+			}),
+		);
+		const ctx = engine.createRunContext("run-1", {
+			enduser: { externalId: "u1", metadata: {} },
+		});
 		const d = await engine.beforeTool(ctx, "test_tool", {});
 		expect(d.effect).toBe("allow");
 	});
 
 	it("hasValue: exact match → block", async () => {
-		const engine = makeEngine(makeRule({ selector: sel, condition: { kind: "enduserTag", op: "hasValue", tag: "plan", value: "free" } }));
-		const ctx = engine.createRunContext("run-1", { enduser: { externalId: "u1", metadata: { plan: "free" } } });
+		const engine = makeEngine(
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "enduserTag",
+					op: "hasValue",
+					tag: "plan",
+					value: "free",
+				},
+			}),
+		);
+		const ctx = engine.createRunContext("run-1", {
+			enduser: { externalId: "u1", metadata: { plan: "free" } },
+		});
 		const d = await engine.beforeTool(ctx, "test_tool", {});
 		expect(d.effect).toBe("block");
 	});
 
 	it("hasValueAny: value in list → block", async () => {
-		const engine = makeEngine(makeRule({ selector: sel, condition: { kind: "enduserTag", op: "hasValueAny", tag: "plan", values: ["free", "trial"] } }));
-		const ctx = engine.createRunContext("run-1", { enduser: { externalId: "u1", metadata: { plan: "trial" } } });
+		const engine = makeEngine(
+			makeRule({
+				selector: sel,
+				condition: {
+					kind: "enduserTag",
+					op: "hasValueAny",
+					tag: "plan",
+					values: ["free", "trial"],
+				},
+			}),
+		);
+		const ctx = engine.createRunContext("run-1", {
+			enduser: { externalId: "u1", metadata: { plan: "trial" } },
+		});
 		const d = await engine.beforeTool(ctx, "test_tool", {});
 		expect(d.effect).toBe("block");
 	});
 
 	it("no enduser on context → allow", async () => {
-		const engine = makeEngine(makeRule({ selector: sel, condition: { kind: "enduserTag", op: "has", tag: "is_admin" } }));
+		const engine = makeEngine(
+			makeRule({
+				selector: sel,
+				condition: { kind: "enduserTag", op: "has", tag: "is_admin" },
+			}),
+		);
 		const ctx = engine.createRunContext("run-1");
 		const d = await engine.beforeTool(ctx, "test_tool", {});
 		expect(d.effect).toBe("allow");
@@ -305,7 +563,11 @@ describe("maxCalls condition", () => {
 	it("within limit → allow", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "maxCalls", selector: { by: "toolName", patterns: ["test_tool"] }, max: 3 },
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolName", patterns: ["test_tool"] },
+				max: 3,
+			},
 		});
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1");
@@ -320,7 +582,11 @@ describe("maxCalls condition", () => {
 	it("at limit → block", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "maxCalls", selector: { by: "toolName", patterns: ["test_tool"] }, max: 2 },
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolName", patterns: ["test_tool"] },
+				max: 2,
+			},
 		});
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1");
@@ -334,7 +600,11 @@ describe("maxCalls condition", () => {
 	it("by toolTag: counts tagged calls", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "maxCalls", selector: { by: "toolTag", tags: ["cat-a"] }, max: 1 },
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolTag", tags: ["cat-a"] },
+				max: 1,
+			},
 		});
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1");
@@ -347,7 +617,11 @@ describe("maxCalls condition", () => {
 	it("fresh context resets count", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "maxCalls", selector: { by: "toolName", patterns: ["test_tool"] }, max: 1 },
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolName", patterns: ["test_tool"] },
+				max: 1,
+			},
 		});
 		const engine = makeEngine(rule);
 		const ctx1 = engine.createRunContext("run-1");
@@ -356,59 +630,78 @@ describe("maxCalls condition", () => {
 		const ctx2 = engine.createRunContext("run-2");
 		const d = await engine.beforeTool(ctx2, "test_tool", {});
 		expect(d.effect).toBe("allow");
-  });
+	});
 
-  it("matches glob for toolname pattern", async () => {
-    const rule = makeRule({
-      selector: beforeSelector(),
-      condition: { kind: "maxCalls", selector: { by: "toolName", patterns: ["*"] }, max: 1 },
-    });
-    const engine = makeEngine(rule);
-    const ctx = engine.createRunContext("run-1");
-    await engine.afterTool(ctx, "test_tool", 1, {}, "r");
+	it("matches glob for toolname pattern", async () => {
+		const rule = makeRule({
+			selector: beforeSelector(),
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolName", patterns: ["*"] },
+				max: 1,
+			},
+		});
+		const engine = makeEngine(rule);
+		const ctx = engine.createRunContext("run-1");
+		await engine.afterTool(ctx, "test_tool", 1, {}, "r");
 
-    const d = await engine.beforeTool(ctx, "test_tool", {});
-    expect(d.effect).toBe("block");
-  });
+		const d = await engine.beforeTool(ctx, "test_tool", {});
+		expect(d.effect).toBe("block");
+	});
 
-  it("does not apply to tool name not matching patterns", async () => {
-    const rule = makeRule({
-      selector: beforeSelector(),
-      condition: { kind: "maxCalls", selector: { by: "toolName", patterns: ["tool1", "test_", "another"] }, max: 1 },
-    });
-    const engine = makeEngine(rule);
-    const ctx = engine.createRunContext("run-1");
-    await engine.afterTool(ctx, "test_tool", 1, {}, "r");
+	it("does not apply to tool name not matching patterns", async () => {
+		const rule = makeRule({
+			selector: beforeSelector(),
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolName", patterns: ["tool1", "test_", "another"] },
+				max: 1,
+			},
+		});
+		const engine = makeEngine(rule);
+		const ctx = engine.createRunContext("run-1");
+		await engine.afterTool(ctx, "test_tool", 1, {}, "r");
 
-    const d = await engine.beforeTool(ctx, "test_tool", {});
-    expect(d.effect).toBe("allow");
-  });
+		const d = await engine.beforeTool(ctx, "test_tool", {});
+		expect(d.effect).toBe("allow");
+	});
 
-  it("does not apply when no toolName patterns", async () => {
-    const rule = makeRule({
-      selector: beforeSelector(),
-      condition: { kind: "maxCalls", selector: { by: "toolName", patterns: [] }, max: 1 },
-    });
-    const engine = makeEngine(rule);
-    const ctx = engine.createRunContext("run-1");
-    await engine.afterTool(ctx, "test_tool", 1, {}, "r");
+	it("does not apply when no toolName patterns", async () => {
+		const rule = makeRule({
+			selector: beforeSelector(),
+			condition: {
+				kind: "maxCalls",
+				selector: { by: "toolName", patterns: [] },
+				max: 1,
+			},
+		});
+		const engine = makeEngine(rule);
+		const ctx = engine.createRunContext("run-1");
+		await engine.afterTool(ctx, "test_tool", 1, {}, "r");
 
-    const d = await engine.beforeTool(ctx, "test_tool", {});
-    expect(d.effect).toBe("allow");
-  });
+		const d = await engine.beforeTool(ctx, "test_tool", {});
+		expect(d.effect).toBe("allow");
+	});
 
-  it("applies if tool name matches only 1 of toolname patterns", async () => {
-    const rule = makeRule({
-      selector: beforeSelector(),
-      condition: { kind: "maxCalls", selector: { by: "toolName", patterns: ["tool1", "test_tool", "another"] }, max: 1 },
-    });
-    const engine = makeEngine(rule);
-    const ctx = engine.createRunContext("run-1");
-    await engine.afterTool(ctx, "test_tool", 1, {}, "r");
+	it("applies if tool name matches only 1 of toolname patterns", async () => {
+		const rule = makeRule({
+			selector: beforeSelector(),
+			condition: {
+				kind: "maxCalls",
+				selector: {
+					by: "toolName",
+					patterns: ["tool1", "test_tool", "another"],
+				},
+				max: 1,
+			},
+		});
+		const engine = makeEngine(rule);
+		const ctx = engine.createRunContext("run-1");
+		await engine.afterTool(ctx, "test_tool", 1, {}, "r");
 
-    const d = await engine.beforeTool(ctx, "test_tool", {});
-    expect(d.effect).toBe("block");
-  });
+		const d = await engine.beforeTool(ctx, "test_tool", {});
+		expect(d.effect).toBe("block");
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -538,7 +831,9 @@ describe("timeGate condition", () => {
 	// 2024-01-15 is a Monday; 12:00 UTC
 	const MONDAY_NOON_UTC = new Date("2024-01-15T12:00:00Z").getTime();
 
-	function makeTimeGateRule(windows: Array<{ days: string[]; start: string; end: string }>): Rule {
+	function makeTimeGateRule(
+		windows: Array<{ days: string[]; start: string; end: string }>,
+	): Rule {
 		return makeRule({
 			selector: beforeSelector(),
 			condition: {
@@ -550,7 +845,9 @@ describe("timeGate condition", () => {
 	}
 
 	it("now within window → block", async () => {
-		const rule = makeTimeGateRule([{ days: ["mon"], start: "11:00", end: "13:00" }]);
+		const rule = makeTimeGateRule([
+			{ days: ["mon"], start: "11:00", end: "13:00" },
+		]);
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1", {
 			enduser: { externalId: "u1", metadata: { tz: "UTC" } },
@@ -563,7 +860,9 @@ describe("timeGate condition", () => {
 	});
 
 	it("now outside window → allow", async () => {
-		const rule = makeTimeGateRule([{ days: ["mon"], start: "14:00", end: "16:00" }]);
+		const rule = makeTimeGateRule([
+			{ days: ["mon"], start: "14:00", end: "16:00" },
+		]);
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1", {
 			enduser: { externalId: "u1", metadata: { tz: "UTC" } },
@@ -575,7 +874,9 @@ describe("timeGate condition", () => {
 	});
 
 	it("wrong day of week → allow", async () => {
-		const rule = makeTimeGateRule([{ days: ["tue"], start: "11:00", end: "13:00" }]);
+		const rule = makeTimeGateRule([
+			{ days: ["tue"], start: "11:00", end: "13:00" },
+		]);
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1", {
 			enduser: { externalId: "u1", metadata: { tz: "UTC" } },
@@ -588,7 +889,9 @@ describe("timeGate condition", () => {
 
 	it("timezone offsets shift the time (UTC+5:30 means noon UTC = 17:30 IST)", async () => {
 		// Mon 12:00 UTC = Mon 17:30 IST
-		const rule = makeTimeGateRule([{ days: ["mon"], start: "17:00", end: "18:00" }]);
+		const rule = makeTimeGateRule([
+			{ days: ["mon"], start: "17:00", end: "18:00" },
+		]);
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1", {
 			enduser: { externalId: "u1", metadata: { tz: "Asia/Kolkata" } },
@@ -600,7 +903,9 @@ describe("timeGate condition", () => {
 	});
 
 	it("missing timezone tag → fail closed (allow, condition false)", async () => {
-		const rule = makeTimeGateRule([{ days: ["mon"], start: "11:00", end: "13:00" }]);
+		const rule = makeTimeGateRule([
+			{ days: ["mon"], start: "11:00", end: "13:00" },
+		]);
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1", {
 			enduser: { externalId: "u1", metadata: {} }, // no tz tag
@@ -660,7 +965,11 @@ describe("requireSubject condition", () => {
 	it("idSystem filter: matching idSystem → block", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "requireSubject", subjectType: "user", idSystem: "oauth" },
+			condition: {
+				kind: "requireSubject",
+				subjectType: "user",
+				idSystem: "oauth",
+			},
 		});
 		const engine = makeEngine(rule);
 		engine.registerSubjectExtractor("test_tool", async () => [
@@ -712,7 +1021,13 @@ describe("signal condition", () => {
 	it("provider value doesn't satisfy op → allow", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "signal", key: "risk_score", args: {}, op: "gt", value: 0.5 },
+			condition: {
+				kind: "signal",
+				key: "risk_score",
+				args: {},
+				op: "gt",
+				value: 0.5,
+			},
 		});
 		const engine = makeEngine(rule);
 		engine.registerSignal("risk_score", async () => 0.1);
@@ -724,7 +1039,13 @@ describe("signal condition", () => {
 	it("provider throws → condition false → allow", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "signal", key: "bad_signal", args: {}, op: "eq", value: true },
+			condition: {
+				kind: "signal",
+				key: "bad_signal",
+				args: {},
+				op: "eq",
+				value: true,
+			},
 		});
 		const engine = makeEngine(rule);
 		engine.registerSignal("bad_signal", async () => {
@@ -738,7 +1059,13 @@ describe("signal condition", () => {
 	it("missing provider → condition false → allow", async () => {
 		const rule = makeRule({
 			selector: beforeSelector(),
-			condition: { kind: "signal", key: "unregistered", args: {}, op: "eq", value: true },
+			condition: {
+				kind: "signal",
+				key: "unregistered",
+				args: {},
+				op: "eq",
+				value: true,
+			},
 		});
 		const engine = makeEngine(rule);
 		const ctx = engine.createRunContext("run-1");
@@ -760,8 +1087,20 @@ describe("signal condition", () => {
 			condition: {
 				kind: "and",
 				all: [
-					{ kind: "signal", key: "cached_signal", args: { x: { from: "const", value: 1 } }, op: "eq", value: 42 },
-					{ kind: "signal", key: "cached_signal", args: { x: { from: "const", value: 1 } }, op: "eq", value: 42 },
+					{
+						kind: "signal",
+						key: "cached_signal",
+						args: { x: { from: "const", value: 1 } },
+						op: "eq",
+						value: 42,
+					},
+					{
+						kind: "signal",
+						key: "cached_signal",
+						args: { x: { from: "const", value: 1 } },
+						op: "eq",
+						value: 42,
+					},
 				],
 			},
 		};
@@ -842,7 +1181,10 @@ describe("logical conditions (and/or/not)", () => {
 	it("not: inverts a true condition", async () => {
 		const rule = makeRule({
 			selector: sel,
-			condition: { kind: "not", not: { kind: "toolName", op: "eq", value: "test_tool" } },
+			condition: {
+				kind: "not",
+				not: { kind: "toolName", op: "eq", value: "test_tool" },
+			},
 		});
 		expect((await decide(rule)).effect).toBe("allow");
 	});
@@ -850,7 +1192,10 @@ describe("logical conditions (and/or/not)", () => {
 	it("not: inverts a false condition → block", async () => {
 		const rule = makeRule({
 			selector: sel,
-			condition: { kind: "not", not: { kind: "toolName", op: "eq", value: "other_tool" } },
+			condition: {
+				kind: "not",
+				not: { kind: "toolName", op: "eq", value: "other_tool" },
+			},
 		});
 		expect((await decide(rule)).effect).toBe("block");
 	});
@@ -927,17 +1272,32 @@ describe("metricWindow condition", () => {
 		// calls evaluateMetrics with it and loads the resulting budget grant.
 		globalThis.fetch = mock(async (url: string) => {
 			const u = String(url);
-			if (u.includes("/v1/agents") && !u.includes("rules") && !u.includes("metrics")) {
-				return new Response(JSON.stringify({ agentId: "agent-x" }), { status: 200 });
+			if (
+				u.includes("/v1/agents") &&
+				!u.includes("rules") &&
+				!u.includes("metrics")
+			) {
+				return new Response(JSON.stringify({ agentId: "agent-x" }), {
+					status: 200,
+				});
 			}
 			if (u.includes("/v1/rules")) {
-				return new Response(JSON.stringify({ rules: [metricRule] }), { status: 200 });
+				return new Response(JSON.stringify({ rules: [metricRule] }), {
+					status: 200,
+				});
 			}
 			if (u.includes("/metrics/budget")) {
 				return new Response(
 					JSON.stringify({
 						expires_seconds: 60,
-						responses: [{ id: "metric-rule", decision: "block", grant: 0, computed: null }],
+						responses: [
+							{
+								id: "metric-rule",
+								decision: "block",
+								grant: 0,
+								computed: null,
+							},
+						],
 					}),
 					{ status: 200 },
 				);
@@ -946,7 +1306,10 @@ describe("metricWindow condition", () => {
 		}) as any;
 
 		// Engine starts with no rules; they are loaded from the API
-		const engine = new GovernanceEngine({ tools: [{ name: "test_tool" }], rules: [] });
+		const engine = new GovernanceEngine({
+			tools: [{ name: "test_tool" }],
+			rules: [],
+		});
 		await engine.initAgentRules({ slug: "test" }, []);
 
 		const ctx = engine.createRunContext("run-1");

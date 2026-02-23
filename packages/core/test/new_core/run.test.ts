@@ -19,7 +19,9 @@ const BLOCK = {
 	control: "TERMINATE" as const,
 	cause: { kind: "RULE_VIOLATION" as const, ruleId: "r1" },
 	message: "blocked",
-	evaluatedRules: [{ ruleId: "r1", enabled: true, matched: true, violated: true }],
+	evaluatedRules: [
+		{ ruleId: "r1", enabled: true, matched: true, violated: true },
+	],
 };
 
 const originalFetch = globalThis.fetch;
@@ -44,7 +46,10 @@ function makeBus() {
 	return { bus, events };
 }
 
-function makeRun(overrides?: Partial<RunInternalConfig>, apiResponse = ALLOW): {
+function makeRun(
+	overrides?: Partial<RunInternalConfig>,
+	apiResponse = ALLOW,
+): {
 	run: Run;
 	events: AuditEvent[];
 } {
@@ -161,7 +166,10 @@ describe("beforeTool", () => {
 			agentId: "agent-1",
 			enforceMode: "off",
 			failClosed: false,
-			api: new ApiManager({ apiKey: "key", apiEndpoint: "https://api.example.com" }),
+			api: new ApiManager({
+				apiKey: "key",
+				apiEndpoint: "https://api.example.com",
+			}),
 			bus,
 		});
 		const d = await run.beforeTool("anything", {});
@@ -229,7 +237,10 @@ describe("afterLlm", () => {
 	test("re-derives outputText from content", async () => {
 		const { run } = makeRun();
 		const response = await run.afterLlm({
-			content: [{ type: "text", text: "Hello " }, { type: "text", text: "world" }],
+			content: [
+				{ type: "text", text: "Hello " },
+				{ type: "text", text: "world" },
+			],
 			model: { name: "gpt-4" },
 		});
 		expect(response.outputText).toBe("Hello world");

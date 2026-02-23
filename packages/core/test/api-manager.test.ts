@@ -14,7 +14,10 @@ function makeFetch(handlers: Record<string, () => Response>) {
 }
 
 function makeApi() {
-	return new ApiManager({ apiKey: "test-key", apiEndpoint: "https://api.example.com" });
+	return new ApiManager({
+		apiKey: "test-key",
+		apiEndpoint: "https://api.example.com",
+	});
 }
 
 function makeRule(): Rule {
@@ -65,13 +68,14 @@ describe("ApiManager.initialiseAgent", () => {
 		// Order matters: more-specific patterns before /v1/agents (which is a prefix of the budget URL)
 		globalThis.fetch = makeFetch({
 			"/metrics/budget": () =>
-				new Response(
-					JSON.stringify({ expires_seconds: 60, responses: [] }),
-					{ status: 200 },
-				),
+				new Response(JSON.stringify({ expires_seconds: 60, responses: [] }), {
+					status: 200,
+				}),
 			"/v1/rules": () =>
 				// Must include a metricWindow rule so evaluateMetrics is not short-circuited
-				new Response(JSON.stringify({ rules: [makeMetricRule()] }), { status: 200 }),
+				new Response(JSON.stringify({ rules: [makeMetricRule()] }), {
+					status: 200,
+				}),
 			"/v1/agents": () =>
 				new Response(JSON.stringify({ agentId: "agent-1" }), { status: 200 }),
 		}) as any;
@@ -130,7 +134,9 @@ describe("ApiManager.initialiseAgent", () => {
 		globalThis.fetch = makeFetch({
 			"/metrics/budget": () => new Response("server error", { status: 500 }),
 			"/v1/rules": () =>
-				new Response(JSON.stringify({ rules: [makeMetricRule()] }), { status: 200 }),
+				new Response(JSON.stringify({ rules: [makeMetricRule()] }), {
+					status: 200,
+				}),
 			"/v1/agents": () =>
 				new Response(JSON.stringify({ agentId: "a1" }), { status: 200 }),
 		}) as any;
@@ -169,11 +175,16 @@ describe("ApiManager.queryHitl", () => {
 	});
 
 	it("approved status is returned as-is", async () => {
-		globalThis.fetch = mock(async () =>
-			new Response(
-				JSON.stringify({ hitlId: "h1", status: "approved", pre_existing: true }),
-				{ status: 200 },
-			),
+		globalThis.fetch = mock(
+			async () =>
+				new Response(
+					JSON.stringify({
+						hitlId: "h1",
+						status: "approved",
+						pre_existing: true,
+					}),
+					{ status: 200 },
+				),
 		) as any;
 
 		const api = new ApiManager(
@@ -186,11 +197,16 @@ describe("ApiManager.queryHitl", () => {
 	});
 
 	it("pending status is returned as-is", async () => {
-		globalThis.fetch = mock(async () =>
-			new Response(
-				JSON.stringify({ hitlId: "h1", status: "pending", pre_existing: false }),
-				{ status: 200 },
-			),
+		globalThis.fetch = mock(
+			async () =>
+				new Response(
+					JSON.stringify({
+						hitlId: "h1",
+						status: "pending",
+						pre_existing: false,
+					}),
+					{ status: 200 },
+				),
 		) as any;
 
 		const api = new ApiManager(
@@ -202,8 +218,8 @@ describe("ApiManager.queryHitl", () => {
 	});
 
 	it("non-2xx response → returns null (error swallowed)", async () => {
-		globalThis.fetch = mock(async () =>
-			new Response("internal error", { status: 500 }),
+		globalThis.fetch = mock(
+			async () => new Response("internal error", { status: 500 }),
 		) as any;
 
 		const api = new ApiManager(
@@ -219,7 +235,11 @@ describe("ApiManager.queryHitl", () => {
 		globalThis.fetch = mock(async (_url, init) => {
 			capturedBody = JSON.parse((init as any).body);
 			return new Response(
-				JSON.stringify({ hitlId: "h1", status: "pending", pre_existing: false }),
+				JSON.stringify({
+					hitlId: "h1",
+					status: "pending",
+					pre_existing: false,
+				}),
 				{ status: 200 },
 			);
 		}) as any;
@@ -286,16 +306,22 @@ describe("ApiManager.evaluateMetrics", () => {
 	});
 
 	it("valid response is parsed and returned", async () => {
-		globalThis.fetch = mock(async () =>
-			new Response(
-				JSON.stringify({
-					expires_seconds: 120,
-					responses: [
-						{ id: "budget-rule", decision: "allow", grant: 900, computed: null },
-					],
-				}),
-				{ status: 200 },
-			),
+		globalThis.fetch = mock(
+			async () =>
+				new Response(
+					JSON.stringify({
+						expires_seconds: 120,
+						responses: [
+							{
+								id: "budget-rule",
+								decision: "allow",
+								grant: 900,
+								computed: null,
+							},
+						],
+					}),
+					{ status: 200 },
+				),
 		) as any;
 
 		const api = makeApi();
@@ -306,12 +332,15 @@ describe("ApiManager.evaluateMetrics", () => {
 	});
 
 	it("invalid response shape → throws (Zod parse failure)", async () => {
-		globalThis.fetch = mock(async () =>
-			new Response(JSON.stringify({ not: "valid" }), { status: 200 }),
+		globalThis.fetch = mock(
+			async () =>
+				new Response(JSON.stringify({ not: "valid" }), { status: 200 }),
 		) as any;
 
 		const api = makeApi();
-		await expect(api.evaluateMetrics("agent-1", [metricRule])).rejects.toThrow();
+		await expect(
+			api.evaluateMetrics("agent-1", [metricRule]),
+		).rejects.toThrow();
 	});
 
 	it("includes Authorization header", async () => {

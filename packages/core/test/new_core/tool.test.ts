@@ -35,7 +35,10 @@ describe("wrapTool", () => {
 	});
 
 	test("TypeScript: wrapped type retains original shape", () => {
-		const tool = { name: "write_file" as const, execute: (_path: string) => true };
+		const tool = {
+			name: "write_file" as const,
+			execute: (_path: string) => true,
+		};
 		const wrapped = wrapTool(tool, { tags: ["write"] });
 		// Type check: wrapped.execute should be callable.
 		expect(wrapped.execute("/tmp/x")).toBe(true);

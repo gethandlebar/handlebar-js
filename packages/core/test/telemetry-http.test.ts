@@ -86,7 +86,9 @@ describe("HttpSink", () => {
 	});
 
 	it("non-2xx response is silently swallowed (fire-and-forget)", async () => {
-		globalThis.fetch = mock(async () => new Response("error", { status: 500 })) as any;
+		globalThis.fetch = mock(
+			async () => new Response("error", { status: 500 }),
+		) as any;
 
 		const sink = HttpSink("https://ingest.example.com");
 		// Should not throw
@@ -95,7 +97,9 @@ describe("HttpSink", () => {
 	});
 
 	it("fetch throws (network error) → silently swallowed", async () => {
-		globalThis.fetch = mock(async () => { throw new Error("network fail"); }) as any;
+		globalThis.fetch = mock(async () => {
+			throw new Error("network fail");
+		}) as any;
 
 		const sink = HttpSink("https://ingest.example.com");
 		await expect(sink.write("agent-1", makeEvent())).resolves.toBeUndefined();

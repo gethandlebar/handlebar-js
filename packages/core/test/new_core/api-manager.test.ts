@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ApiManager } from "../../src/new_core/api/manager";
-import { FAILCLOSED_DECISION, FAILOPEN_DECISION } from "../../src/new_core/types";
+import {
+	FAILCLOSED_DECISION,
+	FAILOPEN_DECISION,
+} from "../../src/new_core/types";
 
 const ALLOW_DECISION = {
 	verdict: "ALLOW",
@@ -15,7 +18,9 @@ const BLOCK_DECISION = {
 	control: "TERMINATE",
 	cause: { kind: "RULE_VIOLATION", ruleId: "rule-1" },
 	message: "Blocked",
-	evaluatedRules: [{ ruleId: "rule-1", enabled: true, matched: true, violated: true }],
+	evaluatedRules: [
+		{ ruleId: "rule-1", enabled: true, matched: true, violated: true },
+	],
 };
 
 function makeManager(overrides?: { failClosed?: boolean; apiKey?: string }) {
@@ -27,7 +32,9 @@ function makeManager(overrides?: { failClosed?: boolean; apiKey?: string }) {
 	});
 }
 
-function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
+function mockFetch(
+	handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
+) {
 	globalThis.fetch = mock(handler as typeof fetch);
 }
 
@@ -69,7 +76,9 @@ describe("upsertAgent", () => {
 			return Response.json({ agentId: "agent-xyz" });
 		});
 		const mgr = makeManager();
-		await mgr.upsertAgent({ slug: "my-agent" }, [{ name: "search", tags: ["read"] }]);
+		await mgr.upsertAgent({ slug: "my-agent" }, [
+			{ name: "search", tags: ["read"] },
+		]);
 		expect((parsedBody as { tools: unknown[] }).tools).toHaveLength(1);
 	});
 });
@@ -95,14 +104,18 @@ describe("evaluate", () => {
 	});
 
 	test("failopen: returns ALLOW on network error", async () => {
-		mockFetch(async () => { throw new Error("network down"); });
+		mockFetch(async () => {
+			throw new Error("network down");
+		});
 		const mgr = makeManager({ failClosed: false });
 		const d = await mgr.evaluate("run-1", req);
 		expect(d).toEqual(FAILOPEN_DECISION);
 	});
 
 	test("failclosed: returns BLOCK on network error", async () => {
-		mockFetch(async () => { throw new Error("network down"); });
+		mockFetch(async () => {
+			throw new Error("network down");
+		});
 		const mgr = makeManager({ failClosed: true });
 		const d = await mgr.evaluate("run-1", req);
 		expect(d).toEqual(FAILCLOSED_DECISION);
@@ -122,7 +135,8 @@ describe("evaluate", () => {
 		const mgr = makeManager({ failClosed: false });
 		// Override postWithRetry base via a small private hack for test speed.
 		// biome-ignore lint/suspicious/noExplicitAny: test-only
-		(mgr as any)["postWithRetry"] = async () => new Response(null, { status: 503 });
+		(mgr as any)["postWithRetry"] = async () =>
+			new Response(null, { status: 503 });
 		const d = await mgr.evaluate("run-1", req);
 		expect(d).toEqual(FAILOPEN_DECISION);
 	});
@@ -159,9 +173,7 @@ describe("evaluate", () => {
 
 describe("startRun", () => {
 	test("returns lockdown inactive on success", async () => {
-		mockFetch(async () =>
-			Response.json({ lockdown: { active: false } }),
-		);
+		mockFetch(async () => Response.json({ lockdown: { active: false } }));
 		const mgr = makeManager();
 		const status = await mgr.startRun("run-1", "agent-1");
 		expect(status.active).toBe(false);
@@ -169,7 +181,9 @@ describe("startRun", () => {
 
 	test("returns lockdown active with reason", async () => {
 		mockFetch(async () =>
-			Response.json({ lockdown: { active: true, reason: "Manual override", until_ts: null } }),
+			Response.json({
+				lockdown: { active: true, reason: "Manual override", until_ts: null },
+			}),
 		);
 		const mgr = makeManager();
 		const status = await mgr.startRun("run-1", "agent-1");
