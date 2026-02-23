@@ -4,18 +4,22 @@ Work directory: `packages/core/src/new_core/`
 
 ---
 
-## Design questions to resolve before implementation
+## Design questions — resolved
 
-The following are open design questions that must be answered before the corresponding component is built. See `design.md` §Open Questions.
+- [x] Q1: `REWRITE` verdict — out of scope, removed from type
+- [x] Q2: Local decision cache — deferred, no local cache in new core
+- [x] Q3: `PAUSE` — deferred; `TERMINATE` replaces `EXIT_RUN_CODE`; HITL expressed via `cause.kind = "HITL_PENDING"` + `verdict = "BLOCK"`
+- [x] Q4: Preflight — merged into `POST /v1/runs/{run_id}/start`; separate preflight endpoint removed
+- [x] Q5: `actor` going forward; existing `EndUserConfig` typing retained in governance-schema
+- [x] Q6: `beforeLlm` returns `Promise<LLMMessage[]>`; `afterLlm` returns `Promise<LLMResponse>`; model info passed as separate `meta` param; provider token usage is canonical over client estimates
+- [x] Q7: `RunEndStatus = "success" | "error" | "timeout" | "interrupted"`
+- [x] Q8: `evaluatedRules: RuleEval[]` is required on Decision; `matchedRuleIds`/`violatedRuleIds` top-level fields removed
 
-- [ ] Q1: What does `REWRITE` verdict mean in practice? Does the server return modified tool args?
-- [ ] Q2: What is the local decision cache keyed on, and what conditions are safe to cache?
-- [ ] Q3: Should `RunControl.PAUSE` resume via polling, webhook, or SSE?
-- [ ] Q4: Is preflight a separate polling loop or merged into run start?
-- [ ] Q5: `actor` vs `enduser` — which naming wins going forward?
-- [ ] Q6: Do `beforeLlm`/`afterLlm` hooks return (potentially rewritten) data, or are they observe-only?
-- [ ] Q7: What is `status` type for `Run.end(status?)`?
-- [ ] Q8: Are `matchedRuleIds`/`violatedRuleIds` top-level fields retained alongside `evaluatedRules`?
+## Remaining open design question
+
+- [ ] Q9: `LLMResponse` type shape — needs designing before `afterLlm` implementation. Minimum: text content + tool calls emitted by the LLM. Does it carry provider-specific metadata or is it fully normalised?
+
+**Answer:** fully normalised. I agree that it should have text content and tool calls, in addition to optional usage tokens and execution time, required model name and optional provider name. Should we have an "output_text" string (maybe optional?) in addition to array of content parts and tool calls?
 
 ---
 

@@ -36,23 +36,29 @@ We need some wrap to wrap tools to allow users to define tags and classification
 
 ### API
 Centralised api manager which handles all interactions with Handlebar api, including the Http Sink. API flow is slightly different to current process:
-- `PUT /v1/agents/{agent-slug}` -  Same api as currently (although tools might not necessarily be provided at that time), but with a new path. Returns agent ID.
-- `PUT /v1/agents/{agent_id}/tools` - Register tools on agent, as currently exists in the agent registry
-- `POST /v1/agents/{agent_id}/preflight` - Checks aliveness of agent. Returns `{ lockdown: { status: boolean, reason?: string, until_ts: null | number }, budget: BudgetGrantResponse | null }`
-- `POST /v1/agents/{agent_id}/metrics` - Regular polling for metric budgets, as is currently in place
-- `POST /v1/runs/{run_id}/evaluate` - Send agent ID, which the server will fetch active rules for, evaluate and return a decision object*. N.b. the `run_id` here is the client-side generated run ID, not a PK from a server table (unlike `agent_id`)
-- `POST /v1/runs/{run_id}/events` Run events - the current "audit" ingest, but with a new route
+- `PUT /v1/agents/{agent-slug}` — Upsert agent. Tools provided here atomically. Returns agent ID. (Tools can also be updated separately via `PUT /v1/agents/{agent_id}/tools` for dynamic tool registration post-init.)
+- `PUT /v1/agents/{agent_id}/tools` - Register/update tools on agent.
+- `POST /v1/runs/{run_id}/start` — Starts a run on the server. Replaced the separate preflight endpoint. Returns `{ lockdown: { active: boolean, reason?: string, until_ts: null | number } }`. Client calls this once before the first tool call. Lockdown mid-run is surfaced via the evaluate response instead.
+- `POST /v1/runs/{run_id}/evaluate` — Send tool call context; server fetches active rules, evaluates, and returns a Decision. For `tool.after` phase, the request body also includes per-call metrics (bytes_in, bytes_out, records_out, duration_ms) so the server can update its rolling metric aggregates in real time — eliminating the need for a separate metrics poll. N.b. the `run_id` is the client-side generated run ID, not a server PK.
+- `POST /v1/runs/{run_id}/events` — Run events / audit ingest (replaces old audit route). Events are batched by the HTTP sink.
 
 #### Decision object
 Returned from server
-```
-type Verdict = "ALLOW" | "REWRITE" | "BLOCK" | "HITL"; // On the action/tool use
-type RunControl = "CONTINUE" | "TERMINATE" | "PAUSE"; // On the agent process. I.e. "TERMINATE" should end the agent run.
+```ts
+// On the action/tool use.
+// HITL is NOT a verdict — it is expressed via cause.kind = "HITL_PENDING" combined with verdict = "BLOCK".
+// REWRITE is removed for now (out of scope).
+type Verdict = "ALLOW" | "BLOCK";
+
+// On the agent process as a whole.
+// PAUSE is not yet implemented — deferred. TERMINATE replaces EXIT_RUN_CODE.
+type RunControl = "CONTINUE" | "TERMINATE";
 
 type Cause =
-  | { kind: "RULE_VIOLATION"; ruleId: string; matchedRuleIds?: string[] }
+  | { kind: "RULE_VIOLATION"; ruleId: string }
   | { kind: "HITL_PENDING"; approvalId: string; ruleId?: string }
-  | { kind: "LOCKDOWN"; lockdownId?: string; ruleId?: string }
+  | { kind: "LOCKDOWN"; lockdownId?: string }
+  | { kind: "ALLOW" } // no rule triggered
 
 type RuleEval = {
   ruleId: string;
@@ -66,17 +72,18 @@ type Decision = {
   verdict: Verdict;
   control: RunControl;
 
-  // Machine-readable why
+  // Machine-readable why. Drives client-side behaviour (e.g. HITL_PENDING → different message to agent than RULE_VIOLATION).
   cause: Cause;
 
-  // Human-readable details
+  // Human-readable explanation (for logging / developer debugging)
   message: string;
 
-  // Provenance
-  finalRuleId?: string;          // rule that produced final verdict (if any)
-  evaluatedRules?: RuleEval[];   // optional, can be sampled
-  matchedRuleIds?: string[]; // Do we need these if info is present in RuleEval?
-  violatedRuleIds?: string[];
+  // Audit trail. Required; may be sampled/truncated by server for performance.
+  // matchedRuleIds / violatedRuleIds are REMOVED — derive from evaluatedRules client-side if needed.
+  evaluatedRules: RuleEval[];
+
+  // The single rule that produced the final verdict, if any.
+  finalRuleId?: string;
 };
 ```
 
@@ -154,7 +161,35 @@ The design mentions these hooks as a "surface for PII redaction." For redaction 
 
 **Proposal:** Define `beforeLlm(messages: LLMMessage[]): Promise<LLMMessage[]>` — the hook returns (potentially modified) messages. The caller is responsible for using the returned value. `afterLlm` can remain observe-only for now. Document that the redaction implementation is future work but the hook signature should support it from day one.
 **Answer:** I agree with the proposal. The purpose for `beforeLlm` is to estimate tokens (which the server then estimates cost from) for tracking metrics. _in the near future_ to redact/alter llm messages and run some checks (e.g. a rule blocking llm calls if there is sensitive information in the message, rather than just redacting). So beforeLlm should return messages for when we implement that functionality. This LLMMessage should be provider agnositic and agent framework agnostic. Should the model information be part of LLMMessage?
-afterLlm, similarly, collects token usage metrics from the LLm response and optionally will (in near future) alter the response going back into the framework. Some providers/frameworks may provide token estimates from the call, as well as execution time. If provided, these should be canonical over our client's estimations. 
+afterLlm, similarly, collects token usage metrics from the LLm response and optionally will (in near future) alter the response going back into the framework. Some providers/frameworks may provide token estimates from the call, as well as execution time. If provided, these should be canonical over our client's estimations.
+
+**Resolution on signatures:**
+Model info should NOT be embedded in `LLMMessage` — a message is a message, model is call-level metadata. Pass it as a separate parameter:
+
+```ts
+// Provider-agnostic message shape (role + content only)
+type LLMMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | LLMMessagePart[];
+};
+
+type LLMMessagePart = { type: "text"; text: string } | { type: "tool_use"; ... } | { type: "tool_result"; ... };
+
+type ModelInfo = { name: string; provider?: string };
+
+// Usage from the provider (canonical if present; client estimates if absent)
+type TokenUsage = { inputTokens?: number; outputTokens?: number };
+
+// beforeLlm: returns (possibly modified) messages. Model info provided for token estimation.
+beforeLlm(messages: LLMMessage[], meta: { model?: ModelInfo }): Promise<LLMMessage[]>
+
+// afterLlm: returns (possibly modified) response. Provider usage is canonical over client estimates.
+afterLlm(response: LLMResponse, meta: { model?: ModelInfo; usage?: TokenUsage; durationMs?: number }): Promise<LLMResponse>
+
+// LLMResponse is a provider-agnostic output shape (TBD — at minimum: text content + tool calls)
+```
+
+`LLMResponse` type needs designing before implementation — at minimum it needs to carry text content and any tool calls the LLM made, so that `afterLlm` can inspect and potentially modify them.
 
 ### Q7: `Run.end(status?)` type
 `status` is undefined. Should be:
@@ -196,7 +231,35 @@ The design notes `run_id` is client-generated. The server should scope uniquenes
 ### Metrics polling removal
 The current `POST /v1/agents/:id/metrics` polling loop can be removed if `metricWindow` conditions are now evaluated server-side (as part of the `/evaluate` endpoint). This is a simplification win — confirm with the backend team that `/evaluate` will handle metric budget checks.
 
-**Answer:** Not sure. clarify: The current process keeps track of a budget to estimate when the local + global state might have exceeded the budget. Is your idea that, if we're calling `/evaluate` at every step that there is no need to separately track local budget? in this case, would local usage be sent to `/evaluate` so that the server can update the global costs? Alternatively, currently, the server extracts metrics from the audit events and updates a metrics table.
+**Clarification on current flow:** The current system has two layers:
+1. The client tracks local metric usage (decrementing a budget grant counter per tool call via `BudgetManager`)
+2. When the local grant hits 0 or TTL expires, it polls the server to get a refreshed budget from `POST /v1/agents/:id/metrics/budget`
+3. Separately, the server extracts metrics from audit events to update its global metrics table
+
+**The problem with audit-event-based server state in the new design:** The new sink will batch events (up to 1s interval). So when `/evaluate` is called for the next tool, the server may not yet have processed the previous step's audit event — meaning its metric aggregates are stale. This makes `metricWindow` conditions unreliable if the server relies on audit events.
+
+**Resolution:** Include per-call metrics inline in the `POST /v1/runs/{run_id}/evaluate` request body for the `tool.after` phase. Concretely:
+
+```ts
+// tool.after evaluate request body includes:
+{
+  phase: "tool.after",
+  tool: { name, args, result },
+  metrics: {
+    bytes_in?: number,
+    bytes_out?: number,
+    records_out?: number,
+    duration_ms?: number,
+    // custom metrics...
+  }
+}
+```
+
+The server uses these inline metrics to update its rolling window aggregates in real time as evaluate calls arrive, and evaluates `metricWindow` conditions against the up-to-date state. This means:
+- `POST /v1/agents/:id/metrics` polling endpoint is **removed**
+- `BudgetManager` local decrement logic is **removed** — server is authoritative
+- The server's `/evaluate` response is the single source of truth for metric budget decisions
+- Audit events are still emitted for observability, but are NOT used as the primary metric aggregation source
 
 ### `incStep()` from ALS — this is a problem
 The current code calls `incStep()` from `audit/context.ts` which mutates a global ALS store. In the new design, step index must live on the `Run` object and be incremented there. The ALS store (if used) should read from the run, not hold its own mutable state.
