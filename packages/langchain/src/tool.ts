@@ -51,10 +51,24 @@ export function wrapTool<T extends StructuredToolInterface>(
 		const start = Date.now();
 		try {
 			const result = await originalInvoke(input, options);
-			await run.afterTool(tool.name, input, result, Date.now() - start, undefined, toolTags);
+			await run.afterTool(
+				tool.name,
+				input,
+				result,
+				Date.now() - start,
+				undefined,
+				toolTags,
+			);
 			return result;
 		} catch (err) {
-			await run.afterTool(tool.name, input, undefined, Date.now() - start, err, toolTags);
+			await run.afterTool(
+				tool.name,
+				input,
+				undefined,
+				Date.now() - start,
+				err,
+				toolTags,
+			);
 			throw err;
 		}
 	};

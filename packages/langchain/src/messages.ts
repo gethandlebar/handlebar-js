@@ -1,8 +1,16 @@
-import type { NewLLMMessage, LLMResponse, LLMResponsePart, ModelInfo, TokenUsage } from "@handlebar/core";
+import type {
+	NewLLMMessage,
+	LLMResponse,
+	LLMResponsePart,
+	ModelInfo,
+	TokenUsage,
+} from "@handlebar/core";
 import type { BaseMessage } from "@langchain/core/messages";
 import type { LLMResult } from "@langchain/core/outputs";
 
-function langchainRoleToLlmRole(type: string): NewLLMMessage["role"] | undefined {
+function langchainRoleToLlmRole(
+	type: string,
+): NewLLMMessage["role"] | undefined {
 	switch (type) {
 		case "human":
 			return "user";
@@ -18,7 +26,9 @@ function langchainRoleToLlmRole(type: string): NewLLMMessage["role"] | undefined
 	}
 }
 
-export function langchainMessageToLlmMessage(msg: BaseMessage): NewLLMMessage | undefined {
+export function langchainMessageToLlmMessage(
+	msg: BaseMessage,
+): NewLLMMessage | undefined {
 	const role = langchainRoleToLlmRole(msg._getType());
 	if (!role) return undefined;
 
@@ -30,7 +40,10 @@ export function langchainMessageToLlmMessage(msg: BaseMessage): NewLLMMessage | 
 	return { role, content: JSON.stringify(msg.content) };
 }
 
-export function llmResultToLlmResponse(output: LLMResult, model: ModelInfo): LLMResponse {
+export function llmResultToLlmResponse(
+	output: LLMResult,
+	model: ModelInfo,
+): LLMResponse {
 	const content: LLMResponsePart[] = [];
 	const firstBatch = output.generations[0] ?? [];
 
@@ -67,10 +80,14 @@ export function llmResultToLlmResponse(output: LLMResult, model: ModelInfo): LLM
 	return { content, model, usage: extractTokenUsage(output.llmOutput) };
 }
 
-function extractTokenUsage(llmOutput?: Record<string, unknown>): TokenUsage | undefined {
+function extractTokenUsage(
+	llmOutput?: Record<string, unknown>,
+): TokenUsage | undefined {
 	if (!llmOutput) return undefined;
 	// biome-ignore lint/suspicious/noExplicitAny: token usage shape varies by provider
-	const u = (llmOutput.tokenUsage ?? llmOutput.usage ?? llmOutput.token_usage) as any;
+	const u = (llmOutput.tokenUsage ??
+		llmOutput.usage ??
+		llmOutput.token_usage) as any;
 	if (!u || typeof u !== "object") return undefined;
 	return {
 		inputTokens: u.promptTokens ?? u.prompt_tokens ?? u.input_tokens,

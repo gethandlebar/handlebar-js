@@ -38,7 +38,10 @@ export type HandlebarAgentExecutorOpts = {
 	 * Run config defaults applied to every run.
 	 * runId, model, actor, sessionId, and tags are set automatically per call.
 	 */
-	runDefaults?: Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">;
+	runDefaults?: Omit<
+		RunConfig,
+		"runId" | "model" | "actor" | "sessionId" | "tags"
+	>;
 };
 
 /**
@@ -68,7 +71,10 @@ export class HandlebarAgentExecutor extends Runnable<
 	lc_namespace = ["handlebar", "langchain"];
 
 	private readonly hb: HandlebarClient;
-	private readonly executor: Runnable<Record<string, unknown>, Record<string, unknown>>;
+	private readonly executor: Runnable<
+		Record<string, unknown>,
+		Record<string, unknown>
+	>;
 	private readonly model: ModelInfo;
 	private readonly runDefaults:
 		| Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">
@@ -100,7 +106,9 @@ export class HandlebarAgentExecutor extends Runnable<
 
 		// Merge our callback handler with any existing callbacks from the parent chain.
 		// When used in a .pipe() chain, LangChain passes callbacks via config — preserve them.
-		const existingCbs = Array.isArray(config?.callbacks) ? config.callbacks : [];
+		const existingCbs = Array.isArray(config?.callbacks)
+			? config.callbacks
+			: [];
 
 		return withRun(run, async () => {
 			try {

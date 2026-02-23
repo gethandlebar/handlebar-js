@@ -31,15 +31,15 @@ export type RunInternalConfig = {
 };
 
 function llmResponseToString(parts: LLMResponsePart[]): string {
-  const stringParts: string[] = [];
-  for (const part of parts) {
-    if (part.type === "text") {
-      stringParts.push(part.text);
-    } else if (part.type === "refusal") {
-      stringParts.push(part.refusal);
-    }
-  }
-  return stringParts.join("\n");
+	const stringParts: string[] = [];
+	for (const part of parts) {
+		if (part.type === "text") {
+			stringParts.push(part.text);
+		} else if (part.type === "refusal") {
+			stringParts.push(part.refusal);
+		}
+	}
+	return stringParts.join("\n");
 }
 
 export class Run {
@@ -97,8 +97,12 @@ export class Run {
 		args: unknown,
 		toolTags?: string[],
 	): Promise<Decision> {
-    if (this.state !== "active") { return FAILOPEN_DECISION; }
-		if (this.enforceMode === "off") { return FAILOPEN_DECISION; }
+		if (this.state !== "active") {
+			return FAILOPEN_DECISION;
+		}
+		if (this.enforceMode === "off") {
+			return FAILOPEN_DECISION;
+		}
 
 		const req: EvaluateBeforeRequest = {
 			phase: "tool.before",
@@ -142,9 +146,9 @@ export class Run {
 		});
 
 		// In shadow mode: always return ALLOW after logging.
-    if (this.enforceMode === "shadow") {
-      return FAILOPEN_DECISION;
-    }
+		if (this.enforceMode === "shadow") {
+			return FAILOPEN_DECISION;
+		}
 		return decision;
 	}
 
@@ -158,9 +162,9 @@ export class Run {
 		error?: unknown,
 		toolTags?: string[],
 	): Promise<Decision> {
-    if (this.state !== "active") {
-      return FAILOPEN_DECISION;
-    }
+		if (this.state !== "active") {
+			return FAILOPEN_DECISION;
+		}
 
 		const toolResult: ToolResult = {
 			toolName,
@@ -219,9 +223,9 @@ export class Run {
 		messages: LLMMessage[],
 		meta?: { model?: ModelInfo },
 	): Promise<LLMMessage[]> {
-    if (this.state !== "active") {
-      return messages;
-    }
+		if (this.state !== "active") {
+			return messages;
+		}
 
 		// Emit one message.raw.created event per message being sent to the LLM.
 		// Future: evaluate LLM-level rules, redact PII before returning.
@@ -238,7 +242,10 @@ export class Run {
 					messageId: uuidv7(),
 					role: msg.role,
 					kind: llmRoleToKind(msg.role),
-					content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+					content:
+						typeof msg.content === "string"
+							? msg.content
+							: JSON.stringify(msg.content),
 					contentTruncated: false,
 				},
 			});
@@ -250,15 +257,17 @@ export class Run {
 	// Call after the LLM responds.
 	// Returns (possibly modified) response — surface for future response rewriting.
 	async afterLlm(response: LLMResponse): Promise<LLMResponse> {
-    if (this.state !== "active") { return response; }
+		if (this.state !== "active") {
+			return response;
+		}
 
 		// Re-derive outputText from content after any hook modifications.
 		const resolved: LLMResponse = {
 			...response,
 			outputText: deriveOutputText(response) || response.outputText,
-    };
+		};
 
-    const inTokens = resolved.usage?.inputTokens;
+		const inTokens = resolved.usage?.inputTokens;
 		const outTokens = resolved.usage?.outputTokens;
 
 		if (inTokens !== undefined || outTokens !== undefined) {
@@ -280,33 +289,35 @@ export class Run {
 					durationMs: resolved.durationMs,
 				},
 			});
-    }
+		}
 
-    this.emit({
-      schema: "handlebar.audit.v1",
-      kind: "message.raw.created",
-      ts: new Date(),
-      runId: this.runId,
-      sessionId: this.sessionId,
-      actorExternalId: this.actor?.externalId,
-      stepIndex: this.stepIndex,
-      data: {
-        messageId: uuidv7(),
-        role: "assistant",
-        kind: "output",
-        // Use plain text when available; fall back to serialised content parts
-        // (e.g. when the step only emitted tool calls and step.text is empty).
-        content: resolved.outputText || JSON.stringify(resolved.content),
-        contentTruncated: false,
-      },
-    });
+		this.emit({
+			schema: "handlebar.audit.v1",
+			kind: "message.raw.created",
+			ts: new Date(),
+			runId: this.runId,
+			sessionId: this.sessionId,
+			actorExternalId: this.actor?.externalId,
+			stepIndex: this.stepIndex,
+			data: {
+				messageId: uuidv7(),
+				role: "assistant",
+				kind: "output",
+				// Use plain text when available; fall back to serialised content parts
+				// (e.g. when the step only emitted tool calls and step.text is empty).
+				content: resolved.outputText || JSON.stringify(resolved.content),
+				contentTruncated: false,
+			},
+		});
 
 		return resolved;
 	}
 
 	// End this run. Idempotent — calling end() twice is a no-op after the first.
 	async end(status: RunEndStatus = "success"): Promise<void> {
-    if (this.state === "ended") { return; }
+		if (this.state === "ended") {
+			return;
+		}
 		this.state = "ended";
 
 		if (this.ttlTimer !== null) {
@@ -314,7 +325,7 @@ export class Run {
 			this.ttlTimer = null;
 		}
 
-    await this.api.endRun(this.runId, this.agentId, status);
+		await this.api.endRun(this.runId, this.agentId, status);
 		this.emit({
 			schema: "handlebar.audit.v1",
 			ts: new Date(),
@@ -361,8 +372,8 @@ export class Run {
 				agent: { id: this.agentId ?? undefined },
 				actor: this.actor
 					? { externalId: this.actor.externalId, metadata: this.actor.metadata }
-          : undefined,
-        // TODO: get adapter from config.
+					: undefined,
+				// TODO: get adapter from config.
 				adapter: { name: "core" },
 			},
 		});
@@ -386,18 +397,18 @@ function buildMetrics(
 ): EvaluateAfterRequest["metrics"] {
 	const metrics: EvaluateAfterRequest["metrics"] = {};
 	const bytesIn = approxBytes(args);
-  if (bytesIn != null) {
-    metrics.bytes_in = bytesIn;
-  }
+	if (bytesIn != null) {
+		metrics.bytes_in = bytesIn;
+	}
 
 	const bytesOut = approxBytes(result);
-  if (bytesOut != null) {
-    metrics.bytes_out = bytesOut;
-  }
+	if (bytesOut != null) {
+		metrics.bytes_out = bytesOut;
+	}
 
 	if (durationMs != null) {
-    metrics.duration_ms = durationMs;
-  }
+		metrics.duration_ms = durationMs;
+	}
 
 	return Object.keys(metrics).length > 0 ? metrics : undefined;
 }
@@ -406,15 +417,21 @@ function llmRoleToKind(
 	role: LLMMessage["role"],
 ): "input" | "output" | "tool_call" | "tool_result" | "observation" {
 	switch (role) {
-		case "user": return "input";
-		case "assistant": return "output";
-		case "tool": return "tool_result";
-		default: return "observation"; // system, developer
+		case "user":
+			return "input";
+		case "assistant":
+			return "output";
+		case "tool":
+			return "tool_result";
+		default:
+			return "observation"; // system, developer
 	}
 }
 
 function approxBytes(value: unknown): number | null {
-  if (value == null) { return null; }
+	if (value == null) {
+		return null;
+	}
 	try {
 		return new TextEncoder().encode(JSON.stringify(value)).length;
 	} catch {

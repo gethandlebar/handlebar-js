@@ -22,7 +22,10 @@ type ToolSetBase = Record<string, Tool<any, any>>;
 
 function mapTools<ToolSet extends ToolSetBase>(
 	tools: ToolSet,
-	wrap: <K extends keyof ToolSet & string>(name: K, t: ToolSet[K]) => ToolSet[K],
+	wrap: <K extends keyof ToolSet & string>(
+		name: K,
+		t: ToolSet[K],
+	) => ToolSet[K],
 ): ToolSet {
 	// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	const out: Record<string, Tool<any, any>> = {};
@@ -57,7 +60,10 @@ export type HandlebarAgentOpts<
 	// Run config defaults applied to every run started by this agent.
 	// Per-call overrides (actor, sessionId, tags) are passed to generate/stream/respond directly.
 	// `runId` and `model` are set automatically and cannot be overridden here.
-	runDefaults?: Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">;
+	runDefaults?: Omit<
+		RunConfig,
+		"runId" | "model" | "actor" | "sessionId" | "tags"
+	>;
 	// Per-tool tags for governance rule matching.
 	toolTags?: Record<string, string[]>;
 };
@@ -70,10 +76,18 @@ export class HandlebarAgent<
 	private readonly inner: Agent<ToolSet, Ctx, Memory>;
 	private readonly hb: HandlebarClient;
 	private readonly model: ModelInfo;
-	private readonly runDefaults: Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags"> | undefined;
+	private readonly runDefaults:
+		| Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">
+		| undefined;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
-		const { tools = {} as ToolSet, hb, runDefaults, toolTags = {}, ...rest } = opts;
+		const {
+			tools = {} as ToolSet,
+			hb,
+			runDefaults,
+			toolTags = {},
+			...rest
+		} = opts;
 
 		this.hb = hb;
 		this.model = resolveModel(rest.model);
@@ -94,7 +108,8 @@ export class HandlebarAgent<
 			if (!lastStep) return false;
 			for (const toolResult of lastStep.toolResults) {
 				try {
-					if (JSON.stringify(toolResult.output).includes(EXIT_RUN_CODE)) return true;
+					if (JSON.stringify(toolResult.output).includes(EXIT_RUN_CODE))
+						return true;
 				} catch {}
 			}
 			return false;
@@ -140,10 +155,24 @@ export class HandlebarAgent<
 					const start = Date.now();
 					try {
 						const res = await exec(args as never, options);
-						await run.afterTool(String(name), args, res, Date.now() - start, undefined, tags);
+						await run.afterTool(
+							String(name),
+							args,
+							res,
+							Date.now() - start,
+							undefined,
+							tags,
+						);
 						return res as never;
 					} catch (e) {
-						await run.afterTool(String(name), args, undefined, Date.now() - start, e, tags);
+						await run.afterTool(
+							String(name),
+							args,
+							undefined,
+							Date.now() - start,
+							e,
+							tags,
+						);
 						throw e;
 					}
 				},
@@ -176,7 +205,11 @@ export class HandlebarAgent<
 			},
 			onStepFinish: async (step) => {
 				const run = getCurrentRun();
-				if (run && (step.usage.inputTokens !== undefined || step.usage.outputTokens !== undefined)) {
+				if (
+					run &&
+					(step.usage.inputTokens !== undefined ||
+						step.usage.outputTokens !== undefined)
+				) {
 					await run.afterLlm({
 						// Map full step content — includes text parts AND tool calls.
 						content: mapStepContent(step.content),
@@ -266,7 +299,12 @@ export class HandlebarAgent<
 // Maps AI SDK StepResult content parts to Handlebar LLMResponsePart[].
 // step.content can contain text, tool-call, and reasoning parts.
 // biome-ignore lint/suspicious/noExplicitAny: StepResult content parts are not fully typed
-function mapStepContent(parts: any[]): Array<{ type: "text"; text: string } | { type: "tool_call"; toolCallId: string; toolName: string; args: unknown }> {
+function mapStepContent(
+	parts: any[],
+): Array<
+	| { type: "text"; text: string }
+	| { type: "tool_call"; toolCallId: string; toolName: string; args: unknown }
+> {
 	const result = [];
 	for (const part of parts) {
 		if (part.type === "text" && part.text) {

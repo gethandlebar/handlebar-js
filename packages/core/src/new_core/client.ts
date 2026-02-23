@@ -83,15 +83,15 @@ export class HandlebarClient {
 
 		// Idempotency: same runId → same run.
 		const existing = this.activeRuns.get(config.runId);
-    if (existing && !existing.isEnded) {
-      return existing;
-    }
+		if (existing && !existing.isEnded) {
+			return existing;
+		}
 
 		// Check lockdown by starting the run on the server.
 		const lockdown = await this.api.startRun(config.runId, this.agentId ?? "", {
-      sessionId: config.sessionId,
-      actor: config.actor,
-      model: config.model,
+			sessionId: config.sessionId,
+			actor: config.actor,
+			model: config.model,
 		});
 
 		if (lockdown.active) {
@@ -130,7 +130,12 @@ export class HandlebarClient {
 			// Default: HTTP sink to Handlebar API.
 			const endpoint =
 				this.config.apiEndpoint ?? "https://api.gethandlebar.com";
-			this.bus.add(createHttpSink(endpoint, this.config.apiKey ?? process.env.HANDLEBAR_API_KEY));
+			this.bus.add(
+				createHttpSink(
+					endpoint,
+					this.config.apiKey ?? process.env.HANDLEBAR_API_KEY,
+				),
+			);
 		} else {
 			for (const sinkConfig of sinks) {
 				if (sinkConfig.type === "console") {
@@ -140,7 +145,10 @@ export class HandlebarClient {
 						sinkConfig.endpoint ??
 						this.config.apiEndpoint ??
 						"https://api.gethandlebar.com";
-					const apiKey = sinkConfig.apiKey ?? this.config.apiKey ?? process.env.HANDLEBAR_API_KEY;
+					const apiKey =
+						sinkConfig.apiKey ??
+						this.config.apiKey ??
+						process.env.HANDLEBAR_API_KEY;
 					this.bus.add(createHttpSink(endpoint, apiKey, sinkConfig));
 				}
 			}

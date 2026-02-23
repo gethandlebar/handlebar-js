@@ -123,7 +123,7 @@ export type RunConfig = {
 	// Optional session grouping — multiple runs can share a session ID.
 	sessionId?: string;
 	// The human/system/agent the run is acting on behalf of.
-  actor?: Actor;
+	actor?: Actor;
 	// Primary model configured on the agent.
 	model?: ModelInfo;
 	// Arbitrary tags attached to this run (for filtering / grouping).
