@@ -300,6 +300,18 @@ The server uses these inline metrics to update its rolling window aggregates in 
 ### `incStep()` from ALS — this is a problem
 The current code calls `incStep()` from `audit/context.ts` which mutates a global ALS store. In the new design, step index must live on the `Run` object and be incremented there. The ALS store (if used) should read from the run, not hold its own mutable state.
 
+### Implementation notes (updated as built)
+
+**Event ingest split from ApiManager:** `POST /v1/runs/{run_id}/events` is handled entirely by the `HttpSink` (bounded queue, batching, retry) rather than the `ApiManager`. The `ApiManager` only handles control-plane calls (evaluate, start, upsert). This is a cleaner separation of concerns — the sink doesn't need to know about the agent/run domain, and the API manager doesn't need to know about batching.
+
+**`beforeLlm` and `message.raw.created`:** Currently `beforeLlm` emits a single `message.raw.created` event with the full message list serialised to JSON. When proper per-message events are needed, this will need to iterate the messages array and emit one event per message. Deferred until the message schema is updated.
+
+**Inline metrics in `afterTool`:** Per-call metrics (`bytes_in`, `bytes_out`, `duration_ms`) are computed locally in the `Run` and sent inline in the `/evaluate` request body for `tool.after`. The server uses these to update rolling metric aggregates in real time. The `BudgetManager` client-side tracking from the old core is not replicated.
+
+**`enforceMode: "off"` skips the evaluate HTTP call entirely** — the `Run` short-circuits before calling the API. This is the lowest-overhead mode for development.
+
+**ALS is opt-in for framework wrappers.** The primary API is explicit `run.beforeTool(...)` etc. `withRun`/`getCurrentRun` are only needed when a framework callback doesn't have access to the `run` object (e.g., middleware interceptors).
+
 ### Framework integration research needed
 The design calls for mapping Handlebar's lifecycle to Vercel AI v6, LangChain JS, and OpenAI Agents SDK before finalizing the hook API. Key questions:
 - **Vercel AI v6:** Does `onStepFinish` provide enough context for `afterTool`? Can `experimental_transform` be used for `beforeLlm` PII redaction?

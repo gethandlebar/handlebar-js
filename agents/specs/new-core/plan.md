@@ -23,60 +23,53 @@ Work directory: `packages/core/src/new_core/`
 
 ## Implementation checklist
 
-### Phase 0 — Governance schema updates
-- [ ] Propose updated `AuditEvent` schemas for new `Decision` shape (`tool.decision` event)
-- [ ] Confirm `EndUserConfig` / actor naming and update schema if required
+### Phase 0 — Governance schema updates ✅
+- [x] Add `Verdict`, `RunControl`, `DecisionCause`, `RuleEval`, `Decision` Zod schemas to `governance-actions.ts`
+- [x] Add `sessionId`, `actorExternalId` to `AuditEnvelopeSchema` (additive, backward compat)
+- [x] Add `actor` field to `RunStartedEventSchema` alongside `enduser`
+- [x] Extend `RunEndedEventSchema` status with `"success" | "timeout" | "interrupted"`
+- [x] Add new verdict fields to `ToolDecisionEventSchema` as optional (superset)
+- [x] All 273 existing core tests pass after schema changes
 
-### Phase 1 — Core types and interfaces (`new_core/types.ts`)
-- [ ] Define `HandlebarConfig` (global init options: apiKey, endpoint, failclosed, enforceMode, sinks)
-- [ ] Define `RunConfig` (runId, sessionId, actor, tags, context, runTtlMs)
-- [ ] Define `Tool` shape — framework-agnostic, no Vercel AI assumptions
-- [ ] Define `Decision` / `Verdict` / `RunControl` / `Cause` / `RuleEval` types (client-side mirror of server contract)
-- [ ] Define sink interfaces (`Sink`, `SinkEvent`)
-- [ ] Define lifecycle hook return types (including whether `beforeLlm` can return modified data)
+### Phase 1 — Core types (`new_core/types.ts`) ✅
+- [x] `HandlebarConfig`, `RunConfig`, `Tool`, `Actor`, `EnforceMode`
+- [x] Decision types re-exported from governance-schema
+- [x] `FAILOPEN_DECISION`, `FAILCLOSED_DECISION` constants
+- [x] `RunEndStatus`, sink config types
+- [x] LLM types: `LLMMessage`, `LLMResponse`, `LLMResponsePart`, `ModelInfo`, `TokenUsage`
+- [x] `deriveOutputText()` utility
 
-### Phase 2 — Sink subsystem (`new_core/sinks/`)
-- [ ] `HttpSink` — bounded in-memory queue, configurable depth, exponential backoff retry, flush-on-shutdown
-- [ ] `ConsoleSink` — pretty / JSON modes
-- [ ] `SinkBus` — fan-out to multiple sinks, error isolation per sink
-- [ ] Unit tests: queue overflow, retry, flush
+### Phase 2 — Sink subsystem (`new_core/sinks/`) ✅
+- [x] `Sink` interface
+- [x] `SinkBus` — fan-out, error isolation per sink, close propagation
+- [x] `createConsoleSink` — pretty / JSON
+- [x] `createHttpSink` — bounded queue, batching, exponential backoff retry, drop-oldest on overflow, flush-on-shutdown
+- [x] 13 unit tests
 
-### Phase 3 — API manager (`new_core/api/`)
-- [ ] `ApiManager` class — all Handlebar API interactions
-  - [ ] `PUT /v1/agents/{agent-slug}` — upsert agent, return agent ID
-  - [ ] `PUT /v1/agents/{agent_id}/tools` — register tools
-  - [ ] `POST /v1/agents/{agent_id}/preflight` — lockdown + budget check
-  - [ ] `POST /v1/runs/{run_id}/evaluate` — send tool call, get Decision
-  - [ ] `POST /v1/runs/{run_id}/events` — audit event ingest
-- [ ] Failopen / failclosed logic on API unavailability
-- [ ] Retry with backoff for evaluate and events calls
-- [ ] Unit tests: failopen/failclosed path, retry logic, timeout handling
+### Phase 3 — API manager (`new_core/api/manager.ts`) ✅
+- [x] `upsertAgent` — `PUT /v1/agents/{slug}` with optional tools
+- [x] `registerTools` — `PUT /v1/agents/{agentId}/tools`
+- [x] `startRun` — `POST /v1/runs/{runId}/start` (preflight merged; returns lockdown status)
+- [x] `evaluate` — `POST /v1/runs/{runId}/evaluate`; retry + backoff; `DecisionSchema` validation; failopen/failclosed
+- [x] Event ingest handled by `HttpSink` directly (not ApiManager)
+- [x] 16 unit tests
 
-### Phase 4 — HandlebarClient (`new_core/client.ts`)
-- [ ] `Handlebar.init(config)` — returns `HandlebarClient`
-- [ ] Agent upsert + tool registration on init (or lazy on first run?)
-- [ ] Preflight call on init
-- [ ] ALS namespace (optional, for framework wrappers)
-- [ ] `client.startRun(runConfig)` — returns a `Run`
-- [ ] Idempotent run start (same runId → return existing run)
-- [ ] Unit tests: concurrent init, duplicate startRun, failclosed on API down
+### Phase 4+5 — HandlebarClient + Run ✅
+- [x] `Handlebar.init(config)` factory; non-blocking async agent init; `startRun` (idempotent by runId); `registerTools`; `shutdown`
+- [x] `withRun` / `getCurrentRun` ALS helpers
+- [x] `Run` class — fully isolated per-instance state
+  - [x] `beforeTool` — evaluate, emit `tool.decision`, honour enforceMode
+  - [x] `afterTool` — evaluate with inline metrics, emit `tool.result`, increment stepIndex
+  - [x] `beforeLlm` — return possibly-modified messages; emit `message.raw.created`
+  - [x] `afterLlm` — re-derive outputText, emit `llm.result`, return possibly-modified response
+  - [x] `end(status)` — emit `run.ended`, idempotent, clear TTL timer
+  - [x] TTL auto-close via unreffed `setTimeout`
+- [x] 20 unit tests
 
-### Phase 5 — Run object (`new_core/run.ts`)
-- [ ] `Run` class — per-run lifecycle, all state isolated to instance
-- [ ] Constructor emits `run.started` event via sinks
-- [ ] `run.beforeTool(toolName, args)` — calls evaluate, emits `tool.decision`
-- [ ] `run.afterTool(toolName, args, result, executionTimeMs, error?)` — emits `tool.result`, updates counters
-- [ ] `run.beforeLlm(messages)` — emits event, surfaces PII redaction hook (observe-only for now)
-- [ ] `run.afterLlm(response)` — updates token metrics, emits `llm.result`
-- [ ] `run.end(status?)` — emits `run.ended`, flushes sinks
-- [ ] RunTTL auto-close
-- [ ] `withRun(run, fn)` — ALS wrapper
-- [ ] Idempotent lifecycle: double `end()` is a no-op
-- [ ] Unit tests: concurrent runs don't bleed state, idempotent hooks, TTL expiry
-
-### Phase 6 — Tool wrapper (`new_core/tool.ts`)
-- [ ] `wrapTool(tool, meta)` — attaches tags/classification without framework coupling
-- [ ] Type-safe args inference
+### Phase 6 — Tool wrapper (`new_core/tool.ts`) ✅
+- [x] `wrapTool(tool, meta)` — overlays tags/description onto any `{ name: string }` tool; preserves original properties
+- [x] `defineTool(name, meta)` — inline tool descriptor for use without a framework
+- [x] 9 unit tests
 
 ### Phase 7 — Migration
 - [ ] Audit existing `GovernanceEngine` public API surface for parity gaps
@@ -84,8 +77,8 @@ Work directory: `packages/core/src/new_core/`
 - [ ] Deprecation path for old `GovernanceEngine`
 
 ### Phase 8 — Framework integration guide
-- [ ] Map lifecycle hooks to Vercel AI v6 (stream/onStepFinish hooks)
-- [ ] Map lifecycle hooks to LangChain JS (callbacks)
+- [ ] Map lifecycle hooks to Vercel AI v6 (`onStepFinish`, `experimental_transform`)
+- [ ] Map lifecycle hooks to LangChain JS (`handleToolStart`, `handleToolEnd`, `handleLLMStart`, `handleLLMEnd`)
 - [ ] Map lifecycle hooks to OpenAI Agents SDK for TypeScript
 - [ ] Add integration examples to docs/
 
