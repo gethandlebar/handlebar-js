@@ -1,5 +1,4 @@
 import { DecisionSchema } from "@handlebar/governance-schema";
-import type { AuditEvent } from "@handlebar/governance-schema";
 import type { Decision, HandlebarConfig, Tool } from "../types";
 import { FAILCLOSED_DECISION, FAILOPEN_DECISION } from "../types";
 
@@ -83,7 +82,7 @@ export class ApiManager {
 		agent: HandlebarConfig["agent"],
 		tools?: Tool[],
 	): Promise<string | null> {
-		if (!this.active) return null;
+    if (!this.active) { return null; }
 
 		const url = this.url("/v1/agents");
 		const body: Record<string, unknown> = {
@@ -116,7 +115,7 @@ export class ApiManager {
 
 	// Register or update tools on an existing agent.
 	async registerTools(agentId: string, tools: Tool[]): Promise<boolean> {
-		if (!this.active || !tools.length) return true;
+    if (!this.active || !tools.length) { return true; }
 
 		const url = this.url(`/v1/agents/${agentId}/tools`);
 		const body = {
@@ -151,12 +150,20 @@ export class ApiManager {
 		agentId: string,
 		opts?: { sessionId?: string; actorExternalId?: string },
 	): Promise<LockdownStatus> {
-		if (!this.active) return { active: false };
+    if (!this.active) {
+      return { active: false };
+    }
 
 		const url = this.url(`/v1/runs/${runId}/start`);
-		const body: Record<string, unknown> = { agentId };
-		if (opts?.sessionId) body.sessionId = opts.sessionId;
-		if (opts?.actorExternalId) body.actorExternalId = opts.actorExternalId;
+    const body: Record<string, unknown> = { agentId };
+
+    if (opts?.sessionId) {
+      body.sessionId = opts.sessionId;
+    }
+
+    if (opts?.actorExternalId) {
+      body.actorExternalId = opts.actorExternalId;
+    }
 
 		try {
 			const res = await this.post(url, body);
@@ -192,7 +199,7 @@ export class ApiManager {
 	// On API unavailability, falls back per failClosed config.
 	async evaluate(runId: string, req: EvaluateRequest): Promise<Decision> {
 		if (!this.active) {
-			return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
+      return this.failClosedDecision();
 		}
 
 		const url = this.url(`/v1/runs/${runId}/evaluate`);
@@ -203,7 +210,7 @@ export class ApiManager {
 			});
 			if (!res.ok) {
 				console.error(`[Handlebar] Evaluate returned ${res.status}`);
-				return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
+        return this.failClosedDecision();
 			}
 			const raw = await res.json();
 			const parsed = DecisionSchema.safeParse(raw);
@@ -212,12 +219,12 @@ export class ApiManager {
 					"[Handlebar] Evaluate response invalid:",
 					parsed.error.message,
 				);
-				return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
+        return this.failClosedDecision();
 			}
 			return parsed.data;
 		} catch (err) {
 			console.error("[Handlebar] Evaluate error:", err);
-			return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
+      return this.failClosedDecision();
 		}
 	}
 
@@ -227,11 +234,15 @@ export class ApiManager {
 
 	private url(path: string): string {
 		return `${this.endpoint}${path}`;
-	}
+  }
+
+  private failClosedDecision(): Decision {
+    return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
+  }
 
 	private headers(): Record<string, string> {
 		const h: Record<string, string> = { "content-type": "application/json" };
-		if (this.apiKey) h.Authorization = `Bearer ${this.apiKey}`;
+    if (this.apiKey) { h.Authorization = `Bearer ${this.apiKey}`; }
 		return h;
 	}
 
@@ -264,10 +275,16 @@ export class ApiManager {
 			try {
 				const res = await this.post(url, body);
 				// Don't retry on 4xx.
-				if (res.ok || (res.status >= 400 && res.status < 500)) return res;
+        if (res.ok || (res.status >= 400 && res.status < 500)) {
+          return res;
+        }
+
 				throw new Error(`HTTP ${res.status}`);
 			} catch (err) {
-				if (attempt >= RETRY_DEFAULTS.maxRetries) throw err;
+        if (attempt >= RETRY_DEFAULTS.maxRetries) {
+          throw err;
+        }
+
 				const backoffMs = Math.min(baseMs * 2 ** attempt, RETRY_DEFAULTS.capMs);
 				await sleep(backoffMs);
 				attempt++;

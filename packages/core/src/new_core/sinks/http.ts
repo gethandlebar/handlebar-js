@@ -32,7 +32,7 @@ export function createHttpSink(
 	let flushInFlight: Promise<void> | null = null;
 
 	function enqueue(agentId: string, event: AuditEvent): void {
-		if (closed) return;
+    if (closed) { return; }
 		if (queue.length >= queueDepth) {
 			// Drop oldest to make room (back-pressure: prefer newest events).
 			queue.shift();
@@ -48,7 +48,7 @@ export function createHttpSink(
 		const headers: Record<string, string> = {
 			"content-type": "application/json",
 		};
-		if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    if (apiKey) { headers.Authorization = `Bearer ${apiKey}`; }
 
 		let attempt = 0;
 		while (attempt <= DEFAULTS.maxRetries) {
@@ -58,7 +58,7 @@ export function createHttpSink(
 					headers,
 					body: JSON.stringify({ agentId, events }),
 				});
-				if (res.ok) return;
+        if (res.ok) { return; }
 				// 4xx errors are not retryable (bad request / auth).
 				if (res.status >= 400 && res.status < 500) {
 					console.error(
@@ -86,11 +86,12 @@ export function createHttpSink(
 	}
 
 	async function flush(): Promise<void> {
-		if (queue.length === 0) return;
+    if (queue.length === 0) { return; }
 
 		// Drain the queue in batches, grouping by agentId.
 		const snapshot = queue.splice(0, queue.length);
-		const byAgent = new Map<string, AuditEvent[]>();
+    const byAgent = new Map<string, AuditEvent[]>();
+
 		for (const { agentId, event } of snapshot) {
 			let bucket = byAgent.get(agentId);
 			if (!bucket) {

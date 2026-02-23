@@ -1,9 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ApiManager } from "./api/manager";
+import { Run } from "./run";
 import { SinkBus } from "./sinks/bus";
 import { createConsoleSink } from "./sinks/console";
 import { createHttpSink } from "./sinks/http";
-import { Run } from "./run";
 import type { HandlebarConfig, RunConfig, SinkConfig, Tool } from "./types";
 
 // AsyncLocalStorage for implicit run propagation.
@@ -83,7 +83,9 @@ export class HandlebarClient {
 
 		// Idempotency: same runId → same run.
 		const existing = this.activeRuns.get(config.runId);
-		if (existing && !existing.isEnded) return existing;
+    if (existing && !existing.isEnded) {
+      return existing;
+    }
 
 		// Check lockdown by starting the run on the server.
 		const lockdown = await this.api.startRun(config.runId, this.agentId ?? "", {

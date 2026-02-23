@@ -13,7 +13,6 @@ import type {
 	ModelInfo,
 	RunConfig,
 	RunEndStatus,
-	ToolCall,
 	ToolResult,
 } from "./types";
 import { deriveOutputText, FAILOPEN_DECISION } from "./types";
@@ -84,8 +83,8 @@ export class Run {
 		args: unknown,
 		toolTags?: string[],
 	): Promise<Decision> {
-		if (this.state !== "active") return FAILOPEN_DECISION;
-		if (this.enforceMode === "off") return FAILOPEN_DECISION;
+    if (this.state !== "active") { return FAILOPEN_DECISION; }
+		if (this.enforceMode === "off") { return FAILOPEN_DECISION; }
 
 		const req: EvaluateBeforeRequest = {
 			phase: "tool.before",
@@ -129,7 +128,9 @@ export class Run {
 		});
 
 		// In shadow mode: always return ALLOW after logging.
-		if (this.enforceMode === "shadow") return FAILOPEN_DECISION;
+    if (this.enforceMode === "shadow") {
+      return FAILOPEN_DECISION;
+    }
 		return decision;
 	}
 
@@ -143,7 +144,9 @@ export class Run {
 		error?: unknown,
 		toolTags?: string[],
 	): Promise<Decision> {
-		if (this.state !== "active") return FAILOPEN_DECISION;
+    if (this.state !== "active") {
+      return FAILOPEN_DECISION;
+    }
 
 		const toolResult: ToolResult = {
 			toolName,
@@ -228,7 +231,7 @@ export class Run {
 	// Call after the LLM responds.
 	// Returns (possibly modified) response — surface for future response rewriting.
 	async afterLlm(response: LLMResponse): Promise<LLMResponse> {
-		if (this.state !== "active") return response;
+    if (this.state !== "active") { return response; }
 
 		// Re-derive outputText from content after any hook modifications.
 		const resolved: LLMResponse = {
@@ -265,7 +268,7 @@ export class Run {
 
 	// End this run. Idempotent — calling end() twice is a no-op after the first.
 	async end(status: RunEndStatus = "success"): Promise<void> {
-		if (this.state === "ended") return;
+    if (this.state === "ended") { return; }
 		this.state = "ended";
 
 		if (this.ttlTimer !== null) {
@@ -340,15 +343,24 @@ function buildMetrics(
 ): EvaluateAfterRequest["metrics"] {
 	const metrics: EvaluateAfterRequest["metrics"] = {};
 	const bytesIn = approxBytes(args);
-	if (bytesIn != null) metrics.bytes_in = bytesIn;
+  if (bytesIn != null) {
+    metrics.bytes_in = bytesIn;
+  }
+
 	const bytesOut = approxBytes(result);
-	if (bytesOut != null) metrics.bytes_out = bytesOut;
-	if (durationMs != null) metrics.duration_ms = durationMs;
+  if (bytesOut != null) {
+    metrics.bytes_out = bytesOut;
+  }
+
+	if (durationMs != null) {
+    metrics.duration_ms = durationMs;
+  }
+
 	return Object.keys(metrics).length > 0 ? metrics : undefined;
 }
 
 function approxBytes(value: unknown): number | null {
-	if (value == null) return null;
+  if (value == null) { return null; }
 	try {
 		return new TextEncoder().encode(JSON.stringify(value)).length;
 	} catch {
