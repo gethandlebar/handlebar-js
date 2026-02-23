@@ -88,3 +88,121 @@ Use the existing event schemas in `@handlebar/governance-schema` (packages/gover
 ## Integration with frameworks
 The core design MUST be easy for users to wrap into their own agents, regardless of framework used (or none).
 When planning the design, look up vercel ai v6, langchain js, and openai agents sdk for typescript. Map out how a user would integrate the Handlebar core pattern into their agents built with these frameworks, to identify potential DX or other bottlenecks.
+
+---
+
+## Review notes
+
+### What's good
+
+- **Client/Run separation** is the most important DX fix. The current `GovernanceEngine.createRunContext` pattern is awkward — runs feel like an afterthought. Making `Run` a first-class object with its own lifecycle is correct.
+- **Server-side rule evaluation** simplifies the client drastically. The client no longer needs to carry rule schemas or evaluation logic; it's reduced to an HTTP call + decision dispatch. This also enables the server to evolve evaluation logic without client upgrades.
+- **Richer `Decision` type** — `Verdict` + `RunControl` as separate axes is the right model. Currently `GovernanceDecision` conflates "what happened to this tool call" with "what should the agent do next." Separating them explicitly is cleaner.
+- **Sinks in core** — currently `@handlebar/ai-sdk-v5` emits audit events, which means users of other frameworks get no telemetry. Moving all sink emission into core is the right move.
+- **ALS for concurrent safety** — the current engine stores `this.metrics` (per-call state) as an instance property, which is a live concurrency bug for concurrent tool calls. The new per-`Run` state model fixes this correctly.
+- **Explicit failopen/failclosed** — currently the engine silently continues on API errors with no configurable behavior. Making this explicit at init time is a real improvement.
+
+---
+
+## Open questions
+
+### Q1: `REWRITE` verdict semantics
+The `Verdict` type includes `"REWRITE"` but it's not defined anywhere. What does it mean?
+- Does the server modify tool arguments and return the rewritten version?
+- If so, the `Decision` response needs a `rewritten_args?: unknown` field and the `beforeTool` hook needs to return those args to the caller so the framework can use them instead of the original.
+- If `REWRITE` is out of scope for now, remove it from the type and add it back when designed.
+
+**Proposal:** Either spec it fully (with a `rewrittenArgs` field in Decision) or remove it for now.
+**Answer:** out of scope for now. Remove and we can add it later.
+
+### Q2: Local decision cache
+The low-overhead requirements mention a "local decision cache." What can safely be cached?
+- Many conditions are **stateful**: `maxCalls`, `sequence`, `executionTime` — caching decisions for these across steps is incorrect.
+- Stateless conditions (e.g., `enduserTag`, `timeGate`, `toolName` matches) could potentially be cached per-run.
+- The safest approach: no local cache for now, with the server expected to be fast. A TTL-based "bypass" cache keyed on `(agentId, toolName)` for pure allow decisions could be a future optimization.
+
+**Proposal:** Defer local caching. Document that the server evaluate endpoint should respond in <50ms. Design the cache API as a future hook point.
+**Answer:** Agree: defer local cachine.
+
+### Q3: `RunControl.PAUSE` semantics
+`"PAUSE"` is listed as a `RunControl` value but its behavior is undefined.
+- How does a paused run resume? Polling? Webhook? SSE?
+- Is PAUSE the new HITL mechanism (replacing the current `HANDLEBAR_EXIT_RUN_CODE` signal injected into tool output)?
+- The current HITL flow terminates the run (EXIT_RUN_CODE → agent loop stops). PAUSE would imply the agent is suspended and can resume — a fundamentally different architecture.
+
+**Proposal:** Map `PAUSE` to HITL. Define the resume mechanism explicitly (likely: client polls the evaluate endpoint with the same `run_id` until it gets `CONTINUE`). `TERMINATE` replaces the current EXIT_RUN_CODE pattern.
+**Answer:** Review requests will be updated to either terminate (long-form approvals) or pause (short term expected responses, with a timeout). I don't think HITL should be a verdict as this is the same as BLOCK (i.e. tool is blocked regardless of pause/terminate). However, PAUSE is not an implemented feature right now, so can be ignored. TERMINATE replaces EXIT_RUN_CODE pattern.
+
+### Q4: Preflight — separate loop or merged into run start?
+Currently the design has two endpoints that check agent health:
+1. `POST /v1/agents/{agent_id}/preflight` — lockdown + budget
+2. `POST /v1/runs/{run_id}/evaluate` — per-call decision (which may also need to reflect lockdown)
+
+**Issue:** If lockdown can happen mid-run, `evaluate` must also return lockdown state, making `preflight` redundant as a runtime check. Preflight would then only be useful as an eager check before the run starts.
+
+**Proposal:** Merge preflight into `POST /v1/runs/{run_id}/start` (a new endpoint to emit `run.started` to the server). Preflight becomes a response field, not a separate polling loop. The client calls it once before the first tool call, not on a recurring basis.
+**Answer**: I agree with the proposal.
+
+### Q5: `actor` vs `enduser` naming
+The design uses `actor?: Actor` in `Run` config but the existing schema package uses `EndUserConfig`.
+
+**Proposal:** Introduce `actor` as the primary term in the new core interface (broader — an actor could be a human, system, or other agent). Keep `EndUserConfig` in the governance-schema package for backward compat, but map it transparently. Update the design and types to use `actor` consistently and note the mapping.
+**Answer:** I agree with the proposal: use `actor` going forward, but keep existing `EndUserConfig` typing.
+
+### Q6: `beforeLlm`/`afterLlm` return types
+The design mentions these hooks as a "surface for PII redaction." For redaction to work, `beforeLlm` must be able to **return** modified messages, not just observe them. Otherwise the hook is useless for redaction.
+
+**Proposal:** Define `beforeLlm(messages: LLMMessage[]): Promise<LLMMessage[]>` — the hook returns (potentially modified) messages. The caller is responsible for using the returned value. `afterLlm` can remain observe-only for now. Document that the redaction implementation is future work but the hook signature should support it from day one.
+**Answer:** I agree with the proposal. The purpose for `beforeLlm` is to estimate tokens (which the server then estimates cost from) for tracking metrics. _in the near future_ to redact/alter llm messages and run some checks (e.g. a rule blocking llm calls if there is sensitive information in the message, rather than just redacting). So beforeLlm should return messages for when we implement that functionality. This LLMMessage should be provider agnositic and agent framework agnostic. Should the model information be part of LLMMessage?
+afterLlm, similarly, collects token usage metrics from the LLm response and optionally will (in near future) alter the response going back into the framework. Some providers/frameworks may provide token estimates from the call, as well as execution time. If provided, these should be canonical over our client's estimations. 
+
+### Q7: `Run.end(status?)` type
+`status` is undefined. Should be:
+```ts
+type RunEndStatus = "success" | "error" | "timeout" | "interrupted";
+```
+
+**Answer:** I agree.
+
+### Q8: `evaluatedRules` vs top-level `matchedRuleIds`/`violatedRuleIds`
+The design itself asks this question. The answer is: they're redundant if `evaluatedRules` is present.
+
+**Proposal:** Make `evaluatedRules` required (the server always returns it, but it may be sampled/truncated for performance). Remove the separate `matchedRuleIds` and `violatedRuleIds` top-level fields from `Decision`. Derive them from `evaluatedRules` client-side if needed for convenience.
+**Answer:** I agree with the proposal.
+
+---
+
+## Additional design notes
+
+### HTTP sink queue spec
+The design says "bounded queue, retry and backoff" but needs specifics:
+- **Queue depth:** 500 events max (configurable). On overflow: drop oldest.
+- **Retry:** max 3 attempts, exponential backoff starting at 500ms, cap at 10s.
+- **Flush on shutdown:** drain queue before process exit, with a configurable timeout (default 5s).
+- **Batching:** batch up to 50 events per HTTP request to the events endpoint, flushed on a 1s interval or on queue reaching a high-water mark.
+
+### Tool registration timing
+The split `PUT /agents/{slug}` (init) + `PUT /agents/{agent_id}/tools` (register tools) creates a window where the server knows about the agent but not its tools. Tool-specific rules cannot be evaluated in this window.
+
+**Proposal:** `HandlebarClient.init()` should accept tools as an optional parameter at init time and register them atomically. If tools are added dynamically (e.g., user-defined at runtime), provide a `client.registerTools(tools)` method that can be called before `startRun`. The run should not start until tool registration is complete.
+**Answer:** agree.
+
+### Redundancy between `cause` and `evaluatedRules`
+`cause` is the human-readable summary of why the decision was made; `evaluatedRules` is the machine-readable audit trail. These serve different purposes and should both be kept. `cause.kind` drives client-side behavior (e.g., HITL_PENDING triggers a different flow than RULE_VIOLATION). `evaluatedRules` is for the audit log only.
+
+### `runId` as client-generated ID
+The design notes `run_id` is client-generated. The server should scope uniqueness to `(apiKey, agentId, runId)` — not globally. This avoids UUID collisions across different tenants and makes the contract explicit.
+
+### Metrics polling removal
+The current `POST /v1/agents/:id/metrics` polling loop can be removed if `metricWindow` conditions are now evaluated server-side (as part of the `/evaluate` endpoint). This is a simplification win — confirm with the backend team that `/evaluate` will handle metric budget checks.
+
+**Answer:** Not sure. clarify: The current process keeps track of a budget to estimate when the local + global state might have exceeded the budget. Is your idea that, if we're calling `/evaluate` at every step that there is no need to separately track local budget? in this case, would local usage be sent to `/evaluate` so that the server can update the global costs? Alternatively, currently, the server extracts metrics from the audit events and updates a metrics table.
+
+### `incStep()` from ALS — this is a problem
+The current code calls `incStep()` from `audit/context.ts` which mutates a global ALS store. In the new design, step index must live on the `Run` object and be incremented there. The ALS store (if used) should read from the run, not hold its own mutable state.
+
+### Framework integration research needed
+The design calls for mapping Handlebar's lifecycle to Vercel AI v6, LangChain JS, and OpenAI Agents SDK before finalizing the hook API. Key questions:
+- **Vercel AI v6:** Does `onStepFinish` provide enough context for `afterTool`? Can `experimental_transform` be used for `beforeLlm` PII redaction?
+- **LangChain JS:** Callbacks (`handleToolStart`, `handleToolEnd`, `handleLLMStart`, `handleLLMEnd`) map directly to Handlebar's lifecycle hooks. This is the easiest integration.
+- **OpenAI Agents SDK:** The `on_tool_start`/`on_tool_end` hooks in the Python SDK have TypeScript equivalents that need verification.
