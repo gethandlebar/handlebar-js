@@ -11,6 +11,7 @@ import type {
 	Decision,
 	LLMMessage,
 	LLMResponse,
+	LLMResponsePart,
 	ModelInfo,
 	RunConfig,
 	RunEndStatus,
@@ -28,6 +29,18 @@ export type RunInternalConfig = {
 	api: ApiManager;
 	bus: SinkBus;
 };
+
+function llmResponseToString(parts: LLMResponsePart[]): string {
+  const stringParts: string[] = [];
+  for (const part of parts) {
+    if (part.type === "text") {
+      stringParts.push(part.text);
+    } else if (part.type === "refusal") {
+      stringParts.push(part.refusal);
+    }
+  }
+  return stringParts.join("\n");
+}
 
 export class Run {
 	readonly runId: string;
@@ -210,25 +223,25 @@ export class Run {
       return messages;
     }
 
-		// Future: evaluate LLM-level rules, redact PII, estimate tokens.
-		// For now: emit event and return messages unmodified.
-    for (const msg of messages) {
-  		this.emit({
-  			schema: "handlebar.audit.v1",
-  			ts: new Date(),
-  			runId: this.runId,
-  			sessionId: this.sessionId,
-  			actorExternalId: this.actor?.externalId,
-  			stepIndex: this.stepIndex,
-  			kind: "message.raw.created",
-  			data: {
-  				messageId: uuidv7(),
-  				role: msg.role,
-  				kind: "input",
-  				content: JSON.stringify(msg),
-  				contentTruncated: false,
-  			},
-      });
+		// Emit one message.raw.created event per message being sent to the LLM.
+		// Future: evaluate LLM-level rules, redact PII before returning.
+		for (const msg of messages) {
+			this.emit({
+				schema: "handlebar.audit.v1",
+				ts: new Date(),
+				runId: this.runId,
+				sessionId: this.sessionId,
+				actorExternalId: this.actor?.externalId,
+				stepIndex: this.stepIndex,
+				kind: "message.raw.created",
+				data: {
+					messageId: uuidv7(),
+					role: msg.role,
+					kind: llmRoleToKind(msg.role),
+					content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+					contentTruncated: false,
+				},
+			});
 		}
 
 		return messages;
@@ -243,9 +256,9 @@ export class Run {
 		const resolved: LLMResponse = {
 			...response,
 			outputText: deriveOutputText(response) || response.outputText,
-		};
+    };
 
-		const inTokens = resolved.usage?.inputTokens;
+    const inTokens = resolved.usage?.inputTokens;
 		const outTokens = resolved.usage?.outputTokens;
 
 		if (inTokens !== undefined || outTokens !== undefined) {
@@ -267,7 +280,26 @@ export class Run {
 					durationMs: resolved.durationMs,
 				},
 			});
-		}
+    }
+
+    this.emit({
+      schema: "handlebar.audit.v1",
+      kind: "message.raw.created",
+      ts: new Date(),
+      runId: this.runId,
+      sessionId: this.sessionId,
+      actorExternalId: this.actor?.externalId,
+      stepIndex: this.stepIndex,
+      data: {
+        messageId: uuidv7(),
+        role: "assistant",
+        kind: "output",
+        // Use plain text when available; fall back to serialised content parts
+        // (e.g. when the step only emitted tool calls and step.text is empty).
+        content: resolved.outputText || JSON.stringify(resolved.content),
+        contentTruncated: false,
+      },
+    });
 
 		return resolved;
 	}
@@ -368,6 +400,17 @@ function buildMetrics(
   }
 
 	return Object.keys(metrics).length > 0 ? metrics : undefined;
+}
+
+function llmRoleToKind(
+	role: LLMMessage["role"],
+): "input" | "output" | "tool_call" | "tool_result" | "observation" {
+	switch (role) {
+		case "user": return "input";
+		case "assistant": return "output";
+		case "tool": return "tool_result";
+		default: return "observation"; // system, developer
+	}
 }
 
 function approxBytes(value: unknown): number | null {

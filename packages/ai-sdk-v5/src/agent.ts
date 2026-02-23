@@ -3,6 +3,7 @@ import {
 	getCurrentRun,
 	type HandlebarClient,
 	type ModelInfo,
+	type NewLLMMessage,
 	type RunConfig,
 	withRun,
 } from "@handlebar/core";
@@ -99,6 +100,10 @@ export class HandlebarAgent<
 			return false;
 		});
 
+		// Tracks how many messages have already been emitted per run, so prepareStep
+		// only forwards the *new* messages on each step (not the full accumulated history).
+		const msgCountByRun = new Map<string, number>();
+
 		const wrapped = mapTools(tools, (name, t) => {
 			if (!t.execute) return t;
 			const exec = t.execute.bind(t);
@@ -150,9 +155,19 @@ export class HandlebarAgent<
 			stopWhen,
 			prepareStep: async (opts) => {
 				const run = getCurrentRun();
-        if (run) {
-          const llmMessages = opts.messages.map((msg) => modelMessageToLlmMessage(msg)).filter(msg => msg !== undefined);
-					await run.beforeLlm(llmMessages);
+				if (run) {
+					// Only emit events for messages we haven't seen yet.
+					const prev = msgCountByRun.get(run.runId) ?? 0;
+					const newMsgs = opts.messages.slice(prev);
+					if (newMsgs.length > 0) {
+						const llmMessages = newMsgs
+							.map((msg) => modelMessageToLlmMessage(msg))
+							.filter((msg): msg is NewLLMMessage => msg !== undefined);
+						if (llmMessages.length > 0) {
+							await run.beforeLlm(llmMessages);
+						}
+						msgCountByRun.set(run.runId, opts.messages.length);
+					}
 				}
 				if (rest.prepareStep) {
 					return rest.prepareStep(opts);
@@ -163,7 +178,8 @@ export class HandlebarAgent<
 				const run = getCurrentRun();
 				if (run && (step.usage.inputTokens !== undefined || step.usage.outputTokens !== undefined)) {
 					await run.afterLlm({
-						content: step.text ? [{ type: "text", text: step.text }] : [],
+						// Map full step content — includes text parts AND tool calls.
+						content: mapStepContent(step.content),
 						model: this.model,
 						usage: {
 							inputTokens: step.usage.inputTokens,
@@ -246,6 +262,27 @@ export class HandlebarAgent<
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// Maps AI SDK StepResult content parts to Handlebar LLMResponsePart[].
+// step.content can contain text, tool-call, and reasoning parts.
+// biome-ignore lint/suspicious/noExplicitAny: StepResult content parts are not fully typed
+function mapStepContent(parts: any[]): Array<{ type: "text"; text: string } | { type: "tool_call"; toolCallId: string; toolName: string; args: unknown }> {
+	const result = [];
+	for (const part of parts) {
+		if (part.type === "text" && part.text) {
+			result.push({ type: "text" as const, text: part.text as string });
+		} else if (part.type === "tool-call") {
+			result.push({
+				type: "tool_call" as const,
+				toolCallId: part.toolCallId as string,
+				toolName: part.toolName as string,
+				// StepResult tool-call parts use `args`; Prompt message format uses `input`.
+				args: (part.args ?? part.input) as unknown,
+			});
+		}
+	}
+	return result;
+}
 
 function resolveModel(
 	model: ConstructorParameters<typeof Agent>[0]["model"],

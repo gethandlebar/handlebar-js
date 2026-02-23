@@ -46,11 +46,11 @@ export function modelMessageToLlmMessage(message: ModelMessage): NewLLMMessage |
           toolUseId: part.toolCallId,
         });
       } else if (part.type === "tool-result") {
-        // TODO: fix types
-        // msgParts.push({
-        //   type: "tool_result",
-        //   content: part.output.value,
-        // })
+        msgParts.push({
+          type: "tool_result",
+          toolUseId: part.toolCallId,
+          content: typeof part.output === "string" ? part.output : JSON.stringify(part.output),
+        });
       }
       // We don't support file or image atm.
     }
