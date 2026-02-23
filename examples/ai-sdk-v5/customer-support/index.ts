@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { HandlebarAgent } from "@handlebar/ai-sdk-v5";
 import {
+  Handlebar,
   type AgentMetricHook,
 } from "@handlebar/core";
 import { stepCountIs } from "ai";
@@ -94,18 +95,24 @@ const tools = {
 // };
 
 const model = openai("gpt-5-nano");
+const hb = await Handlebar.init({
+  agent: {
+    slug: "customer-support",
+  },
+  apiEndpoint: process.env.HANDLEBAR_API_ENDPOINT,
+});
+
 const agent = new HandlebarAgent({
 	system,
 	model,
 	tools,
 	stopWhen: stepCountIs(10),
-	agent: {
-		slug: "customer-support",
-	},
-	governance: {
-    categories: toolCategories,
-		// rules are queried from the Handlebar API at init.
-	},
+	hb,
+ //  governance: {
+
+ //    categories: toolCategories,
+	// 	// rules are queried from the Handlebar API at init.
+	// },
 });
 
 // --- Custom metric calculation during runtime ---
@@ -150,8 +157,8 @@ const afterToolUsageMetric: AgentMetricHook<"tool.after"> = {
   }
 }
 
-agent.governance.registerMetric(beforeToolUsageMetric);
-agent.governance.registerMetric(afterToolUsageMetric);
+// agent.governance.registerMetric(beforeToolUsageMetric);
+// agent.governance.registerMetric(afterToolUsageMetric);
 
 // --- Custom metrics end ---
 
@@ -170,44 +177,44 @@ agent.governance.registerMetric(afterToolUsageMetric);
 
 // We'll attach a subject to our "getUserProfile" as this is the earliest point
 // where our agent could realise it's coming up against a customer we'd rather handle manually.
-agent.governance.registerSubjectExtractor("getUserProfile", (args) => {
-  console.log(`Subject getUserProfile: ${JSON.stringify(args)}`);
-  const UserProfileSchema = z.object({ userId: z.string() });
-  try {
-    const toolResult = UserProfileSchema.safeParse(args.toolArgs);
-    if (!toolResult.success) {
-      console.log(`getUserProfile: invalid args: ${JSON.stringify(toolResult.error)}`);
-      return [];
-    }
-    return [{
-      subjectType: "customer",
-      role: "primary",
-      value: toolResult.data.userId,
-      idSystem: "crm_customer_id"
-    }];
-  } catch (e) {
-    console.error(`getUserProfile: unexpected error: ${JSON.stringify(e)}`);
-    return [];
-  }
-});
+// agent.governance.registerSubjectExtractor("getUserProfile", (args) => {
+//   console.log(`Subject getUserProfile: ${JSON.stringify(args)}`);
+//   const UserProfileSchema = z.object({ userId: z.string() });
+//   try {
+//     const toolResult = UserProfileSchema.safeParse(args.toolArgs);
+//     if (!toolResult.success) {
+//       console.log(`getUserProfile: invalid args: ${JSON.stringify(toolResult.error)}`);
+//       return [];
+//     }
+//     return [{
+//       subjectType: "customer",
+//       role: "primary",
+//       value: toolResult.data.userId,
+//       idSystem: "crm_customer_id"
+//     }];
+//   } catch (e) {
+//     console.error(`getUserProfile: unexpected error: ${JSON.stringify(e)}`);
+//     return [];
+//   }
+// });
 
-agent.governance.registerSignal("crm.isCustomerDifficult", async (args) => {
-  // TODO: we need better typing on signals and subjects!
-  console.log(`crm.isCustomerDifficult: ${JSON.stringify(args)}`);
-  const expectArgs = args as { customerId: string };
+// agent.governance.registerSignal("crm.isCustomerDifficult", async (args) => {
+//   // TODO: we need better typing on signals and subjects!
+//   console.log(`crm.isCustomerDifficult: ${JSON.stringify(args)}`);
+//   const expectArgs = args as { customerId: string };
 
-  // here we'd want a DB/CRM/other query to determine our difficulty metric.
-  // For this demo, however, we'll mock
-  // "u_123" represents "alice" in our mock data (./data.ts)
-  const result = expectArgs.customerId === "u_123";
-  console.log(`crm.isCustomerDifficult: ${result}`);
-  return result;
-});
+//   // here we'd want a DB/CRM/other query to determine our difficulty metric.
+//   // For this demo, however, we'll mock
+//   // "u_123" represents "alice" in our mock data (./data.ts)
+//   const result = expectArgs.customerId === "u_123";
+//   console.log(`crm.isCustomerDifficult: ${result}`);
+//   return result;
+// });
 
 // --- Subjects and signals end ---
 
-const runtimeUser = {
-  enduser: {
+const runtimeOpts = {
+  actor: {
     externalId: "an-enduser-id", // The user's ID in your system, so you can identify their agent usage.
     metadata: { role: "user" }, // Optional
     // Group information is optional.
@@ -222,7 +229,7 @@ const runtimeUser = {
 
 // OPTIONAL: pass in runtime enduser information in `with`.
 // Otherwise, you execute the agent as you would normally on Vercel's Agent class.
-const result = await agent.with(runtimeUser).generate({ prompt: "Solve alice's issue." });
+const result = await agent.generate(runtimeOpts, { prompt: "Solve alice's issue." });
 
 console.log(result.text);
 console.log(
