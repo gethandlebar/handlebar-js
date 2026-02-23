@@ -286,6 +286,9 @@ export class Run {
 			kind: "run.ended",
 			data: { status, totalSteps: this.stepIndex },
 		});
+		// Flush so run.ended (and any other queued events) are delivered even if
+		// the process exits immediately after generate/stream/respond returns.
+		await this.bus.drain();
 	}
 
 	// ---------------------------------------------------------------------------

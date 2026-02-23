@@ -133,6 +133,14 @@ export function createHttpSink(
 			}
 		},
 
+		async drain(): Promise<void> {
+			// Chain through the in-flight serialiser so we don't race a periodic flush,
+			// then wait with the same timeout as close().
+			const p = (flushInFlight ?? Promise.resolve()).then(() => flush());
+			flushInFlight = p.catch(() => {});
+			await Promise.race([p, sleep(flushTimeoutMs)]);
+		},
+
 		async close() {
 			closed = true;
 			if (timer !== null) {

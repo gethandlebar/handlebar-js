@@ -27,6 +27,10 @@ export class SinkBus {
 		}
 	}
 
+	async drain(): Promise<void> {
+		await Promise.allSettled(this.sinks.map((s) => s.drain?.()));
+	}
+
 	async close(): Promise<void> {
 		this.closed = true;
 		await Promise.allSettled(this.sinks.map((s) => s.close?.()));
