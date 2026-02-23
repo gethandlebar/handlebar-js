@@ -71,16 +71,41 @@ Work directory: `packages/core/src/new_core/`
 - [x] `defineTool(name, meta)` — inline tool descriptor for use without a framework
 - [x] 9 unit tests
 
-### Phase 7 — Migration
-- [ ] Audit existing `GovernanceEngine` public API surface for parity gaps
-- [ ] Update `@handlebar/ai-sdk-v5` to use new core (after new_core stabilises)
-- [ ] Deprecation path for old `GovernanceEngine`
+### Phase 7 — Migration ✅
 
-### Phase 8 — Framework integration guide
-- [ ] Map lifecycle hooks to Vercel AI v6 (`onStepFinish`, `experimental_transform`)
-- [ ] Map lifecycle hooks to LangChain JS (`handleToolStart`, `handleToolEnd`, `handleLLMStart`, `handleLLMEnd`)
-- [ ] Map lifecycle hooks to OpenAI Agents SDK for TypeScript
-- [ ] Add integration examples to docs/
+#### Parity audit — GovernanceEngine vs new_core
+| GovernanceEngine feature | Disposition |
+|---|---|
+| `registerSubjectExtractor` | **Dropped** — server evaluates subjects |
+| `registerSignal` | **Dropped** — server evaluates signals |
+| `registerMetric(hook)` | **Dropped** — replaced by inline metrics in evaluate request |
+| `GovernanceConfig.checks` | **Dropped** — removed per spec |
+| `GovernanceConfig.defaultUncategorised` | **Dropped** — server handles |
+| `decisionAction(decision)` | **Moved to adapter** — AI SDK-specific EXIT/BLOCK response strings |
+| `emitLLMResult` | **Replaced** — `run.afterLlm(response)` |
+| `emit(kind, data)` | **Internal** — `Run` handles all event emission; callers no longer emit directly |
+| `createRunContext` | **Replaced** — `client.startRun(config)` returns a `Run` |
+| `withRunContext` / `getRunContext` | **Replaced** — `withRun(run, fn)` / `getCurrentRun()` |
+| `incStep()` (ALS mutation) | **Fixed** — step index lives on `Run` instance, not global ALS |
+
+#### Completed
+- [x] `@deprecated` JSDoc added to `GovernanceEngine` pointing to new_core equivalents
+- [x] New_core symbols exported from `@handlebar/core` index (`Handlebar`, `HandlebarClient`, `Run`, `withRun`, `getCurrentRun`, `defineTool`, `wrapTool`, `FAILOPEN_DECISION`, `FAILCLOSED_DECISION`, LLM types, sink factories)
+- [x] `@handlebar/ai-sdk-v5` updated — `HandlebarAgent` now accepts `hb?: HandlebarClient` (new core path) alongside the existing `governance?: ...` option (legacy path, deprecated)
+  - New path: tools wrapped using `getCurrentRun()` from ALS; each `generate`/`stream`/`respond` call starts a fresh `Run` via `hb.startRun()`; `run.afterLlm()` called in `onStepFinish`; `run.end()` called on completion
+  - Legacy path: old `GovernanceEngine` wrapping retained, unchanged, behind the `governance` option
+  - Both paths share the same `stopWhen` EXIT_RUN_CODE detection
+- [x] Core rebuilt to include new exports in dist
+- [x] All 332 core tests pass
+
+### Phase 8 — Framework integration guide ✅
+- [x] Map lifecycle hooks to Vercel AI SDK v5 — `@handlebar/ai-sdk-v5` wrapper (`HandlebarAgent`) + manual `generateText`/`streamText` pattern via tool wrapping + `onStepFinish`
+- [x] Map lifecycle hooks to LangChain JS — tool wrapping (full governance) and `BaseCallbackHandler` (audit/shadow) patterns; documented limitations of callback approach
+- [x] Map lifecycle hooks to OpenAI Agents SDK for TypeScript — tool wrapping + `RunHooks` event listener patterns; `agent_tool_start`/`agent_tool_end` mapping documented
+- [x] Integration guides written to `docs/integrations/`:
+  - `vercel-ai-sdk.md` — `HandlebarAgent` + manual `generateText`/`streamText`
+  - `langchain.md` — tool wrapping + `BaseCallbackHandler` with limitation notes
+  - `openai-agents.md` — tool wrapping + `RunHooks` with combined approach
 
 ---
 
