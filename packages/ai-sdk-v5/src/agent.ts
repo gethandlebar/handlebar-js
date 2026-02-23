@@ -1,4 +1,5 @@
 import {
+	type Actor,
 	getCurrentRun,
 	type HandlebarClient,
 	type ModelInfo,
@@ -33,6 +34,17 @@ function mapTools<ToolSet extends ToolSetBase>(
 const EXIT_RUN_CODE = "HANDLEBAR_EXIT_RUN";
 const TOOL_BLOCK_CODE = "HANDLEBAR_TOOL_BLOCK";
 
+// Per-call run configuration. Passed as the first argument to generate/stream/respond.
+// Allows per-request actor and session data without creating a new agent instance.
+export type RunCallOpts = {
+	// The user or system this request is acting on behalf of.
+	actor?: Actor;
+	// Session ID to group multiple runs together (e.g. a multi-turn conversation).
+	sessionId?: string;
+	// Arbitrary tags attached to this run for filtering / grouping.
+	tags?: Record<string, string>;
+};
+
 export type HandlebarAgentOpts<
 	TOOLSET extends ToolSet,
 	Ctx,
@@ -40,9 +52,10 @@ export type HandlebarAgentOpts<
 > = ConstructorParameters<typeof Agent<TOOLSET, Ctx, Memory>>[0] & {
 	// Pre-initialised HandlebarClient. Use Handlebar.init(config) to create one.
 	hb: HandlebarClient;
-	// Run config overrides applied to each run started by this agent.
+	// Run config defaults applied to every run started by this agent.
+	// Per-call overrides (actor, sessionId, tags) are passed to generate/stream/respond directly.
 	// `runId` and `model` are set automatically and cannot be overridden here.
-	runDefaults?: Omit<RunConfig, "runId" | "model">;
+	runDefaults?: Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">;
 	// Per-tool tags for governance rule matching.
 	toolTags?: Record<string, string[]>;
 };
@@ -55,7 +68,7 @@ export class HandlebarAgent<
 	private readonly inner: Agent<ToolSet, Ctx, Memory>;
 	private readonly hb: HandlebarClient;
 	private readonly model: ModelInfo;
-	private readonly runDefaults: Omit<RunConfig, "runId" | "model"> | undefined;
+	private readonly runDefaults: Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags"> | undefined;
 
 	constructor(opts: HandlebarAgentOpts<ToolSet, Ctx, Memory>) {
 		const { tools = {} as ToolSet, hb, runDefaults, toolTags = {}, ...rest } = opts;
@@ -155,16 +168,22 @@ export class HandlebarAgent<
 		});
 	}
 
-	private startRun() {
+	private startRun(callOpts: RunCallOpts) {
 		return this.hb.startRun({
 			runId: uuidv7(),
 			model: this.model,
 			...this.runDefaults,
+			actor: callOpts.actor,
+			sessionId: callOpts.sessionId,
+			tags: callOpts.tags,
 		});
 	}
 
-	async generate(...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>) {
-		const run = await this.startRun();
+	async generate(
+		runOpts: RunCallOpts,
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>
+	) {
+		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
 				const result = await this.inner.generate(...params);
@@ -177,8 +196,11 @@ export class HandlebarAgent<
 		});
 	}
 
-	async stream(...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>) {
-		const run = await this.startRun();
+	async stream(
+		runOpts: RunCallOpts,
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>
+	) {
+		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
 				const result = await this.inner.stream(...params);
@@ -191,8 +213,11 @@ export class HandlebarAgent<
 		});
 	}
 
-	async respond(...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>) {
-		const run = await this.startRun();
+	async respond(
+		runOpts: RunCallOpts,
+		...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>
+	) {
+		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
 				const result = await this.inner.respond(...params);

@@ -48,7 +48,9 @@ export function createHttpSink(
 		const headers: Record<string, string> = {
 			"content-type": "application/json",
 		};
-    if (apiKey) { headers.Authorization = `Bearer ${apiKey}`; }
+    if (apiKey) {
+      headers.Authorization = `Bearer ${apiKey}`;
+    }
 
 		let attempt = 0;
 		while (attempt <= DEFAULTS.maxRetries) {

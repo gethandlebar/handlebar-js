@@ -130,7 +130,7 @@ export class HandlebarClient {
 			// Default: HTTP sink to Handlebar API.
 			const endpoint =
 				this.config.apiEndpoint ?? "https://api.gethandlebar.com";
-			this.bus.add(createHttpSink(endpoint, this.config.apiKey));
+			this.bus.add(createHttpSink(endpoint, this.config.apiKey ?? process.env.HANDLEBAR_API_KEY));
 		} else {
 			for (const sinkConfig of sinks) {
 				if (sinkConfig.type === "console") {
@@ -140,7 +140,7 @@ export class HandlebarClient {
 						sinkConfig.endpoint ??
 						this.config.apiEndpoint ??
 						"https://api.gethandlebar.com";
-					const apiKey = sinkConfig.apiKey ?? this.config.apiKey;
+					const apiKey = sinkConfig.apiKey ?? this.config.apiKey ?? process.env.HANDLEBAR_API_KEY;
 					this.bus.add(createHttpSink(endpoint, apiKey, sinkConfig));
 				}
 			}
