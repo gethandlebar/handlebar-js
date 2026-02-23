@@ -1,80 +1,35 @@
 # Handlebar + LangChain JS
 
-LangChain's callback system (`BaseCallbackHandler`) maps almost directly onto Handlebar's lifecycle hooks, making it one of the easiest frameworks to integrate.
-
-> **Note:** No pre-built adapter package exists yet for LangChain. The patterns below show how to wire Handlebar directly into a LangChain agent.
+The `@handlebar/langchain` adapter wraps a LangChain `AgentExecutor` (or any compatible `Runnable`) with full Handlebar governance — run lifecycle, LLM event logging, and tool-call enforcement.
 
 ---
 
-## Architecture
+## Installation
 
-LangChain callbacks are **observational** — they fire around tool and LLM invocations but cannot abort them mid-flight. For full governance enforcement (blocking tool calls), wrap the tools directly. For audit-only use cases, the callback approach is sufficient.
-
-| Handlebar hook | LangChain callback | Notes |
-|---|---|---|
-| `run.beforeTool(name, args, tags)` | `handleToolStart` | Tool wrapping required to enforce BLOCK |
-| `run.afterTool(name, args, result, ms)` | `handleToolEnd` | Input/output arrive as strings |
-| `run.beforeLlm(messages)` | `handleLLMStart` | Prompts arrive serialized |
-| `run.afterLlm(response)` | `handleLLMEnd` | Token usage is in `output.llmOutput` |
+```bash
+npm install @handlebar/langchain @handlebar/core @langchain/core
+```
 
 ---
 
-## Option A — Tool wrapping (full governance)
-
-Wrap tools so Handlebar can intercept and optionally block before execution. This is the recommended approach when you need `BLOCK` decisions to be enforced.
+## Quick start
 
 ```ts
-import { DynamicStructuredTool } from "@langchain/core/tools";
+import { Handlebar } from "@handlebar/core";
+import { HandlebarAgentExecutor, wrapTools } from "@handlebar/langchain";
 import { ChatOpenAI } from "@langchain/openai";
-import { AgentExecutor, createOpenAIFunctionsAgent } from "langchain/agents";
+import { AgentExecutor, createOpenAIToolsAgent } from "langchain/agents";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { Handlebar, type Run } from "@handlebar/core";
-import { uuidv7 } from "uuidv7";
+import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 
-// 1. Init client once.
+// 1. Init client once (e.g. at server startup).
 const hb = await Handlebar.init({
   apiKey: process.env.HANDLEBAR_API_KEY,
   agent: { slug: "my-agent" },
 });
 
-// 2. Wrap a LangChain tool with Handlebar governance.
-function wrapTool(
-  originalTool: DynamicStructuredTool,
-  run: Run,
-  tags: string[] = [],
-): DynamicStructuredTool {
-  return new DynamicStructuredTool({
-    name: originalTool.name,
-    description: originalTool.description,
-    schema: originalTool.schema,
-    func: async (input, runManager) => {
-      // --- before tool ---
-      const decision = await run.beforeTool(originalTool.name, input, tags);
-
-      if (decision.verdict === "BLOCK") {
-        if (decision.control === "TERMINATE") {
-          // Throw to surface the termination upward; catch and call run.end() in the caller.
-          throw new Error(`HANDLEBAR_TERMINATE: ${decision.message}`);
-        }
-        return JSON.stringify({ blocked: true, reason: decision.message });
-      }
-
-      // --- execute ---
-      const start = Date.now();
-      try {
-        const result = await originalTool._call(input, runManager);
-        await run.afterTool(originalTool.name, input, result, Date.now() - start, undefined, tags);
-        return result;
-      } catch (e) {
-        await run.afterTool(originalTool.name, input, undefined, Date.now() - start, e, tags);
-        throw e;
-      }
-    },
-  });
-}
-
-// 3. Define your tools normally.
+// 2. Define your tools normally.
 const searchTool = new DynamicStructuredTool({
   name: "search",
   description: "Search the web for information",
@@ -82,151 +37,146 @@ const searchTool = new DynamicStructuredTool({
   func: async ({ query }) => fetchSearchResults(query),
 });
 
-// 4. Per-request: create a run, wrap tools, execute agent.
-async function runAgent(input: string, actorId: string): Promise<string> {
-  const run = await hb.startRun({
-    runId: uuidv7(),
-    actor: { externalId: actorId },
-  });
+// 3. Wrap tools with governance hooks BEFORE building the agent.
+//    wrapTools() mutates the tool instances in place and returns the same array.
+const tools = wrapTools([searchTool], {
+  toolTags: { search: ["read-only"] },
+});
 
-  const wrappedTools = [
-    wrapTool(searchTool, run, ["read-only"]),
-  ];
+// 4. Build the agent and executor as normal.
+const llm = new ChatOpenAI({ model: "gpt-4o" });
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "You are a helpful assistant."],
+  ["human", "{input}"],
+  ["placeholder", "{agent_scratchpad}"],
+]);
+const agent = await createOpenAIToolsAgent({ llm, tools, prompt });
+const executor = AgentExecutor.fromAgentAndTools({ agent, tools });
 
-  const model = new ChatOpenAI({ model: "gpt-4o" });
-  const prompt = ChatPromptTemplate.fromMessages([
-    ["system", "You are a helpful assistant."],
-    ["human", "{input}"],
-    ["placeholder", "{agent_scratchpad}"],
-  ]);
+// 5. Wrap the executor with HandlebarAgentExecutor.
+const hbExecutor = new HandlebarAgentExecutor({
+  hb,
+  executor,
+  model: { name: "gpt-4o", provider: "openai" },
+});
 
-  const agent = await createOpenAIFunctionsAgent({ llm: model, tools: wrappedTools, prompt });
-  const executor = AgentExecutor.fromAgentAndTools({ agent, tools: wrappedTools });
-
-  try {
-    const result = await executor.invoke({ input });
-    await run.end("success");
-    return result.output;
-  } catch (e) {
-    // Check if this is a Handlebar termination signal.
-    const msg = e instanceof Error ? e.message : "";
-    await run.end(msg.startsWith("HANDLEBAR_TERMINATE:") ? "interrupted" : "error");
-    throw e;
-  }
-}
-```
-
----
-
-## Option B — Callback handler (audit / shadow mode)
-
-Use a `BaseCallbackHandler` when you only need audit logging, or when operating in `shadow` or `off` enforce mode where BLOCK decisions are not enforced.
-
-```ts
-import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import type { Serialized } from "@langchain/core/load/serializable";
-import type { LLMResult } from "@langchain/core/outputs";
-import type { Run } from "@handlebar/core";
-
-export class HandlebarCallbackHandler extends BaseCallbackHandler {
-  name = "HandlebarCallbackHandler";
-
-  private run: Run;
-  // Correlate LangChain runId → tool start time for duration tracking.
-  private readonly startTimes = new Map<string, number>();
-
-  constructor(run: Run) {
-    super();
-    this.run = run;
-  }
-
-  // --- Tool lifecycle ---
-
-  async handleToolStart(
-    tool: Serialized,
-    input: string,
-    runId: string,
-  ): Promise<void> {
-    this.startTimes.set(runId, Date.now());
-
-    // Tool name is the last element of the id array, or tool.name.
-    const name = (tool.id?.at(-1) ?? tool.name ?? "unknown") as string;
-    let args: unknown = input;
-    try { args = JSON.parse(input); } catch {}
-
-    // In shadow/off mode: still evaluates (or skips) but never blocks.
-    await this.run.beforeTool(name, args);
-  }
-
-  async handleToolEnd(output: string, runId: string): Promise<void> {
-    const durationMs = Date.now() - (this.startTimes.get(runId) ?? Date.now());
-    this.startTimes.delete(runId);
-
-    let result: unknown = output;
-    try { result = JSON.parse(output); } catch {}
-
-    // afterTool increments stepIndex and emits the tool.result audit event.
-    // Tool name is not available here from LangChain — use a placeholder
-    // or correlate via a runId → toolName map set in handleToolStart.
-    await this.run.afterTool("unknown", undefined, result, durationMs);
-  }
-
-  async handleToolError(error: Error, runId: string): Promise<void> {
-    const durationMs = Date.now() - (this.startTimes.get(runId) ?? Date.now());
-    this.startTimes.delete(runId);
-    await this.run.afterTool("unknown", undefined, undefined, durationMs, error);
-  }
-
-  // --- LLM lifecycle ---
-
-  async handleLLMStart(
-    llm: Serialized,
-    prompts: string[],
-  ): Promise<void> {
-    const messages = prompts.map((p) => ({
-      role: "user" as const,
-      content: p,
-    }));
-    await this.run.beforeLlm(messages);
-  }
-
-  async handleLLMEnd(output: LLMResult): Promise<void> {
-    const text = output.generations[0]?.[0]?.text ?? "";
-    const tokenUsage = output.llmOutput?.tokenUsage as
-      | { promptTokens?: number; completionTokens?: number }
-      | undefined;
-
-    await this.run.afterLlm({
-      content: text ? [{ type: "text", text }] : [],
-      model: { name: "unknown" }, // LangChain doesn't surface model name here
-      usage: {
-        inputTokens: tokenUsage?.promptTokens,
-        outputTokens: tokenUsage?.completionTokens,
-      },
-    });
-  }
-}
-```
-
-### Registering the handler
-
-```ts
-const run = await hb.startRun({ runId: uuidv7() });
-const handler = new HandlebarCallbackHandler(run);
-
-// Attach to executor or chain:
-const result = await executor.invoke(
-  { input: "What is the weather in London?" },
-  { callbacks: [handler] },
+// 6. Invoke per request, passing actor / session info.
+const result = await hbExecutor.invoke(
+  { input: "What is the capital of France?" },
+  { actor: { externalId: "user-123" }, sessionId: "session-abc" },
 );
-
-await run.end("success");
+console.log(result.output);
 ```
 
 ---
 
-## Limitations of the callback approach
+## How it works
 
-- **No blocking**: LangChain callbacks cannot abort tool execution after `handleToolStart` fires. Use Option A (tool wrapping) for `enforceMode: "enforce"`.
-- **Tool name in `handleToolEnd`**: The `runId` is available in `handleToolEnd` but the tool name is not. Correlate them with a `Map<string, string>` set in `handleToolStart` (keyed by LangChain `runId`).
-- **Serialised I/O**: Tool input/output arrive as JSON strings; parse before passing to `run.beforeTool` / `run.afterTool`.
+### Run lifecycle
+
+`HandlebarAgentExecutor.invoke()` creates a new `Run` for each call:
+
+1. `run.started` — emitted immediately on `startRun()`.
+2. LLM and tool hooks fire during the agent loop (see below).
+3. `run.ended` — emitted on completion, error, or governance termination; the event bus is flushed before returning.
+
+### Tool governance (`wrapTools`)
+
+`wrapTools()` intercepts each tool's `invoke()` method in place. On each tool call:
+
+- `run.beforeTool(name, args, tags)` is called first — evaluates governance rules.
+- **ALLOW** → proceeds with normal execution; `run.afterTool(...)` is called after.
+- **BLOCK + CONTINUE** → skips execution; returns a JSON-encoded blocked message so the LLM can respond gracefully.
+- **BLOCK + TERMINATE** → throws `HandlebarTerminationError`; `HandlebarAgentExecutor` catches it and ends the run with status `"interrupted"`.
+
+### LLM event logging (`HandlebarCallbackHandler`)
+
+`HandlebarAgentExecutor` automatically attaches a `HandlebarCallbackHandler` to each `executor.invoke()` call. It bridges LangChain's callback system to Handlebar's hooks:
+
+| LangChain callback        | Handlebar hook        | Notes                                                              |
+|---------------------------|-----------------------|--------------------------------------------------------------------|
+| `handleChatModelStart`    | `run.beforeLlm`       | Delta-tracked — only new messages emitted per step                 |
+| `handleLLMEnd`            | `run.afterLlm`        | Extracts text, tool calls, and token usage from `LLMResult`        |
+
+Delta tracking ensures that on multi-step agent loops (where LangChain accumulates the full message history), only messages new since the last LLM call are forwarded to `run.beforeLlm`. This prevents duplicate `message.raw.created` events.
+
+---
+
+## API reference
+
+### `wrapTools(tools, opts?)`
+
+Wraps an array of LangChain tools with Handlebar governance hooks. Mutates tool instances in place; returns the same array.
+
+```ts
+const tools = wrapTools([searchTool, codeTool], {
+  toolTags: {
+    search: ["read-only"],
+    code_executor: ["execution"],
+  },
+});
+```
+
+### `wrapTool(tool, tags?)`
+
+Wraps a single tool. Use when you need to wrap tools individually.
+
+### `HandlebarAgentExecutor`
+
+```ts
+const hbExecutor = new HandlebarAgentExecutor({
+  hb,                                        // HandlebarClient from Handlebar.init()
+  executor,                                  // AgentExecutor or any compatible Runnable
+  model: { name: "gpt-4o", provider: "openai" },
+  runDefaults: { runTtlMs: 60_000 },         // optional: applied to every run
+});
+
+const result = await hbExecutor.invoke(
+  { input: "..." },
+  {
+    actor: { externalId: "user-123" },        // optional
+    sessionId: "session-abc",                 // optional: groups runs into a session
+    tags: { environment: "production" },      // optional: arbitrary run tags
+  },
+);
+```
+
+### `HandlebarCallbackHandler`
+
+If you need the callback handler outside of `HandlebarAgentExecutor` (e.g. to attach to a chain rather than an executor):
+
+```ts
+import { HandlebarCallbackHandler } from "@handlebar/langchain";
+import { withRun } from "@handlebar/core";
+
+const run = await hb.startRun({ runId: uuidv7(), model: { name: "gpt-4o" } });
+const handler = new HandlebarCallbackHandler(run, { name: "gpt-4o", provider: "openai" });
+
+await withRun(run, async () => {
+  const result = await chain.invoke({ input: "..." }, { callbacks: [handler] });
+  await run.end("success");
+  return result;
+});
+```
+
+### `HandlebarTerminationError`
+
+Thrown by a wrapped tool when a `BLOCK + TERMINATE` governance decision is made. `HandlebarAgentExecutor` catches this automatically and ends the run with `"interrupted"`. If you are managing the run lifecycle manually, catch it yourself:
+
+```ts
+try {
+  const result = await executor.invoke(input, { callbacks: [handler] });
+  await run.end("success");
+} catch (err) {
+  await run.end(err instanceof HandlebarTerminationError ? "interrupted" : "error");
+  throw err;
+}
+```
+
+---
+
+## Limitations
+
+- **`handleToolStart` cannot block**: LangChain's callback system is observational — callbacks fire around tool execution but cannot intercept it. Tool wrapping via `wrapTools()` / `wrapTool()` is required to enforce `BLOCK` decisions.
+- **Chat models only**: `HandlebarCallbackHandler` uses `handleChatModelStart`, which fires for chat models (`ChatOpenAI`, etc.). Plain completion LLMs use `handleLLMStart` (prompts as strings); these are not currently converted to `message.raw.created` events.
+- **Single batch assumed**: For batched LLM calls (`messages: BaseMessage[][]`), only the first batch (`messages[0]`) is forwarded to `run.beforeLlm`. Batched inference is uncommon in agent loops.
