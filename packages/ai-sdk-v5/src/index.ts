@@ -1,1 +1,1 @@
-export { HandlebarAgent, type HandlebarCheck, type ToCoreTool } from "./agent";
+export { HandlebarAgent, type HandlebarAgentOpts } from "./agent";
