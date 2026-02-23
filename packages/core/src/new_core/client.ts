@@ -89,8 +89,9 @@ export class HandlebarClient {
 
 		// Check lockdown by starting the run on the server.
 		const lockdown = await this.api.startRun(config.runId, this.agentId ?? "", {
-			sessionId: config.sessionId,
-			actorExternalId: config.actor?.externalId,
+      sessionId: config.sessionId,
+      actor: config.actor,
+      model: config.model,
 		});
 
 		if (lockdown.active) {

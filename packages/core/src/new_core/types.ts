@@ -1,13 +1,11 @@
 import type {
 	Decision,
 	DecisionCause,
+	EndUserConfig,
+	EndUserGroupConfig,
 	RuleEval,
 	RunControl,
 	Verdict,
-} from "@handlebar/governance-schema";
-import type {
-	EndUserConfig,
-	EndUserGroupConfig,
 } from "@handlebar/governance-schema";
 
 // Re-export decision types from governance-schema for convenience.
@@ -125,7 +123,9 @@ export type RunConfig = {
 	// Optional session grouping — multiple runs can share a session ID.
 	sessionId?: string;
 	// The human/system/agent the run is acting on behalf of.
-	actor?: Actor;
+  actor?: Actor;
+	// Primary model configured on the agent.
+	model?: ModelInfo;
 	// Arbitrary tags attached to this run (for filtering / grouping).
 	tags?: Record<string, string>;
 	// Run lifetime before auto-close. Undefined = no TTL.
@@ -156,6 +156,7 @@ export const FAILCLOSED_DECISION: Decision = {
 // Run end status
 // ---------------------------------------------------------------------------
 
+// TODO: should we distinguish "exited because of violations" from "ran okay but with interruptions"?
 export type RunEndStatus = "success" | "error" | "timeout" | "interrupted";
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { DecisionSchema } from "@handlebar/governance-schema";
-import type { Decision, HandlebarConfig, Tool } from "../types";
+import type { Actor, Decision, HandlebarConfig, ModelInfo, RunEndStatus, Tool } from "../types";
 import { FAILCLOSED_DECISION, FAILOPEN_DECISION } from "../types";
 
 const DEFAULT_ENDPOINT = "https://api.gethandlebar.com";
@@ -148,7 +148,7 @@ export class ApiManager {
 	async startRun(
 		runId: string,
 		agentId: string,
-		opts?: { sessionId?: string; actorExternalId?: string },
+    opts?: { sessionId?: string; actor?: Actor; model?: ModelInfo },
 	): Promise<LockdownStatus> {
     if (!this.active) {
       return { active: false };
@@ -161,8 +161,12 @@ export class ApiManager {
       body.sessionId = opts.sessionId;
     }
 
-    if (opts?.actorExternalId) {
-      body.actorExternalId = opts.actorExternalId;
+    if (opts?.actor) {
+      body.actor = opts.actor;
+    }
+
+    if (opts?.model) {
+      body.model = opts.model;
     }
 
 		try {
@@ -189,7 +193,34 @@ export class ApiManager {
 			console.error("[Handlebar] Run start error:", err);
 			return { active: false };
 		}
-	}
+  }
+
+  async endRun(
+    runId: string,
+    agentId: string | null,
+    status: RunEndStatus,
+  ): Promise<void> {
+    if (!this.active || agentId === null) {
+      return;
+    }
+
+    const url = this.url(`/v1/runs/${runId}/end`);
+    const body = { agentId, status };
+
+		try {
+			const res = await this.post(url, body);
+			if (!res.ok) {
+				console.warn(
+					`[Handlebar] Run end returned ${res.status}`,
+				);
+				return;
+			}
+      return;
+		} catch (err) {
+			console.error("[Handlebar] Run start error:", err);
+      return;
+		}
+  }
 
 	// ---------------------------------------------------------------------------
 	// Rule evaluation

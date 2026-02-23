@@ -276,6 +276,7 @@ export class Run {
 			this.ttlTimer = null;
 		}
 
+    await this.api.endRun(this.runId, this.agentId, status);
 		this.emit({
 			schema: "handlebar.audit.v1",
 			ts: new Date(),
@@ -319,8 +320,9 @@ export class Run {
 				agent: { id: this.agentId ?? undefined },
 				actor: this.actor
 					? { externalId: this.actor.externalId, metadata: this.actor.metadata }
-					: undefined,
-				adapter: { name: "new_core" },
+          : undefined,
+        // TODO: get adapter from config.
+				adapter: { name: "core" },
 			},
 		});
 	}
