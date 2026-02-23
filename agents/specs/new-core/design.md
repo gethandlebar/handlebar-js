@@ -36,11 +36,54 @@ We need some wrap to wrap tools to allow users to define tags and classification
 
 ### API
 Centralised api manager which handles all interactions with Handlebar api, including the Http Sink. API flow is slightly different to current process:
-- Register agent as normal
-- Register tools (this may need to be a separate api call)
-- Some process to fetch "aliveness" of agent (i.e. should it run at all? or has a lockdown been placed on it) and list of applied policies (enabled and disabled, or dry-run). Should this be the result of the agent register call?
-- Running a policy check (`/v1/agents/check`) with agentId and policies.
-- Regular polling for metric rule violations, as is currently in place
+- `PUT /v1/agents/{agent-slug}` -  Same api as currently (although tools might not necessarily be provided at that time), but with a new path. Returns agent ID.
+- `PUT /v1/agents/{agent_id}/tools` - Register tools on agent, as currently exists in the agent registry
+- `POST /v1/agents/{agent_id}/preflight` - Checks aliveness of agent. Returns `{ lockdown: { status: boolean, reason?: string, until_ts: null | number }, budget: BudgetGrantResponse | null }`
+- `POST /v1/agents/{agent_id}/metrics` - Regular polling for metric budgets, as is currently in place
+- `POST /v1/runs/{run_id}/evaluate` - Send agent ID, which the server will fetch active rules for, evaluate and return a decision object*. N.b. the `run_id` here is the client-side generated run ID, not a PK from a server table (unlike `agent_id`)
+- `POST /v1/runs/{run_id}/events` Run events - the current "audit" ingest, but with a new route
+
+#### Decision object
+Returned from server
+```
+type Verdict = "ALLOW" | "REWRITE" | "BLOCK" | "HITL"; // On the action/tool use
+type RunControl = "CONTINUE" | "TERMINATE" | "PAUSE"; // On the agent process. I.e. "TERMINATE" should end the agent run.
+
+type Cause =
+  | { kind: "RULE_VIOLATION"; ruleId: string; matchedRuleIds?: string[] }
+  | { kind: "HITL_PENDING"; approvalId: string; ruleId?: string }
+  | { kind: "LOCKDOWN"; lockdownId?: string; ruleId?: string }
+
+type RuleEval = {
+  ruleId: string;
+  enabled: boolean;
+  matched: boolean;
+  violated: boolean;
+  // optional: which predicate matched, score, etc.
+};
+
+type Decision = {
+  verdict: Verdict;
+  control: RunControl;
+
+  // Machine-readable why
+  cause: Cause;
+
+  // Human-readable details
+  message: string;
+
+  // Provenance
+  finalRuleId?: string;          // rule that produced final verdict (if any)
+  evaluatedRules?: RuleEval[];   // optional, can be sampled
+  matchedRuleIds?: string[]; // Do we need these if info is present in RuleEval?
+  violatedRuleIds?: string[];
+};
+```
+
+The api manager and main core should handle an unresponsive api, with appropriate logic handling according to the failclosed config option.
+
+## "Audit" events
+Use the existing event schemas in `@handlebar/governance-schema` (packages/governance-schema). However, changes may need to be made (e.g. with new decision/verdict scope and new agent flow). in which case, made a proposal in this document.
 
 ## Integration with frameworks
 The core design MUST be easy for users to wrap into their own agents, regardless of framework used (or none).

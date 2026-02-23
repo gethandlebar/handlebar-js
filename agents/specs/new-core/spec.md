@@ -9,18 +9,18 @@ We want to refactor `@handlebar/core` (packages/core) to improve the DX and make
   - the duplicated run context objects
   - core's expected tool shape should no longer implicitly rely on vercel ai-like tool shape
 
+N.b. work should be done in `packages/core/src/new_core`. Create new unit tests for `new_core` as you go along. We will migrate core to new_core after complete and successful.
+
 N.b. "run" is a single loop of an agent. Runs can optionally belong to a session (provided via ID), with many runs to a session.
 
 ## Requirements
 - Easy shared config/init
 - Ability to have concurrent agent runs without bleeding context
-- Context easily accessible by the developer
-- Developer has to invoke a couple of easy lifecycle methods: little config or handling outputs necessary
-- Hard separation of global vs per-run state
-- Async-safe context propagation
+- Developer has to invoke a couple of easy lifecycle methods to connect to their agents: little config or handling outputs necessary
+- Hard separation of global vs per-run state, with Async-safe context propagation
 - Idempotent lifecycle (e.g. calling run start twice should be idempotent)
 - Failure semantics are explicit (explicit failopen vs failclose in config init)
-- Typed, ergonomic context
+- Typed, ergonomic context (no defaulting to "any")
 - Low overhead
   - sync path fast
   - network async/batched
