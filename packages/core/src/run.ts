@@ -101,12 +101,19 @@ export class Run {
 			return FAILOPEN_DECISION;
 		}
 
-		// Run tool.before metric hooks (fire-and-forget; results not sent to evaluate).
+		// Collect tool.before metrics: bytes_in from args plus custom hook values.
+		const beforeMetrics: NonNullable<EvaluateBeforeRequest["metrics"]> = {};
+		const bytesIn = approxBytes(args);
+		if (bytesIn != null) {
+			beforeMetrics.bytes_in = bytesIn;
+		}
 		if (this.metricRegistry) {
 			await this.metricRegistry.runPhase(
 				"tool.before",
 				{ toolName, args, run: this },
-				() => {},
+				(key, value) => {
+					beforeMetrics[key] = value;
+				},
 			);
 		}
 
@@ -132,7 +139,7 @@ export class Run {
 			actor: this.actor ? { externalId: this.actor.externalId } : undefined,
 			tags: this.tags,
 			subjects,
-			// TODO: pass in metrics and then clear.
+			metrics: Object.keys(beforeMetrics).length > 0 ? beforeMetrics : undefined,
 		};
 
 		const decision = await this.api.evaluate(this.runId, req);
