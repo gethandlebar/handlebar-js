@@ -131,8 +131,8 @@ export class Run {
 			args,
 			actor: this.actor ? { externalId: this.actor.externalId } : undefined,
 			tags: this.tags,
-      subjects,
-      // TODO: pass in metrics and then clear.
+			subjects,
+			// TODO: pass in metrics and then clear.
 		};
 
 		const decision = await this.api.evaluate(this.runId, req);

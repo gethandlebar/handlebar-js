@@ -8,9 +8,7 @@ import type {
 import type { BaseMessage } from "@langchain/core/messages";
 import type { LLMResult } from "@langchain/core/outputs";
 
-function langchainRoleToLlmRole(
-	type: string,
-): LLMMessage["role"] | undefined {
+function langchainRoleToLlmRole(type: string): LLMMessage["role"] | undefined {
 	switch (type) {
 		case "human":
 			return "user";

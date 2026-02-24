@@ -27,11 +27,11 @@ export function tokeniseByKind(
 	return tokenise((tokeniser) => {
 		const counts: Partial<Record<LLMMessage["role"], number>> = {};
 
-    for (const message of messages) {
-      if (typeof message.content === "string") {
-			const tokens = tokeniser.encode(message.content);
-			counts[message.role] = (counts[message.role] ?? 0) + tokens.length;
-      }
+		for (const message of messages) {
+			if (typeof message.content === "string") {
+				const tokens = tokeniser.encode(message.content);
+				counts[message.role] = (counts[message.role] ?? 0) + tokens.length;
+			}
 		}
 		return counts;
 	});

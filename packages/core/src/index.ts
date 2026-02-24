@@ -3,7 +3,7 @@ export {
 	Handlebar,
 	HandlebarClient,
 	type HandlebarClientConfig,
-  withRun,
+	withRun,
 } from "./client";
 export * from "./metrics";
 export type { RunInternalConfig, RunState } from "./run";

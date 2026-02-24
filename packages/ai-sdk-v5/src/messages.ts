@@ -1,7 +1,4 @@
-import type {
-	LLMMessage,
-	LLMMessagePart,
-} from "@handlebar/core";
+import type { LLMMessage, LLMMessagePart } from "@handlebar/core";
 import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	type AssistantContent,

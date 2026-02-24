@@ -27,20 +27,20 @@ export type LockdownStatus = {
 };
 
 type BaseEvaluateRequest = {
-  agentId: string;
+	agentId: string;
 	tool: { name: string; tags?: string[] };
 	args: unknown;
 	actor?: { externalId: string };
 	tags?: Record<string, string>;
-  subjects?: SubjectRef[];
-  metrics?: {
-  	bytes_in?: number;
-  	bytes_out?: number;
-  	records_out?: number;
-  	duration_ms?: number;
-  	[key: string]: number | undefined;
+	subjects?: SubjectRef[];
+	metrics?: {
+		bytes_in?: number;
+		bytes_out?: number;
+		records_out?: number;
+		duration_ms?: number;
+		[key: string]: number | undefined;
 	};
-}
+};
 
 // Evaluate request for tool.before phase.
 export type EvaluateBeforeRequest = BaseEvaluateRequest & {
