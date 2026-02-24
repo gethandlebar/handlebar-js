@@ -14,7 +14,6 @@ import type {
 	Decision,
 	LLMMessage,
 	LLMResponse,
-	LLMResponsePart,
 	ModelInfo,
 	RunConfig,
 	RunEndStatus,
@@ -44,6 +43,8 @@ export class Run {
 	private state: RunState = "active";
 	private stepIndex = 0;
 	private readonly history: ToolResult[] = [];
+	private pendingLlmTokensIn = 0;
+	private pendingLlmTokensOut = 0;
 
 	private readonly agentId: string | null;
 	private readonly enforceMode: "enforce" | "shadow" | "off";
@@ -107,6 +108,15 @@ export class Run {
 		if (bytesIn != null) {
 			beforeMetrics.bytes_in = bytesIn;
 		}
+		// Flush LLM token deltas accumulated since the last evaluate.
+		if (this.pendingLlmTokensIn > 0) {
+      beforeMetrics.llm_tokens_in = this.pendingLlmTokensIn;
+			this.pendingLlmTokensIn = 0;
+		}
+		if (this.pendingLlmTokensOut > 0) {
+			beforeMetrics.llm_tokens_out = this.pendingLlmTokensOut;
+			this.pendingLlmTokensOut = 0;
+    }
 		if (this.metricRegistry) {
 			await this.metricRegistry.runPhase(
 				"tool.before",
@@ -315,7 +325,7 @@ export class Run {
 
 	// Call after the LLM responds.
 	// Returns (possibly modified) response — surface for future response rewriting.
-	async afterLlm(response: LLMResponse): Promise<LLMResponse> {
+  async afterLlm(response: LLMResponse): Promise<LLMResponse> {
 		if (this.state !== "active") {
 			return response;
 		}
@@ -328,6 +338,14 @@ export class Run {
 
 		const inTokens = resolved.usage?.inputTokens;
 		const outTokens = resolved.usage?.outputTokens;
+
+		// Accumulate LLM token deltas for the next evaluate call.
+		if (inTokens != null) {
+			this.pendingLlmTokensIn += inTokens;
+		}
+		if (outTokens != null) {
+			this.pendingLlmTokensOut += outTokens;
+		}
 
 		if (inTokens !== undefined || outTokens !== undefined) {
 			this.emit({

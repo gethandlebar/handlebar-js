@@ -209,7 +209,7 @@ export class HandlebarAgent<
 					run &&
 					(step.usage.inputTokens !== undefined ||
 						step.usage.outputTokens !== undefined)
-				) {
+        ) {
 					await run.afterLlm({
 						// Map full step content — includes text parts AND tool calls.
 						content: mapStepContent(step.content),

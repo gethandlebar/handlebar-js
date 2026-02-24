@@ -38,6 +38,8 @@ type BaseEvaluateRequest = {
 		bytes_out?: number;
 		records_out?: number;
 		duration_ms?: number;
+		llm_tokens_in?: number;
+		llm_tokens_out?: number;
 		[key: string]: number | undefined;
 	};
 };
