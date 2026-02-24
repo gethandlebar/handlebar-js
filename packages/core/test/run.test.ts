@@ -26,7 +26,7 @@ const BLOCK = {
 
 const originalFetch = globalThis.fetch;
 
-function makeApi(response = ALLOW) {
+function makeApi(response: typeof ALLOW | typeof BLOCK = ALLOW) {
 	globalThis.fetch = mock(async () => Response.json(response)) as typeof fetch;
 	return new ApiManager({
 		apiKey: "test-key",
@@ -48,7 +48,7 @@ function makeBus() {
 
 function makeRun(
 	overrides?: Partial<RunInternalConfig>,
-	apiResponse = ALLOW,
+	apiResponse: typeof ALLOW | typeof BLOCK = ALLOW,
 ): {
 	run: Run;
 	events: AuditEvent[];
