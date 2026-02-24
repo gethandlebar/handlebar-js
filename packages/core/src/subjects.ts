@@ -1,20 +1,21 @@
 import type { SubjectSchema } from "@handlebar/governance-schema";
 import type z from "zod";
-import type { RunContext, Tool, ToolMeta } from "./types";
+import type { Run } from "./run";
+import type { ToolMeta } from "./tool";
 
 export type SubjectRef = z.infer<typeof SubjectSchema>;
 
-export type SubjectExtractor<T extends Tool = Tool> = (args: {
-	tool: ToolMeta<T>;
+export type SubjectExtractor = (args: {
+	tool: ToolMeta;
 	toolName: string;
 	toolArgs: unknown;
-	runContext: RunContext<T>;
+	run: Run;
 }) => SubjectRef[] | Promise<SubjectRef[]>;
 
-export class SubjectRegistry<T extends Tool = Tool> {
-	private byToolName = new Map<string, SubjectExtractor<T>>();
+export class SubjectRegistry {
+	private byToolName = new Map<string, SubjectExtractor>();
 
-	register(toolName: string, extractor: SubjectExtractor<T>) {
+	register(toolName: string, extractor: SubjectExtractor) {
 		this.byToolName.set(toolName, extractor);
 	}
 
@@ -23,10 +24,10 @@ export class SubjectRegistry<T extends Tool = Tool> {
 	}
 
 	async extract(args: {
-		tool: ToolMeta<T>;
+		tool: ToolMeta;
 		toolName: string;
 		toolArgs: unknown;
-		runContext: RunContext<T>;
+		run: Run;
 	}): Promise<SubjectRef[]> {
 		const extractor = this.byToolName.get(args.toolName);
 		if (!extractor) {

@@ -2,8 +2,8 @@ import {
 	type Actor,
 	getCurrentRun,
 	type HandlebarClient,
+	type LLMMessage,
 	type ModelInfo,
-	type NewLLMMessage,
 	type RunConfig,
 	withRun,
 } from "@handlebar/core";
@@ -191,7 +191,7 @@ export class HandlebarAgent<
 					if (newMsgs.length > 0) {
 						const llmMessages = newMsgs
 							.map((msg) => modelMessageToLlmMessage(msg))
-							.filter((msg): msg is NewLLMMessage => msg !== undefined);
+							.filter((msg): msg is LLMMessage => msg !== undefined);
 						if (llmMessages.length > 0) {
 							await run.beforeLlm(llmMessages);
 						}

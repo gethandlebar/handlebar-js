@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defineTool, wrapTool } from "../../src/new_core/tool";
+import { defineTool, wrapTool } from "../src/tool";
 
 describe("wrapTool", () => {
 	test("adds tags to a plain tool", () => {

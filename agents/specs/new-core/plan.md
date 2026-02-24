@@ -98,7 +98,7 @@ Work directory: `packages/core/src/new_core/`
 - [x] Core rebuilt to include new exports in dist
 - [x] All 332 core tests pass
 
-### Phase 9 — Integrate preserved old-core components
+### Phase 9 — Integrate preserved old-core components ✅
 
 Four files from the old `GovernanceEngine` were kept during the refactor but not wired into the new core:
 `signals.ts`, `subjects.ts`, `metrics/` (aggregator, hooks, types), and `budget-manager.ts`.

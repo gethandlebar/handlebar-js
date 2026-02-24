@@ -5,7 +5,10 @@ import type {
 	EvaluateAfterRequest,
 	EvaluateBeforeRequest,
 } from "./api/manager";
+import type { AgentMetricHookRegistry } from "./metrics/hooks";
 import type { SinkBus } from "./sinks/bus";
+import type { SubjectRegistry } from "./subjects";
+import { sanitiseSubjects } from "./subjects";
 import type {
 	Actor,
 	Decision,
@@ -28,6 +31,8 @@ export type RunInternalConfig = {
 	failClosed: boolean;
 	api: ApiManager;
 	bus: SinkBus;
+	metricRegistry?: AgentMetricHookRegistry;
+	subjectRegistry?: SubjectRegistry;
 };
 
 export class Run {
@@ -44,6 +49,8 @@ export class Run {
 	private readonly enforceMode: "enforce" | "shadow" | "off";
 	private readonly api: ApiManager;
 	private readonly bus: SinkBus;
+	private readonly metricRegistry: AgentMetricHookRegistry | undefined;
+	private readonly subjectRegistry: SubjectRegistry | undefined;
 	private ttlTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(config: RunInternalConfig) {
@@ -55,6 +62,8 @@ export class Run {
 		this.enforceMode = config.enforceMode;
 		this.api = config.api;
 		this.bus = config.bus;
+		this.metricRegistry = config.metricRegistry;
+		this.subjectRegistry = config.subjectRegistry;
 
 		// Schedule auto-close if TTL is configured.
 		if (config.runConfig.runTtlMs != null && config.runConfig.runTtlMs > 0) {
@@ -92,6 +101,29 @@ export class Run {
 			return FAILOPEN_DECISION;
 		}
 
+		// Run tool.before metric hooks (fire-and-forget; results not sent to evaluate).
+		if (this.metricRegistry) {
+			await this.metricRegistry.runPhase(
+				"tool.before",
+				{ toolName, args, run: this },
+				() => {},
+			);
+		}
+
+		// Extract subjects — client-side entity context sent to server for rule evaluation.
+		let subjects: ReturnType<typeof sanitiseSubjects> | undefined;
+		if (this.subjectRegistry) {
+			const raw = await this.subjectRegistry.extract({
+				tool: { tags: toolTags, description: undefined },
+				toolName,
+				toolArgs: args,
+				run: this,
+			});
+			if (raw.length > 0) {
+				subjects = sanitiseSubjects(raw);
+			}
+		}
+
 		const req: EvaluateBeforeRequest = {
 			phase: "tool.before",
 			agentId: this.agentId ?? "",
@@ -99,6 +131,8 @@ export class Run {
 			args,
 			actor: this.actor ? { externalId: this.actor.externalId } : undefined,
 			tags: this.tags,
+      subjects,
+      // TODO: pass in metrics and then clear.
 		};
 
 		const decision = await this.api.evaluate(this.runId, req);
@@ -163,7 +197,35 @@ export class Run {
 		};
 		this.history.push(toolResult);
 
-		const metrics = buildMetrics(args, result, durationMs);
+		const builtinMetrics = buildMetrics(args, result, durationMs);
+		const metrics: NonNullable<EvaluateAfterRequest["metrics"]> = {
+			...builtinMetrics,
+		};
+
+		// Run tool.after metric hooks and merge custom key/value results into metrics.
+		if (this.metricRegistry) {
+			await this.metricRegistry.runPhase(
+				"tool.after",
+				{ toolName, args, result, error, run: this },
+				(key, value) => {
+					metrics[key] = value;
+				},
+			);
+		}
+
+		// Extract subjects for the after-phase evaluate request.
+		let subjectsAfter: ReturnType<typeof sanitiseSubjects> | undefined;
+		if (this.subjectRegistry) {
+			const raw = await this.subjectRegistry.extract({
+				tool: { tags: toolTags, description: undefined },
+				toolName,
+				toolArgs: args,
+				run: this,
+			});
+			if (raw.length > 0) {
+				subjectsAfter = sanitiseSubjects(raw);
+			}
+		}
 
 		const req: EvaluateAfterRequest = {
 			phase: "tool.after",
@@ -173,7 +235,8 @@ export class Run {
 			result,
 			actor: this.actor ? { externalId: this.actor.externalId } : undefined,
 			tags: this.tags,
-			metrics,
+			subjects: subjectsAfter,
+			metrics: Object.keys(metrics).length > 0 ? metrics : undefined,
 		};
 
 		const decision =

@@ -1,5 +1,5 @@
 import type {
-	NewLLMMessage,
+	LLMMessage,
 	LLMResponse,
 	LLMResponsePart,
 	ModelInfo,
@@ -10,7 +10,7 @@ import type { LLMResult } from "@langchain/core/outputs";
 
 function langchainRoleToLlmRole(
 	type: string,
-): NewLLMMessage["role"] | undefined {
+): LLMMessage["role"] | undefined {
 	switch (type) {
 		case "human":
 			return "user";
@@ -28,7 +28,7 @@ function langchainRoleToLlmRole(
 
 export function langchainMessageToLlmMessage(
 	msg: BaseMessage,
-): NewLLMMessage | undefined {
+): LLMMessage | undefined {
 	const role = langchainRoleToLlmRole(msg._getType());
 	if (!role) return undefined;
 

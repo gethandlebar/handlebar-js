@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { AuditEvent } from "@handlebar/governance-schema";
-import { ApiManager } from "../../src/new_core/api/manager";
-import type { RunInternalConfig } from "../../src/new_core/run";
-import { Run } from "../../src/new_core/run";
-import { SinkBus } from "../../src/new_core/sinks/bus";
-import { FAILOPEN_DECISION } from "../../src/new_core/types";
+import { ApiManager } from "../src/api/manager";
+import type { RunInternalConfig } from "../src/run";
+import { Run } from "../src/run";
+import { SinkBus } from "../src/sinks/bus";
+import { FAILOPEN_DECISION } from "../src/types";
 
 const ALLOW = {
 	verdict: "ALLOW" as const,

@@ -2,13 +2,16 @@ export {
 	getCurrentRun,
 	Handlebar,
 	HandlebarClient,
-	withRun,
+	type HandlebarClientConfig,
+  withRun,
 } from "./client";
 export * from "./metrics";
 export type { RunInternalConfig, RunState } from "./run";
 export { Run } from "./run";
 export type { Sink } from "./sinks";
 export { createConsoleSink, createHttpSink, SinkBus } from "./sinks";
+export type { SubjectExtractor, SubjectRef } from "./subjects";
+export { SubjectRegistry, sanitiseSubjects } from "./subjects";
 export { tokeniseCount } from "./tokens";
 export type { ToolMeta as NewToolMeta } from "./tool";
 export { defineTool, wrapTool } from "./tool";

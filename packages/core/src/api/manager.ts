@@ -1,4 +1,5 @@
 import { DecisionSchema } from "@handlebar/governance-schema";
+import type { SubjectRef } from "../subjects";
 import type {
 	Actor,
 	Decision,
@@ -25,32 +26,31 @@ export type LockdownStatus = {
 	until?: number | null;
 };
 
-// Evaluate request for tool.before phase.
-export type EvaluateBeforeRequest = {
-	phase: "tool.before";
-	agentId: string;
+type BaseEvaluateRequest = {
+  agentId: string;
 	tool: { name: string; tags?: string[] };
 	args: unknown;
 	actor?: { externalId: string };
 	tags?: Record<string, string>;
+  subjects?: SubjectRef[];
+  metrics?: {
+  	bytes_in?: number;
+  	bytes_out?: number;
+  	records_out?: number;
+  	duration_ms?: number;
+  	[key: string]: number | undefined;
+	};
+}
+
+// Evaluate request for tool.before phase.
+export type EvaluateBeforeRequest = BaseEvaluateRequest & {
+	phase: "tool.before";
 };
 
 // Evaluate request for tool.after phase — includes per-call metrics.
-export type EvaluateAfterRequest = {
+export type EvaluateAfterRequest = BaseEvaluateRequest & {
 	phase: "tool.after";
-	agentId: string;
-	tool: { name: string; tags?: string[] };
-	args: unknown;
 	result?: unknown;
-	actor?: { externalId: string };
-	tags?: Record<string, string>;
-	metrics?: {
-		bytes_in?: number;
-		bytes_out?: number;
-		records_out?: number;
-		duration_ms?: number;
-		[key: string]: number | undefined;
-	};
 };
 
 export type EvaluateRequest = EvaluateBeforeRequest | EvaluateAfterRequest;

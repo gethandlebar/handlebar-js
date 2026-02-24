@@ -1,4 +1,4 @@
-import type { ModelInfo, NewLLMMessage, Run } from "@handlebar/core";
+import type { LLMMessage, ModelInfo, Run } from "@handlebar/core";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { Serialized } from "@langchain/core/load/serializable";
 import type { BaseMessage } from "@langchain/core/messages";
@@ -45,7 +45,7 @@ export class HandlebarCallbackHandler extends BaseCallbackHandler {
 		const llmMessages = newMsgs.flatMap((msg) => {
 			const converted = langchainMessageToLlmMessage(msg);
 			return converted ? [converted] : [];
-		}) satisfies NewLLMMessage[];
+		}) satisfies LLMMessage[];
 
 		if (llmMessages.length > 0) {
 			await this.run.beforeLlm(llmMessages);

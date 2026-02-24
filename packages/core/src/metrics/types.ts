@@ -1,4 +1,4 @@
-import type { RunContext } from "../types";
+import type { Run } from "../run";
 
 export type MetricInfo = { value: number; unit?: string };
 
@@ -9,7 +9,7 @@ export type AgentMetricHookPhase = "tool.before" | "tool.after";
 export type AgentMetricInputToolBefore = {
 	toolName: string;
 	args: unknown;
-	runContext: RunContext<any>;
+	run: Run;
 };
 
 export type AgentMetricInputToolAfter = {
@@ -17,7 +17,7 @@ export type AgentMetricInputToolAfter = {
 	args: unknown;
 	result?: unknown; // allow absence on error
 	error?: unknown;
-	runContext: RunContext<any>;
+	run: Run;
 };
 
 export type AgentMetricHookContextMap = {

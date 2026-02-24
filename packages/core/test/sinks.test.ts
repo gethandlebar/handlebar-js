@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { AuditEvent } from "@handlebar/governance-schema";
-import { SinkBus } from "../../src/new_core/sinks/bus";
-import { createConsoleSink } from "../../src/new_core/sinks/console";
-import { createHttpSink } from "../../src/new_core/sinks/http";
-import type { Sink } from "../../src/new_core/sinks/types";
+import { SinkBus } from "../src/sinks/bus";
+import { createConsoleSink } from "../src/sinks/console";
+import { createHttpSink } from "../src/sinks/http";
+import type { Sink } from "../src/sinks/types";
 
 // Minimal valid audit event for testing.
 function makeEvent(

@@ -5,14 +5,7 @@ function makeBeforeCtx() {
 	return {
 		toolName: "test_tool",
 		args: { count: 3 },
-		runContext: {
-			runId: "run-1",
-			stepIndex: 0,
-			history: [],
-			counters: {},
-			state: new Map(),
-			now: () => Date.now(),
-		} as any,
+		run: { runId: "run-1" } as any,
 	};
 }
 

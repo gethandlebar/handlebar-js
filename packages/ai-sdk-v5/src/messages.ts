@@ -21,7 +21,7 @@ type FormattedMessageContent = Pick<Message, "content" | "kind" | "role">;
 
 export function modelMessageToLlmMessage(
 	message: ModelMessage,
-): NewLLMMessage | undefined {
+): LLMMessage | undefined {
 	if (typeof message.content === "string") {
 		return {
 			role: message.role,

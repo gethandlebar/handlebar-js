@@ -1,10 +1,21 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ApiManager } from "./api/manager";
+import { AgentMetricHookRegistry } from "./metrics/hooks";
+import type { AgentMetricHook } from "./metrics/types";
 import { Run } from "./run";
 import { SinkBus } from "./sinks/bus";
 import { createConsoleSink } from "./sinks/console";
 import { createHttpSink } from "./sinks/http";
+import type { SubjectRegistry } from "./subjects";
 import type { HandlebarConfig, RunConfig, SinkConfig, Tool } from "./types";
+
+// HandlebarConfig extended with optional metric hooks and subject registry.
+// Kept separate from HandlebarConfig in types.ts to avoid circular dependencies
+// (metrics/types.ts and subjects.ts both import Run, which imports types.ts).
+export type HandlebarClientConfig = HandlebarConfig & {
+	metricHooks?: AgentMetricHook[];
+	subjectRegistry?: SubjectRegistry;
+};
 
 // AsyncLocalStorage for implicit run propagation.
 // Used by framework wrappers that cannot pass `run` explicitly.
@@ -23,17 +34,27 @@ export function getCurrentRun(): Run | undefined {
 }
 
 export class HandlebarClient {
-	private readonly config: HandlebarConfig;
+	private readonly config: HandlebarClientConfig;
 	private readonly api: ApiManager;
 	private readonly bus: SinkBus;
+	private readonly metricRegistry: AgentMetricHookRegistry | undefined;
+	private readonly subjectRegistry: SubjectRegistry | undefined;
 	private agentId: string | null = null;
 	// Tracks active runs by runId for idempotent startRun.
 	private readonly activeRuns = new Map<string, Run>();
 	// Resolves once init() completes (agent upsert + tool registration).
 	private initPromise: Promise<void> | null = null;
 
-	private constructor(config: HandlebarConfig) {
+	private constructor(config: HandlebarClientConfig) {
 		this.config = config;
+		if (config.metricHooks?.length) {
+			const registry = new AgentMetricHookRegistry();
+			for (const hook of config.metricHooks) {
+				registry.registerHook(hook);
+			}
+			this.metricRegistry = registry;
+		}
+		this.subjectRegistry = config.subjectRegistry;
 		this.api = new ApiManager({
 			apiKey: config.apiKey,
 			apiEndpoint: config.apiEndpoint,
@@ -46,7 +67,7 @@ export class HandlebarClient {
 	// Factory — always use Handlebar.init(), not new HandlebarClient()
 	// ---------------------------------------------------------------------------
 
-	static async init(config: HandlebarConfig): Promise<HandlebarClient> {
+	static async init(config: HandlebarClientConfig): Promise<HandlebarClient> {
 		const client = new HandlebarClient(config);
 		await client.initSinks(config.sinks);
 		client.initPromise = client.initAgent(config);
@@ -110,6 +131,8 @@ export class HandlebarClient {
 			failClosed: this.config.failClosed ?? false,
 			api: this.api,
 			bus: this.bus,
+			metricRegistry: this.metricRegistry,
+			subjectRegistry: this.subjectRegistry,
 		});
 
 		this.activeRuns.set(config.runId, run);
@@ -164,5 +187,5 @@ export class HandlebarClient {
 
 // Convenience factory — mirrors the spec's `Handlebar.init(config)` call.
 export const Handlebar = {
-	init: HandlebarClient.init.bind(HandlebarClient),
+	init: (config: HandlebarClientConfig) => HandlebarClient.init(config),
 };

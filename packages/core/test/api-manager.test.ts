@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { ApiManager } from "../../src/new_core/api/manager";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import { ApiManager } from "../src/api/manager";
 import {
 	FAILCLOSED_DECISION,
 	FAILOPEN_DECISION,
-} from "../../src/new_core/types";
+} from "../src/types";
 
 const ALLOW_DECISION = {
 	verdict: "ALLOW",
