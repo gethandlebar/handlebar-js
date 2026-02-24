@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { BudgetManager } from "../src/budget-manager";
-import type { BudgetGrant } from "../src/api/types";
+import { type BudgetGrant, BudgetManager } from "../src/budget-manager";
 
 function makeGrant(overrides: Partial<BudgetGrant> = {}): BudgetGrant {
 	return {

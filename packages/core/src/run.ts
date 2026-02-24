@@ -30,18 +30,6 @@ export type RunInternalConfig = {
 	bus: SinkBus;
 };
 
-function llmResponseToString(parts: LLMResponsePart[]): string {
-	const stringParts: string[] = [];
-	for (const part of parts) {
-		if (part.type === "text") {
-			stringParts.push(part.text);
-		} else if (part.type === "refusal") {
-			stringParts.push(part.refusal);
-		}
-	}
-	return stringParts.join("\n");
-}
-
 export class Run {
 	readonly runId: string;
 	readonly sessionId: string | undefined;

@@ -29,9 +29,9 @@ describe("tokeniseByKind", () => {
 
 	it("Should return only types present in messages", () => {
 		const counts = tokeniseByKind([
-			{ kind: "assistant", content: "Hello world" },
-			{ kind: "system", content: "world" },
-			{ kind: "tool", content: "!" },
+			{ role: "assistant", content: "Hello world" },
+			{ role: "system", content: "world" },
+			{ role: "tool", content: "!" },
 		]);
 		expect(counts).toEqual({ assistant: 2, system: 1, tool: 1 });
 	});
@@ -39,11 +39,11 @@ describe("tokeniseByKind", () => {
 	it("Should add not overwrite tokens from multiple kinds", () => {
 		const counts = tokeniseByKind([
 			{
-				kind: "assistant",
+				role: "assistant",
 				content:
 					"This is several more tokens than 1, so the result should be more than 1",
 			},
-			{ kind: "assistant", content: "a" }, // a single token.
+			{ role: "assistant", content: "a" }, // a single token.
 		]);
 		expect(counts.assistant).not.toBeUndefined();
 		expect(counts.assistant).toBeGreaterThan(1);

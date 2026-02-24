@@ -1,7 +1,6 @@
 import type {
 	LLMMessage,
 	LLMMessagePart,
-	NewLLMMessage,
 } from "@handlebar/core";
 import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {

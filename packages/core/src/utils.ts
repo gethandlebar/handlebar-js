@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import type { ISO8601 } from "./types";
+
+export type Id = string;
+export type ISO8601 = string; // date string
+
 
 export function millisecondsSince(initialTime: number): number {
 	return Math.round((performance.now() - initialTime) * 1000) / 1000;

@@ -1,24 +1,43 @@
-import type { ToolResultEventSchema } from "@handlebar/governance-schema";
-import type { z } from "zod";
-import { approxBytes } from "./metrics";
-import { tokeniseCount } from "./tokens";
+import type { Tool } from "./types";
 
-export function toolResultMetadata(
-	result: unknown,
-): NonNullable<z.infer<typeof ToolResultEventSchema>["data"]["debug"]> {
-	const bytes = approxBytes(result);
-	let chars: number | undefined;
-	let tokens: number | undefined;
+// Metadata overlay applied when wrapping a tool.
+export type ToolMeta = {
+	tags?: string[];
+	description?: string;
+};
 
-	try {
-		const json = JSON.stringify(result);
-		chars = json.length;
-		tokens = tokeniseCount(json);
-	} catch {}
-
+// Wrap a tool with additional Handlebar metadata (tags, description) without
+// altering its callable interface. Framework-agnostic — works with any tool shape
+// that satisfies { name: string }.
+//
+// Example:
+//   const search = wrapTool({ name: "search", execute: ... }, { tags: ["read-only"] });
+//   const d = await run.beforeTool(search.name, args, search.tags);
+export function wrapTool<T extends Tool>(
+	tool: T,
+	meta: ToolMeta,
+): T & Required<ToolMeta> {
 	return {
-		bytes,
-		chars,
-		approxTokens: tokens,
+		...tool,
+		tags: meta.tags ?? tool.tags ?? [],
+		description: meta.description ?? tool.description ?? "",
+	};
+}
+
+// Build a tool descriptor inline. Useful when defining tools without a framework wrapper.
+//
+// Example:
+//   const readFile = defineTool("read_file", {
+//     description: "Read a file from disk",
+//     tags: ["filesystem", "read-only"],
+//   });
+export function defineTool<Name extends string>(
+	name: Name,
+	meta?: ToolMeta,
+): Tool<Name> & Required<ToolMeta> {
+	return {
+		name,
+		tags: meta?.tags ?? [],
+		description: meta?.description ?? "",
 	};
 }

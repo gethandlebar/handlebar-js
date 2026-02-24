@@ -1,244 +1,342 @@
-import type { MetricWindowCondition, Rule } from "@handlebar/governance-schema";
-import type z from "zod";
-import {
-	type AgentTool,
-	type ApiConfig,
-	type BudgetGrantResponse,
-	BudgetGrantResponseSchema,
-	type MetricBudgetRequest,
-} from "./types";
+import { DecisionSchema } from "@handlebar/governance-schema";
+import type {
+	Actor,
+	Decision,
+	HandlebarConfig,
+	ModelInfo,
+	RunEndStatus,
+	Tool,
+} from "../types";
+import { FAILCLOSED_DECISION, FAILOPEN_DECISION } from "../types";
 
-type HitlResponse = {
-	hitlId: string;
-	status: "pending" | "approved" | "denied";
-	pre_existing: boolean;
+const DEFAULT_ENDPOINT = "https://api.gethandlebar.com";
+
+const RETRY_DEFAULTS = {
+	maxRetries: 3,
+	baseMs: 200,
+	capMs: 5_000,
+} as const;
+
+// Lockdown status returned from run start.
+export type LockdownStatus = {
+	active: boolean;
+	reason?: string;
+	// Unix timestamp (ms) after which lockdown lifts. null = indefinite.
+	until?: number | null;
 };
 
-export class ApiManager {
-	private useApi: boolean;
-	private apiKey: string | undefined;
-	private apiEndpoint: string;
-	public agentId: string | undefined;
+// Evaluate request for tool.before phase.
+export type EvaluateBeforeRequest = {
+	phase: "tool.before";
+	agentId: string;
+	tool: { name: string; tags?: string[] };
+	args: unknown;
+	actor?: { externalId: string };
+	tags?: Record<string, string>;
+};
 
-	constructor(config: ApiConfig, agentId?: string) {
-		this.apiEndpoint =
+// Evaluate request for tool.after phase — includes per-call metrics.
+export type EvaluateAfterRequest = {
+	phase: "tool.after";
+	agentId: string;
+	tool: { name: string; tags?: string[] };
+	args: unknown;
+	result?: unknown;
+	actor?: { externalId: string };
+	tags?: Record<string, string>;
+	metrics?: {
+		bytes_in?: number;
+		bytes_out?: number;
+		records_out?: number;
+		duration_ms?: number;
+		[key: string]: number | undefined;
+	};
+};
+
+export type EvaluateRequest = EvaluateBeforeRequest | EvaluateAfterRequest;
+
+export class ApiManager {
+	private readonly endpoint: string;
+	private readonly apiKey: string | undefined;
+	private readonly failClosed: boolean;
+	private readonly retryBaseMs: number;
+	// Whether API integration is active (key + endpoint present).
+	private readonly active: boolean;
+
+	constructor(
+		config: Pick<HandlebarConfig, "apiKey" | "apiEndpoint" | "failClosed"> & {
+			// Test-only: override retry base delay.
+			_retryBaseMs?: number;
+		},
+	) {
+		this.endpoint =
 			config.apiEndpoint ??
 			process.env.HANDLEBAR_API_ENDPOINT ??
-			"https://api.gethandlebar.com";
+			DEFAULT_ENDPOINT;
 		this.apiKey = config.apiKey ?? process.env.HANDLEBAR_API_KEY;
-		this.useApi = this.apiEndpoint !== undefined && this.apiKey !== undefined;
-		this.agentId = agentId;
+		this.failClosed = config.failClosed ?? false;
+		this.retryBaseMs = config._retryBaseMs ?? RETRY_DEFAULTS.baseMs;
+		this.active = Boolean(this.apiKey);
 	}
 
-	public async queryHitl(
+	// ---------------------------------------------------------------------------
+	// Agent registration
+	// ---------------------------------------------------------------------------
+
+	// Upsert agent and (optionally) register tools atomically.
+	// Returns the server-assigned agentId.
+	async upsertAgent(
+		agent: HandlebarConfig["agent"],
+		tools?: Tool[],
+	): Promise<string | null> {
+		if (!this.active) {
+			return null;
+		}
+
+		const url = this.url("/v1/agents");
+		const body: Record<string, unknown> = {
+			slug: agent.slug,
+			name: agent.name,
+			description: agent.description,
+			tags: agent.tags,
+		};
+		if (tools?.length) {
+			body.tools = tools.map((t) => ({
+				name: t.name,
+				description: t.description,
+				tags: t.tags,
+			}));
+		}
+
+		try {
+			const res = await this.post(url, body);
+			if (!res.ok) {
+				console.error(`[Handlebar] Agent upsert failed: ${res.status}`);
+				return null;
+			}
+			const data = (await res.json()) as { agentId: string };
+			return data.agentId;
+		} catch (err) {
+			console.error("[Handlebar] Agent upsert error:", err);
+			return null;
+		}
+	}
+
+	// Register or update tools on an existing agent.
+	async registerTools(agentId: string, tools: Tool[]): Promise<boolean> {
+		if (!this.active || !tools.length) {
+			return true;
+		}
+
+		const url = this.url(`/v1/agents/${agentId}/tools`);
+		const body = {
+			tools: tools.map((t) => ({
+				name: t.name,
+				description: t.description,
+				tags: t.tags,
+			})),
+		};
+
+		try {
+			const res = await this.put(url, body);
+			if (!res.ok) {
+				console.error(`[Handlebar] Tool registration failed: ${res.status}`);
+				return false;
+			}
+			return true;
+		} catch (err) {
+			console.error("[Handlebar] Tool registration error:", err);
+			return false;
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Run start (preflight merged)
+	// ---------------------------------------------------------------------------
+
+	// Start a run on the server. Returns lockdown status.
+	// Equivalent to the old preflight endpoint, merged into run start.
+	async startRun(
 		runId: string,
-		ruleId: string,
-		toolName: string,
-		toolArgs: Record<string, unknown>,
-	): Promise<HitlResponse | null> {
-		if (!this.useApi || !this.agentId) {
-			return null;
-		}
-
-		const url = new URL("/v1/audit/hitl", this.apiEndpoint);
-		try {
-			const response = await fetch(url.toString(), {
-				method: "POST",
-				headers: this.headers("json"),
-				body: JSON.stringify({
-					agentId: this.agentId,
-					ruleId,
-					runId,
-					tool: { name: toolName, args: toolArgs },
-				}),
-			});
-
-			if (!response.ok) {
-				throw new Error(`Failed to query HITL status: ${response.status}`);
-			}
-
-			const data: HitlResponse = await response.json();
-			return data;
-		} catch (error) {
-			console.error("Error querying HITL status:", error);
-			return null;
-		}
-	}
-
-	public async initialiseAgent(
-		agentInfo: {
-			slug: string;
-			name?: string;
-			description?: string;
-			tags?: string[];
-		},
-		tools: AgentTool[],
-	): Promise<{
-		agentId: string;
-		rules: Rule[] | null;
-		budget: BudgetGrantResponse | null;
-	} | null> {
-		if (!this.useApi) {
-			return null;
-		}
-
-		let agentId: string;
-		let rules: Rule[] | null = null;
-		let budget: BudgetGrantResponse | null = null;
-
-		try {
-			agentId = await this.upsertAgent(agentInfo, tools);
-			this.agentId = agentId;
-		} catch (e) {
-			console.error("Error upserting agent:", e);
-			return null;
-		}
-
-		try {
-			rules = await this.fetchAgentRules(agentId);
-			console.debug(`[Handlebar] Loading ${rules?.length} rules`);
-		} catch (error) {
-			console.error("Error fetching rules:", error);
-			return null;
-		}
-
-		try {
-			budget = await this.evaluateMetrics(agentId, rules ?? []);
-		} catch (error) {
-			console.error("Error evaluating metrics:", error);
-			// best-effort — don't discard already-fetched rules on a transient budget failure
-		}
-
-		return { agentId, rules, budget };
-	}
-
-	private headers(mode?: "json"): Record<string, string> {
-		const baseHeaders: Record<string, string> = {};
-		if (this.apiKey) {
-			baseHeaders.Authorization = `Bearer ${this.apiKey}`;
-		}
-
-		if (mode === "json") {
-			baseHeaders["content-type"] = "application/json";
-		}
-
-		return baseHeaders;
-	}
-
-	async evaluateMetrics(
 		agentId: string,
-		rules: Rule[],
-	): Promise<BudgetGrantResponse | null> {
-		const ruleConditions = rules.reduce(
-			(metricConditions, nextRule) => {
-				if (nextRule.condition.kind === "metricWindow") {
-					metricConditions.push({
-						id: nextRule.id,
-						...nextRule.condition,
-					});
-				}
-				// TODO handle and/or/not which include metric windows
-				return metricConditions;
-			},
-			[] as ({ id: string } & MetricWindowCondition)[],
-		);
-
-		if (ruleConditions.length === 0) {
-			return null;
+		opts?: { sessionId?: string; actor?: Actor; model?: ModelInfo },
+	): Promise<LockdownStatus> {
+		if (!this.active) {
+			return { active: false };
 		}
 
-		const url = new URL(
-			`/v1/agents/${agentId}/metrics/budget`,
-			this.apiEndpoint,
-		);
+		const url = this.url(`/v1/runs/${runId}/start`);
+		const body: Record<string, unknown> = { agentId };
 
-		const metricRequest: z.infer<typeof MetricBudgetRequest>[] = [];
-
-		for (const condition of ruleConditions) {
-			metricRequest.push({
-				id: condition.id,
-				aggregate: condition.aggregate,
-				budget: condition.value,
-				budget_request: condition.value,
-				metric: condition.metric.key,
-				op: condition.op,
-				scope: condition.scope,
-				time_window_seconds: condition.windowSeconds,
-			});
+		if (opts?.sessionId) {
+			body.sessionId = opts.sessionId;
 		}
 
-		const metricRequestBody = { requests: metricRequest };
+		if (opts?.actor) {
+			body.actor = opts.actor;
+		}
+
+		if (opts?.model) {
+			body.model = opts.model;
+		}
+
 		try {
-			const response = await fetch(url.toString(), {
-				method: "POST",
-				headers: this.headers("json"),
-				body: JSON.stringify(metricRequestBody),
-			});
-			const data = await response.json();
-
-			const parsedData = BudgetGrantResponseSchema.safeParse(data);
-			if (!parsedData.success) {
-				throw new Error("Invalid metric budget");
+			const res = await this.post(url, body);
+			if (!res.ok) {
+				console.warn(
+					`[Handlebar] Run start returned ${res.status}; assuming no lockdown`,
+				);
+				return { active: false };
 			}
-
-			return parsedData.data;
-		} catch (error) {
-			console.error("[Handlebar] Error requesting budget:", error);
-			throw error;
+			const data = (await res.json()) as {
+				lockdown: {
+					active: boolean;
+					reason?: string;
+					until_ts?: number | null;
+				};
+			};
+			return {
+				active: data.lockdown.active,
+				reason: data.lockdown.reason,
+				until: data.lockdown.until_ts,
+			};
+		} catch (err) {
+			console.error("[Handlebar] Run start error:", err);
+			return { active: false };
 		}
 	}
 
-	private async upsertAgent(
-		agentInfo: {
-			slug: string;
-			name?: string;
-			description?: string;
-			tags?: string[];
-		},
-		tools: AgentTool[],
-	): Promise<string> {
-		const url = new URL("/v1/agents", this.apiEndpoint);
+	async endRun(
+		runId: string,
+		agentId: string | null,
+		status: RunEndStatus,
+	): Promise<void> {
+		if (!this.active || agentId === null) {
+			return;
+		}
+
+		const url = this.url(`/v1/runs/${runId}/end`);
+		const body = { agentId, status };
 
 		try {
-			const agentData = JSON.stringify({
-				slug: agentInfo.slug,
-				name: agentInfo.name,
-				description: agentInfo.description,
-				tags: agentInfo.tags,
-				tools,
+			const res = await this.postWithRetry(url, body, {
+				retryBaseMs: this.retryBaseMs,
 			});
-			const response = await fetch(url.toString(), {
-				method: "PUT",
-				headers: this.headers("json"),
-				body: agentData,
-			});
-			const data: { agentId: string } = await response.json();
-			return data.agentId; // uuidv7-like
-		} catch (error) {
-			console.error("Error upserting agent:", error);
-			throw error;
+			if (!res.ok) {
+				console.warn(`[Handlebar] Run end returned ${res.status}`);
+				return;
+			}
+			return;
+		} catch (err) {
+			console.error("[Handlebar] Run end error:", err);
+			return;
 		}
 	}
 
-	private async fetchAgentRules(agentId: string): Promise<Rule[] | null> {
-		const url = new URL(`/v1/rules/agent/${agentId}`, this.apiEndpoint);
+	// ---------------------------------------------------------------------------
+	// Rule evaluation
+	// ---------------------------------------------------------------------------
 
-		const response = await fetch(url.toString(), {
+	// Evaluate a tool call against active rules. Returns a Decision.
+	// On API unavailability, falls back per failClosed config.
+	async evaluate(runId: string, req: EvaluateRequest): Promise<Decision> {
+		if (!this.active) {
+			return this.failClosedDecision();
+		}
+
+		const url = this.url(`/v1/runs/${runId}/evaluate`);
+
+		try {
+			const res = await this.postWithRetry(url, req, {
+				retryBaseMs: this.retryBaseMs,
+			});
+			if (!res.ok) {
+				console.error(`[Handlebar] Evaluate returned ${res.status}`);
+				return this.failClosedDecision();
+			}
+			const raw = await res.json();
+			const parsed = DecisionSchema.safeParse(raw);
+			if (!parsed.success) {
+				console.error(
+					"[Handlebar] Evaluate response invalid:",
+					parsed.error.message,
+				);
+				return this.failClosedDecision();
+			}
+			return parsed.data;
+		} catch (err) {
+			console.error("[Handlebar] Evaluate error:", err);
+			return this.failClosedDecision();
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Internal helpers
+	// ---------------------------------------------------------------------------
+
+	private url(path: string): string {
+		return `${this.endpoint}${path}`;
+	}
+
+	private failClosedDecision(): Decision {
+		return this.failClosed ? FAILCLOSED_DECISION : FAILOPEN_DECISION;
+	}
+
+	private headers(): Record<string, string> {
+		const h: Record<string, string> = { "content-type": "application/json" };
+		if (this.apiKey) {
+			h.Authorization = `Bearer ${this.apiKey}`;
+		}
+		return h;
+	}
+
+	private post(url: string, body: unknown): Promise<Response> {
+		return fetch(url, {
+			method: "POST",
 			headers: this.headers(),
+			body: JSON.stringify(body),
 		});
-
-		if (!response.ok) {
-			throw new Error(
-				`Failed to fetch agent rules: ${response.status} ${response.statusText}`,
-			);
-		}
-
-		const data: { rules: Rule[] } = await response.json();
-		return data.rules;
-		// TODO: fix this safe parse error.
-		// const schemaData = RuleSchema.array().safeParse(data.rules);
-		// if (schemaData.success) {
-		// 	return schemaData.data;
-		// }
 	}
+
+	private put(url: string, body: unknown): Promise<Response> {
+		return fetch(url, {
+			method: "PUT",
+			headers: this.headers(),
+			body: JSON.stringify(body),
+		});
+	}
+
+	// POST with exponential backoff retry on network errors and 5xx.
+	private async postWithRetry(
+		url: string,
+		body: unknown,
+		opts?: { retryBaseMs?: number },
+	): Promise<Response> {
+		const baseMs = opts?.retryBaseMs ?? RETRY_DEFAULTS.baseMs;
+		let attempt = 0;
+
+		while (true) {
+			try {
+				const res = await this.post(url, body);
+				// Don't retry on 4xx.
+				if (res.ok || (res.status >= 400 && res.status < 500)) {
+					return res;
+				}
+
+				throw new Error(`HTTP ${res.status}`);
+			} catch (err) {
+				if (attempt >= RETRY_DEFAULTS.maxRetries) {
+					throw err;
+				}
+
+				const backoffMs = Math.min(baseMs * 2 ** attempt, RETRY_DEFAULTS.capMs);
+				await sleep(backoffMs);
+				attempt++;
+			}
+		}
+	}
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((r) => setTimeout(r, ms));
 }
