@@ -139,7 +139,8 @@ export class Run {
 			actor: this.actor ? { externalId: this.actor.externalId } : undefined,
 			tags: this.tags,
 			subjects,
-			metrics: Object.keys(beforeMetrics).length > 0 ? beforeMetrics : undefined,
+			metrics:
+				Object.keys(beforeMetrics).length > 0 ? beforeMetrics : undefined,
 		};
 
 		const decision = await this.api.evaluate(this.runId, req);
