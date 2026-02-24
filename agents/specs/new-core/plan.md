@@ -98,6 +98,86 @@ Work directory: `packages/core/src/new_core/`
 - [x] Core rebuilt to include new exports in dist
 - [x] All 332 core tests pass
 
+### Phase 9 — Integrate preserved old-core components
+
+Four files from the old `GovernanceEngine` were kept during the refactor but not wired into the new core:
+`signals.ts`, `subjects.ts`, `metrics/` (aggregator, hooks, types), and `budget-manager.ts`.
+They currently produce **6 TypeScript errors** caused by references to the now-removed `RunContext<T>` type
+(replaced by the `Run` class) and the old generic form of `ToolCall<T>`.
+
+#### Root cause of type errors
+| File | Error | Fix |
+|---|---|---|
+| `metrics/types.ts:1` | `RunContext` not in `../types` | Replace `RunContext<any>` with `Run` from `../run` |
+| `signals.ts:8` | `RunContext` not in `./types` | Replace `RunContext<T>` with `Run` from `./run` |
+| `signals.ts:20` | `ToolCall` is not generic | Rewrite `SignalEvalEnv` to use flat `{ toolName, toolTags, args }` |
+| `signals.ts:118` | Parameter `t` implicitly `any` | Annotate lambda: `(t: string)` |
+| `subjects.ts:3` | `RunContext` not in `./types` | Replace `RunContext<T>` with `Run` |
+| `subjects.ts:3` | `ToolMeta` not in `./types` | Import from `./tool` instead (non-generic `ToolMeta`) |
+
+#### 9a — Metrics subsystem: integrate ✅ recommended
+The `AgentMetricHookRegistry` / `AgentMetricCollector` subsystem is worth keeping:
+`EvaluateAfterRequest.metrics` already accepts `[key: string]: number | undefined`, so custom metric
+hook values can flow through `afterTool` into every evaluate request.
+
+- [ ] `metrics/types.ts` — replace `RunContext<any>` with `import type { Run } from "../run"`; update
+  `AgentMetricInputToolBefore` / `AgentMetricInputToolAfter` to carry a `run: Run` field instead
+- [ ] `HandlebarConfig` — add optional `metricHooks?: AgentMetricHook[]`
+- [ ] `RunInternalConfig` — add optional `metricRegistry?: AgentMetricHookRegistry`
+- [ ] `HandlebarClient.init()` — if `config.metricHooks` is set, build an `AgentMetricHookRegistry`,
+  register all hooks, pass instance into every `new Run()` call via `RunInternalConfig`
+- [ ] `Run.afterTool()` — after the existing `buildMetrics()` call, run `tool.after` hooks from the
+  registry; merge returned key/value pairs into the `metrics` object sent to `api.evaluate()`
+- [ ] `Run.beforeTool()` — run `tool.before` hooks; results are not sent to `evaluate()` today but
+  collected for potential future use (or discarded with a TODO)
+- [ ] `index.ts` — export `AgentMetricHook`, `AgentMetricHookPhase`, `AgentMetricHookRegistry`,
+  `AgentMetricCollector`, `MetricInfo` from public surface
+- [ ] Add unit tests covering: hook runs and custom metrics appear in evaluate request; hook timeout
+  respected; non-blocking hooks don't delay `afterTool` return
+
+#### 9b — Signals: drop `SignalRegistry`; delete `signals.ts`
+The `SignalBinding` type only draws from sources already in the evaluate payload: `toolArg`,
+`enduserTag`, `subject`, `toolName`, `toolTag`, `const`. Every binding value is either tool
+metadata, actor metadata, or a subject extracted by the client and sent to the server. There is
+nothing the server cannot evaluate itself once it receives the subjects data. A client-side signal
+provider that just maps bound args → comparison value is redundant.
+
+The only scenario that would genuinely require client-side signal computation is **external service
+lookups** (e.g. `await threatIntel.getScore(userId)`). If that use case arises, the right model is a
+simple `customValues?: Record<string, unknown>` field on the evaluate request — not the full binding
+engine.
+
+- [ ] Delete `signals.ts` — `SignalRegistry`, `SignalEvalEnv`, `resultToSignalSchema`, `compareSignal`,
+  `sanitiseSignals` are all removed
+- [ ] Verify nothing in `index.ts` re-exports from `signals.ts` (none currently)
+- [ ] Update the Phase 7 parity table entry from "Dropped" to "Dropped — confirmed; server evaluates
+  signal conditions using subjects + evaluate payload data"
+- [ ] If external-service signal values are needed later, add `customValues?: Record<string, unknown>`
+  to `EvaluateBeforeRequest` / `EvaluateAfterRequest` as a thin escape hatch (separate ticket)
+
+#### 9c — Subjects: keep as optional client-side entity extraction
+Same situation as signals: listed as "Dropped" but the `SubjectRegistry` provides useful context that
+only the client can extract (e.g. from tool args) and ship to the server for rule evaluation.
+
+- [ ] `subjects.ts` — fix type errors:
+  - Replace `RunContext<T>` with `Run` (import from `./run`)
+  - Replace generic `ToolMeta<T>` with non-generic `ToolMeta` (import from `./tool`)
+  - Update `SubjectExtractor` and `SubjectRegistry` type signatures accordingly
+- [ ] `EvaluateBeforeRequest` / `EvaluateAfterRequest` — add optional `subjects?: SubjectRef[]` field
+- [ ] `HandlebarConfig` — add optional `subjectRegistry?: SubjectRegistry`
+- [ ] `RunInternalConfig` — add optional `subjectRegistry?: SubjectRegistry`
+- [ ] `Run.beforeTool()` — if registry present, call `registry.extract()` and attach
+  `sanitiseSubjects(subjects)` to the evaluate request; pass subjects into any signal evaluation env
+- [ ] `index.ts` — export `SubjectRegistry`, `SubjectExtractor`, `SubjectRef`, `sanitiseSubjects`
+- [ ] Add unit tests covering: subjects appear in evaluate request; extractor error returns `[]`
+
+#### 9d — Budget manager: park (no change)
+`BudgetManager` has no type errors and no callers in the new core. Leave as-is — unchanged from the
+original Q2 deferral decision. Future: could be used by `ApiManager` to cache budget-decision
+responses and skip redundant evaluate calls.
+
+---
+
 ### Phase 8 — Framework integration guide ✅
 - [x] Map lifecycle hooks to Vercel AI SDK v5 — `@handlebar/ai-sdk-v5` wrapper (`HandlebarAgent`) + manual `generateText`/`streamText` pattern via tool wrapping + `onStepFinish`
 - [x] Map lifecycle hooks to LangChain JS — tool wrapping (full governance) and `BaseCallbackHandler` (audit/shadow) patterns; documented limitations of callback approach
