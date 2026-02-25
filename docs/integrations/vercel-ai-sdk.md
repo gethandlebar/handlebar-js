@@ -44,7 +44,7 @@ const agent = new HandlebarAgent({
   model: openai("gpt-4o"),
   tools,
   hb,
-  // Per-tool tags for governance rule matching:
+  // Optional: Per-tool tags for governance rule matching
   toolTags: {
     search: ["read-only"],
     send_email: ["write", "external"],
