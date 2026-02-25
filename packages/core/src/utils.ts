@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { InsertableTool, Tool } from "./types";
 
 export type Id = string;
 export type ISO8601 = string; // date string
@@ -103,4 +104,22 @@ export function getByDotPath(obj: unknown, path: string): unknown {
 		cur = cur[p];
 	}
 	return cur;
+}
+
+function slugify(input: string): string {
+	return input
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
+export function toolToInsertableTool(tool: Tool): InsertableTool {
+	return {
+		key: `function:${slugify(tool.name)}`,
+		name: tool.name,
+		description: tool.description,
+		version: 1,
+		kind: "function",
+		metadata: tool.tags ? { metadata: tool.tags } : undefined,
+	};
 }

@@ -32,7 +32,7 @@ export type EnforceMode = "enforce" | "shadow" | "off";
 // Tool
 // ---------------------------------------------------------------------------
 
-// Framework-agnostic tool descriptor. No Vercel AI or other framework shape assumed.
+// Framework-agnostic tool descriptor
 export type Tool<
 	Name extends string = string,
 	// biome-ignore lint/suspicious/noExplicitAny: phantom type for inference
@@ -43,9 +43,24 @@ export type Tool<
 	name: Name;
 	description?: string;
 	tags?: string[];
+
 	// Phantom types — not present at runtime, used for TypeScript inference only.
 	readonly _args?: Args;
 	readonly _result?: Result;
+};
+
+/**
+ * Tool object the Handlebar server expects.
+ */
+export type InsertableTool = {
+	key: string; // Unique slug identifier for the tool
+	name: string;
+	description?: string;
+	version: number;
+	kind: "function" | "mcp";
+	metadata?: {
+		metadata?: string[];
+	};
 };
 
 export type ToolCall = {

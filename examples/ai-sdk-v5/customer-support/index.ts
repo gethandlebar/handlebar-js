@@ -215,12 +215,12 @@ const afterToolUsageMetric: AgentMetricHook<"tool.after"> = {
 
 const runtimeOpts = {
   actor: {
-    externalId: "an-enduser-id", // The user's ID in your system, so you can identify their agent usage.
-    metadata: { role: "user" }, // Optional
+    externalId: "mr-test", // The user's ID in your system, so you can identify their agent usage.
+    metadata: { role: "user", newjoiner: "true" }, // Optional
     // Group information is optional.
     // If provided, Handlebar will link the provided user to the group.
     group: {
-      externalId: "endusers-org",
+      externalId: "mr-tests-company",
       name: "Your customer org",
       metadata: { region: "eu", plan: "premium" },
     },

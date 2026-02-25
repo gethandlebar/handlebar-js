@@ -9,6 +9,7 @@ import type {
 	Tool,
 } from "../types";
 import { FAILCLOSED_DECISION, FAILOPEN_DECISION } from "../types";
+import { toolToInsertableTool } from "../utils";
 
 export const DEFAULT_ENDPOINT = "https://api.gethandlebar.com";
 
@@ -132,11 +133,7 @@ export class ApiManager {
 
 		const url = this.url(`/v1/agents/${agentId}/tools`);
 		const body = {
-			tools: tools.map((t) => ({
-				name: t.name,
-				description: t.description,
-				tags: t.tags,
-			})),
+			tools: tools.map(toolToInsertableTool),
 		};
 
 		try {
