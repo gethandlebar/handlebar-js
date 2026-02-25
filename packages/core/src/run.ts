@@ -27,6 +27,7 @@ export type RunState = "active" | "ended";
 export type RunInternalConfig = {
 	runConfig: RunConfig;
 	agentId: string | null;
+	tools: Tool[] | null;
 	enforceMode: "enforce" | "shadow" | "off";
 	failClosed: boolean;
 	api: ApiManager;
@@ -48,6 +49,7 @@ export class Run {
 	private pendingLlmTokensOut = 0;
 
 	private readonly agentId: string | null;
+	private readonly tools: Tool[] | null;
 	private readonly enforceMode: "enforce" | "shadow" | "off";
 	private readonly api: ApiManager;
 	private readonly bus: SinkBus;
@@ -61,6 +63,7 @@ export class Run {
 		this.actor = config.runConfig.actor;
 		this.tags = config.runConfig.tags ?? {};
 		this.agentId = config.agentId;
+		this.tools = config.tools;
 		this.enforceMode = config.enforceMode;
 		this.api = config.api;
 		this.bus = config.bus;
@@ -155,6 +158,9 @@ export class Run {
 		};
 
 		const decision = await this.api.evaluate(this.runId, req);
+		const registeredToolCategories = this.tools?.find(
+			(t) => t.name === toolName,
+		)?.tags;
 
 		// Emit tool.decision event.
 		this.emit({
@@ -172,7 +178,10 @@ export class Run {
 				message: decision.message,
 				evaluatedRules: decision.evaluatedRules,
 				finalRuleId: decision.finalRuleId,
-				tool: { name: toolName, categories: toolTags },
+				tool: {
+					name: toolName,
+					categories: toolTags ?? registeredToolCategories,
+				},
 			},
 		});
 
@@ -255,6 +264,10 @@ export class Run {
 
 		// Emit tool.result event.
 		const errorAsError = error instanceof Error ? error : null;
+		const registeredToolCategories = this.tools?.find(
+			(t) => t.name === toolName,
+		)?.tags;
+
 		this.emit({
 			schema: "handlebar.audit.v1",
 			ts: new Date(),
@@ -264,7 +277,10 @@ export class Run {
 			stepIndex: this.stepIndex,
 			kind: "tool.result",
 			data: {
-				tool: { name: toolName, categories: toolTags },
+				tool: {
+					name: toolName,
+					categories: toolTags ?? registeredToolCategories,
+				},
 				outcome: error ? "error" : "success",
 				durationMs,
 				error: errorAsError

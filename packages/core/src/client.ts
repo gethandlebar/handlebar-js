@@ -40,6 +40,7 @@ export class HandlebarClient {
 	private readonly metricRegistry: AgentMetricHookRegistry | undefined;
 	private readonly subjectRegistry: SubjectRegistry | undefined;
 	private agentId: string | null = null;
+	private tools: Tool[] | null = null;
 	// Tracks active runs by runId for idempotent startRun.
 	private readonly activeRuns = new Map<string, Run>();
 	// Resolves once init() completes (agent upsert + tool registration).
@@ -89,6 +90,7 @@ export class HandlebarClient {
 
 	async registerTools(tools: Tool[]): Promise<void> {
 		await this.initPromise; // wait for agent upsert to complete
+		this.tools = tools;
 		if (this.agentId) {
 			await this.api.registerTools(this.agentId, tools);
 		}
@@ -127,6 +129,7 @@ export class HandlebarClient {
 		const run = new Run({
 			runConfig: config,
 			agentId: this.agentId,
+			tools: this.tools,
 			enforceMode: this.config.enforceMode ?? "enforce",
 			failClosed: this.config.failClosed ?? false,
 			api: this.api,
