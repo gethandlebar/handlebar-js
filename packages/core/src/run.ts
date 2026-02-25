@@ -110,13 +110,13 @@ export class Run {
 		}
 		// Flush LLM token deltas accumulated since the last evaluate.
 		if (this.pendingLlmTokensIn > 0) {
-      beforeMetrics.llm_tokens_in = this.pendingLlmTokensIn;
+			beforeMetrics.llm_tokens_in = this.pendingLlmTokensIn;
 			this.pendingLlmTokensIn = 0;
 		}
 		if (this.pendingLlmTokensOut > 0) {
 			beforeMetrics.llm_tokens_out = this.pendingLlmTokensOut;
 			this.pendingLlmTokensOut = 0;
-    }
+		}
 		if (this.metricRegistry) {
 			await this.metricRegistry.runPhase(
 				"tool.before",
@@ -167,7 +167,7 @@ export class Run {
 			data: {
 				verdict: decision.verdict,
 				control: decision.control,
-        cause: decision.cause,
+				cause: decision.cause,
 				message: decision.message,
 				evaluatedRules: decision.evaluatedRules,
 				finalRuleId: decision.finalRuleId,
@@ -315,7 +315,7 @@ export class Run {
 
 	// Call after the LLM responds.
 	// Returns (possibly modified) response — surface for future response rewriting.
-  async afterLlm(response: LLMResponse): Promise<LLMResponse> {
+	async afterLlm(response: LLMResponse): Promise<LLMResponse> {
 		if (this.state !== "active") {
 			return response;
 		}

@@ -32,7 +32,9 @@ export function wrapTool<T extends StructuredToolInterface>(
 		options?: Parameters<T["invoke"]>[1],
 	): Promise<string> => {
 		const run = getCurrentRun();
-		if (!run) return originalInvoke(input, options);
+		if (!run) {
+			return originalInvoke(input, options);
+		}
 
 		const decision = await run.beforeTool(tool.name, input, toolTags);
 

@@ -51,12 +51,7 @@ export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 export const RunEndedEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("run.ended"),
 	data: z.object({
-		status: z.enum([
-			"error",
-			"success",
-			"timeout",
-			"interrupted",
-		]),
+		status: z.enum(["error", "success", "timeout", "interrupted"]),
 		totalSteps: z.number().min(0),
 		summary: z.string().optional(),
 	}),

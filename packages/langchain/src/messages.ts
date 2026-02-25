@@ -28,7 +28,9 @@ export function langchainMessageToLlmMessage(
 	msg: BaseMessage,
 ): LLMMessage | undefined {
 	const role = langchainRoleToLlmRole(msg._getType());
-	if (!role) return undefined;
+	if (!role) {
+		return undefined;
+	}
 
 	if (typeof msg.content === "string") {
 		return { role, content: msg.content };
@@ -81,7 +83,9 @@ export function llmResultToLlmResponse(
 function extractTokenUsage(
 	llmOutput?: Record<string, unknown>,
 ): TokenUsage | undefined {
-	if (!llmOutput) return undefined;
+	if (!llmOutput) {
+		return undefined;
+	}
 	// biome-ignore lint/suspicious/noExplicitAny: token usage shape varies by provider
 	const u = (llmOutput.tokenUsage ??
 		llmOutput.usage ??

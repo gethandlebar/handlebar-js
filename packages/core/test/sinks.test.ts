@@ -223,7 +223,9 @@ describe("HttpSink", () => {
 				body: JSON.parse(init?.body as string),
 			});
 			attempt++;
-			if (attempt === 1) return new Response(null, { status: 503 });
+			if (attempt === 1) {
+				return new Response(null, { status: 503 });
+			}
 			return new Response(null, { status: 200 });
 		}) as typeof fetch;
 

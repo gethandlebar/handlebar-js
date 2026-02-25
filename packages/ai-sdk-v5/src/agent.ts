@@ -105,7 +105,9 @@ export class HandlebarAgent<
 		// Detect EXIT_RUN_CODE in any tool output to stop the agent loop.
 		stopWhen.push(({ steps }) => {
 			const lastStep = steps[steps.length - 1];
-			if (!lastStep) return false;
+			if (!lastStep) {
+				return false;
+			}
 			for (const toolResult of lastStep.toolResults) {
 				try {
 					if (JSON.stringify(toolResult.output).includes(EXIT_RUN_CODE))
@@ -120,7 +122,9 @@ export class HandlebarAgent<
 		const msgCountByRun = new Map<string, number>();
 
 		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) return t;
+			if (!t.execute) {
+				return t;
+			}
 			const exec = t.execute.bind(t);
 			const tags = toolTags[name as string] ?? [];
 
@@ -209,7 +213,7 @@ export class HandlebarAgent<
 					run &&
 					(step.usage.inputTokens !== undefined ||
 						step.usage.outputTokens !== undefined)
-        ) {
+				) {
 					await run.afterLlm({
 						// Map full step content — includes text parts AND tool calls.
 						content: mapStepContent(step.content),
