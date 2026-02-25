@@ -136,7 +136,7 @@ const beforeToolUsageMetric: AgentMetricHook = {
 const afterToolUsageMetric: AgentMetricHook<"tool.after"> = {
   phase: "tool.after",
   key: "after_tool_metric_1",
-  run: async ({ toolName, runContext, result }) => { // Can be async
+  run: async ({ toolName, result }) => { // Can be async
     if (toolName !== "issueRefund") {
       return;
     }
@@ -216,11 +216,11 @@ const afterToolUsageMetric: AgentMetricHook<"tool.after"> = {
 const runtimeOpts = {
   actor: {
     externalId: "mr-test", // The user's ID in your system, so you can identify their agent usage.
-    metadata: { role: "user", newjoiner: "true" }, // Optional
+    metadata: { role: "user", newjoiner: "true" }, // Optional metadata
     // Group information is optional.
     // If provided, Handlebar will link the provided user to the group.
     group: {
-      externalId: "mr-tests-company",
+      externalId: "some-company",
       name: "Your customer org",
       metadata: { region: "eu", plan: "premium" },
     },
