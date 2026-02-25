@@ -165,22 +165,12 @@ export class Run {
 			stepIndex: this.stepIndex,
 			kind: "tool.decision",
 			data: {
-				// New core fields.
 				verdict: decision.verdict,
 				control: decision.control,
-				cause: decision.cause,
+        cause: decision.cause,
+				message: decision.message,
 				evaluatedRules: decision.evaluatedRules,
 				finalRuleId: decision.finalRuleId,
-				// Required legacy fields (satisfy schema — new core leaves them empty).
-				effect: decision.verdict === "ALLOW" ? "allow" : "block",
-				// biome-ignore lint/suspicious/noExplicitAny: legacy schema compat
-				code: (decision.verdict === "ALLOW"
-					? "ALLOWED"
-					: "BLOCKED_RULE") as any,
-				matchedRuleIds: decision.evaluatedRules
-					.filter((r) => r.matched)
-					.map((r) => r.ruleId),
-				appliedActions: [],
 				tool: { name: toolName, categories: toolTags },
 			},
 		});
