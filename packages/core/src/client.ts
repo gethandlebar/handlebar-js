@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { ApiManager } from "./api/manager";
+import { ApiManager, DEFAULT_ENDPOINT } from "./api/manager";
 import { AgentMetricHookRegistry } from "./metrics/hooks";
 import type { AgentMetricHook } from "./metrics/types";
 import { Run } from "./run";
@@ -151,8 +151,7 @@ export class HandlebarClient {
 	private async initSinks(sinks?: SinkConfig[]): Promise<void> {
 		if (!sinks || sinks.length === 0) {
 			// Default: HTTP sink to Handlebar API.
-			const endpoint =
-				this.config.apiEndpoint ?? "https://api.gethandlebar.com";
+			const endpoint = this.config.apiEndpoint ?? DEFAULT_ENDPOINT;
 			this.bus.add(
 				createHttpSink(
 					endpoint,
@@ -165,9 +164,7 @@ export class HandlebarClient {
 					this.bus.add(createConsoleSink({ format: sinkConfig.format }));
 				} else if (sinkConfig.type === "http") {
 					const endpoint =
-						sinkConfig.endpoint ??
-						this.config.apiEndpoint ??
-						"https://api.gethandlebar.com";
+						sinkConfig.endpoint ?? this.config.apiEndpoint ?? DEFAULT_ENDPOINT;
 					const apiKey =
 						sinkConfig.apiKey ??
 						this.config.apiKey ??

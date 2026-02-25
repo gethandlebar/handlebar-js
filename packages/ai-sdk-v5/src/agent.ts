@@ -2,6 +2,7 @@ import {
 	type Actor,
 	getCurrentRun,
 	type HandlebarClient,
+	type Tool as HandlebarTool,
 	type LLMMessage,
 	type ModelInfo,
 	type RunConfig,
@@ -75,6 +76,8 @@ export class HandlebarAgent<
 > {
 	private readonly inner: Agent<ToolSet, Ctx, Memory>;
 	private readonly hb: HandlebarClient;
+	private readonly tools: HandlebarTool[];
+	private readonly hasRegisteredTools: boolean;
 	private readonly model: ModelInfo;
 	private readonly runDefaults:
 		| Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">
@@ -90,6 +93,22 @@ export class HandlebarAgent<
 		} = opts;
 
 		this.hb = hb;
+
+		const toolMeta: HandlebarTool[] = [];
+		for (const name in tools) {
+			const t = tools[name];
+			if (t === undefined) {
+				continue;
+			}
+			toolMeta.push({
+				name: name as string,
+				description: t.description,
+				tags: toolTags[name],
+			});
+		}
+		this.tools = toolMeta;
+		this.hasRegisteredTools = false;
+
 		this.model = resolveModel(rest.model);
 		this.runDefaults = runDefaults;
 
@@ -233,6 +252,12 @@ export class HandlebarAgent<
 		});
 	}
 
+	private async registerTools() {
+		if (!this.hasRegisteredTools && this.tools.length > 0) {
+			await this.hb.registerTools(this.tools);
+		}
+	}
+
 	private startRun(callOpts: RunCallOpts) {
 		return this.hb.startRun({
 			runId: uuidv7(),
@@ -248,6 +273,7 @@ export class HandlebarAgent<
 		runOpts: RunCallOpts,
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>
 	) {
+		await this.registerTools();
 		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
@@ -265,6 +291,7 @@ export class HandlebarAgent<
 		runOpts: RunCallOpts,
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>
 	) {
+		await this.registerTools();
 		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
@@ -282,6 +309,7 @@ export class HandlebarAgent<
 		runOpts: RunCallOpts,
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>
 	) {
+		await this.registerTools();
 		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {

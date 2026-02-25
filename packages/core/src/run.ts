@@ -17,6 +17,7 @@ import type {
 	ModelInfo,
 	RunConfig,
 	RunEndStatus,
+	Tool,
 	ToolResult,
 } from "./types";
 import { deriveOutputText, FAILOPEN_DECISION } from "./types";

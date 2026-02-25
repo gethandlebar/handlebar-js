@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { FAILCLOSED_DECISION, FAILOPEN_DECISION } from "../types";
 
-const DEFAULT_ENDPOINT = "https://api.gethandlebar.com";
+export const DEFAULT_ENDPOINT = "https://api.gethandlebar.com";
 
 const RETRY_DEFAULTS = {
 	maxRetries: 3,
