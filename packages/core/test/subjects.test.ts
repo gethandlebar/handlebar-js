@@ -3,17 +3,10 @@ import { SubjectRegistry, sanitiseSubjects } from "../src/subjects";
 
 function makeExtractArgs(toolName = "send_email") {
 	return {
-		tool: { name: toolName },
+		tool: {},
 		toolName,
 		toolArgs: { to: "alice@example.com" },
-		runContext: {
-			runId: "run-1",
-			stepIndex: 0,
-			history: [],
-			counters: {},
-			state: new Map(),
-			now: () => Date.now(),
-		} as any,
+		run: { runId: "run-1" } as any,
 	};
 }
 

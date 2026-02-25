@@ -7,6 +7,10 @@ import { AuditEnvelopeSchema } from "./events.base";
 import { LLMResultEventSchema, MessageEventSchema } from "./events.llm";
 import { ToolDecisionEventSchema, ToolResultEventSchema } from "./events.tools";
 
+const ActorSchema = EndUserConfigSchema.extend({
+	group: EndUserGroupConfigSchema.optional(),
+});
+
 export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("run.started"),
 	data: z.object({
@@ -17,10 +21,7 @@ export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 			id: z.string().optional(),
 			name: z.string().optional(),
 		}),
-		enduser: EndUserConfigSchema.extend({
-			// If a group if also provided, the user will be attached to the group.
-			group: EndUserGroupConfigSchema.optional(),
-		}).optional(),
+		actor: ActorSchema.optional(),
 		model: z
 			.object({
 				provider: z.string().optional(),
@@ -50,9 +51,8 @@ export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 export const RunEndedEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("run.ended"),
 	data: z.object({
-		status: z.enum(["ok", "error", "blocked"]),
+		status: z.enum(["error", "success", "timeout", "interrupted"]),
 		totalSteps: z.number().min(0),
-		firstErrorDecisionId: z.string().optional(), // DEPRECATED.
 		summary: z.string().optional(),
 	}),
 });

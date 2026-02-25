@@ -1,4 +1,4 @@
-import type { LLMMessage } from "@handlebar/core";
+import type { LLMMessage, LLMMessagePart } from "@handlebar/core";
 import type { MessageEventSchema } from "@handlebar/governance-schema";
 import {
 	type AssistantContent,
@@ -15,6 +15,59 @@ import type { z } from "zod";
 
 type Message = z.infer<typeof MessageEventSchema>["data"];
 type FormattedMessageContent = Pick<Message, "content" | "kind" | "role">;
+
+export function modelMessageToLlmMessage(
+	message: ModelMessage,
+): LLMMessage | undefined {
+	if (typeof message.content === "string") {
+		return {
+			role: message.role,
+			content: message.content,
+		};
+	}
+
+	if (Array.isArray(message.content)) {
+		const msgParts: LLMMessagePart[] = [];
+
+		for (const part of message.content) {
+			if (part.type === "text") {
+				msgParts.push({
+					type: "text",
+					text: part.text,
+				});
+			} else if (part.type === "reasoning") {
+				msgParts.push({
+					type: "thinking",
+					thinking: part.text,
+				});
+			} else if (part.type === "tool-call") {
+				msgParts.push({
+					type: "tool_use",
+					toolName: part.toolName,
+					input: part.input,
+					toolUseId: part.toolCallId,
+				});
+			} else if (part.type === "tool-result") {
+				msgParts.push({
+					type: "tool_result",
+					toolUseId: part.toolCallId,
+					content:
+						typeof part.output === "string"
+							? part.output
+							: JSON.stringify(part.output),
+				});
+			}
+			// We don't support file or image atm.
+		}
+
+		return {
+			content: msgParts,
+			role: message.role,
+		};
+	}
+
+	return undefined;
+}
 
 function aiRoleToHandlebarKind(role: ModelMessage["role"]): Message["kind"] {
 	switch (role) {
@@ -62,7 +115,7 @@ function formatToolContent(
 	const partContent: string[] = [];
 	for (const part of content) {
 		if (Array.isArray(part.output.value)) {
-			for (const subpart of part.output.value) {
+			for (const _subpart of part.output.value) {
 				// TODO: finish this!!!
 			}
 		}

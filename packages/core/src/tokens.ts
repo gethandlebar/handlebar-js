@@ -1,12 +1,6 @@
-import type { LLMResultEventSchema } from "@handlebar/governance-schema";
 import { Tiktoken } from "tiktoken";
 import cl100k from "tiktoken/encoders/cl100k_base";
-import type { z } from "zod";
-
-type LLMMessageKind = keyof NonNullable<
-	z.infer<typeof LLMResultEventSchema>["data"]["debug"]
->["inTokenAttribution"];
-export type LLMMessage = { kind: LLMMessageKind; content: string };
+import type { LLMMessage } from "./types";
 
 function tokenise<T>(fn: (tokeniser: Tiktoken) => T) {
 	const tokeniser = new Tiktoken(
@@ -29,13 +23,15 @@ export function tokeniseCount(text: string): number {
 
 export function tokeniseByKind(
 	messages: LLMMessage[],
-): Partial<Record<LLMMessageKind, number>> {
+): Partial<Record<LLMMessage["role"], number>> {
 	return tokenise((tokeniser) => {
-		const counts: Partial<Record<LLMMessageKind, number>> = {};
+		const counts: Partial<Record<LLMMessage["role"], number>> = {};
 
 		for (const message of messages) {
-			const tokens = tokeniser.encode(message.content);
-			counts[message.kind] = (counts[message.kind] ?? 0) + tokens.length;
+			if (typeof message.content === "string") {
+				const tokens = tokeniser.encode(message.content);
+				counts[message.role] = (counts[message.role] ?? 0) + tokens.length;
+			}
 		}
 		return counts;
 	});

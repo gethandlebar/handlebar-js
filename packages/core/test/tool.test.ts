@@ -1,66 +1,66 @@
-import { describe, expect, it } from "bun:test";
-import { toolResultMetadata } from "../src/tool";
+import { describe, expect, test } from "bun:test";
+import { defineTool, wrapTool } from "../src/tool";
 
-describe("toolResultMetadata", () => {
-	it("should treat null input as strings", () => {
-		expect(toolResultMetadata(null)).toEqual({
-			approxTokens: 1,
-			bytes: 0,
-			chars: 4,
-		});
+describe("wrapTool", () => {
+	test("adds tags to a plain tool", () => {
+		const tool = { name: "search" };
+		const wrapped = wrapTool(tool, { tags: ["read-only"] });
+		expect(wrapped.name).toBe("search");
+		expect(wrapped.tags).toEqual(["read-only"]);
 	});
 
-	it("should return undefined values for undefined", () => {
-		expect(toolResultMetadata(undefined)).toEqual({
-			approxTokens: undefined,
-			bytes: 0,
-			chars: undefined,
-		});
+	test("merges description", () => {
+		const tool = { name: "search" };
+		const wrapped = wrapTool(tool, { description: "Search the web" });
+		expect(wrapped.description).toBe("Search the web");
 	});
 
-	it("should treat bool input as strings", () => {
-		expect(toolResultMetadata(true)).toEqual({
-			approxTokens: 1,
-			bytes: 4,
-			chars: 4,
-		});
-
-		expect(toolResultMetadata(false)).toEqual({
-			approxTokens: 1,
-			bytes: 5,
-			chars: 5,
-		});
+	test("preserves all original tool properties", () => {
+		const tool = { name: "search", execute: () => "result", custom: 42 };
+		const wrapped = wrapTool(tool, { tags: ["read"] });
+		expect(wrapped.execute).toBeDefined();
+		expect(wrapped.custom).toBe(42);
 	});
 
-	it("should calculate for string", () => {
-		const data =
-			"this is a string with some number of tokens SolidGoldMagikarp";
-		const output = toolResultMetadata(data);
-
-		expect(output.approxTokens).not.toBeUndefined();
-		expect(output.approxTokens).toEqual(16);
-
-		expect(output.bytes).not.toBeUndefined();
-		expect(output.bytes).toEqual(61);
-
-		expect(output.chars).not.toBeUndefined();
-		expect(output.chars).toEqual(63);
+	test("meta tags override existing tool tags", () => {
+		const tool = { name: "search", tags: ["old-tag"] };
+		const wrapped = wrapTool(tool, { tags: ["new-tag"] });
+		expect(wrapped.tags).toEqual(["new-tag"]);
 	});
 
-	it("should stringify objects", () => {
-		const data = {
-			someValue: { nested: 1 },
-			another: "a string with some number of tokens",
+	test("falls back to existing tool tags when meta provides none", () => {
+		const tool = { name: "search", tags: ["existing"] };
+		const wrapped = wrapTool(tool, {});
+		expect(wrapped.tags).toEqual(["existing"]);
+	});
+
+	test("TypeScript: wrapped type retains original shape", () => {
+		const tool = {
+			name: "write_file" as const,
+			execute: (_path: string) => true,
 		};
+		const wrapped = wrapTool(tool, { tags: ["write"] });
+		// Type check: wrapped.execute should be callable.
+		expect(wrapped.execute("/tmp/x")).toBe(true);
+	});
+});
 
-		const output = toolResultMetadata(data);
-		expect(output.approxTokens).not.toBeUndefined();
-		expect(output.approxTokens).toEqual(18);
+describe("defineTool", () => {
+	test("creates a tool with name and tags", () => {
+		const t = defineTool("read_file", { tags: ["filesystem", "read-only"] });
+		expect(t.name).toBe("read_file");
+		expect(t.tags).toEqual(["filesystem", "read-only"]);
+	});
 
-		expect(output.bytes).not.toBeUndefined();
-		expect(output.bytes).toEqual(74);
+	test("defaults to empty tags and description when meta omitted", () => {
+		const t = defineTool("noop");
+		expect(t.tags).toEqual([]);
+		expect(t.description).toBe("");
+	});
 
-		expect(output.chars).not.toBeUndefined();
-		expect(output.chars).toEqual(74);
+	test("name is preserved as literal type", () => {
+		const t = defineTool("my_tool" as const);
+		// TypeScript: t.name should be "my_tool" literal, checked at runtime.
+		expect(t.name).toBe("my_tool");
 	});
 });

@@ -1,7 +1,6 @@
 {
-	"name": "@handlebar/governance-schema",
-	"version": "0.1.1-beta.1",
-	"private": false,
+	"name": "@handlebar/langchain",
+	"version": "0.1.0",
 	"type": "module",
 	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
@@ -13,6 +12,14 @@
 	"scripts": {
 		"build": "bun run build.ts && tsc -p tsconfig.json"
 	},
+	"dependencies": {
+		"@handlebar/core": "0.1.0",
+		"@handlebar/governance-schema": "0.1.0",
+		"uuidv7": "^1.1.0"
+	},
+	"peerDependencies": {
+		"@langchain/core": "^1.1.27"
+	},
 	"keywords": [
 		"llm",
 		"agent",
@@ -22,9 +29,7 @@
 		"governance",
 		"tool-calling",
 		"mcp",
+		"vercel",
 		"handlebar"
-	],
-	"dependencies": {
-		"zod": "^4.1.12"
-	}
+	]
 }

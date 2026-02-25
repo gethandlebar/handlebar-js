@@ -37,7 +37,12 @@ describe("AgentMetricCollector – inbuilt metrics", () => {
 
 	it("all inbuilt kinds are accepted", () => {
 		const c = new AgentMetricCollector();
-		for (const kind of ["bytes_in", "bytes_out", "duration_ms", "records_out"] as const) {
+		for (const kind of [
+			"bytes_in",
+			"bytes_out",
+			"duration_ms",
+			"records_out",
+		] as const) {
 			c.setInbuilt(kind, 1);
 		}
 		const payload = c.toEventPayload();

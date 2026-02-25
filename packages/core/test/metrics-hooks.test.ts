@@ -5,14 +5,7 @@ function makeBeforeCtx() {
 	return {
 		toolName: "test_tool",
 		args: { count: 3 },
-		runContext: {
-			runId: "run-1",
-			stepIndex: 0,
-			history: [],
-			counters: {},
-			state: new Map(),
-			now: () => Date.now(),
-		} as any,
+		run: { runId: "run-1" } as any,
 	};
 }
 
@@ -28,14 +21,22 @@ describe("AgentMetricHookRegistry.registerHook", () => {
 	it("invalid key throws", () => {
 		const reg = new AgentMetricHookRegistry();
 		expect(() =>
-			reg.registerHook({ key: "bad-key!", phase: "tool.before", run: () => {} }),
+			reg.registerHook({
+				key: "bad-key!",
+				phase: "tool.before",
+				run: () => {},
+			}),
 		).toThrow();
 	});
 
 	it("valid key is accepted", () => {
 		const reg = new AgentMetricHookRegistry();
 		expect(() =>
-			reg.registerHook({ key: "valid_key", phase: "tool.before", run: () => {} }),
+			reg.registerHook({
+				key: "valid_key",
+				phase: "tool.before",
+				run: () => {},
+			}),
 		).not.toThrow();
 	});
 });
@@ -59,7 +60,11 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		);
 
 		expect(collected).toHaveLength(1);
-		expect(collected[0]).toEqual({ key: "my_metric", value: 42, unit: "count" });
+		expect(collected[0]).toEqual({
+			key: "my_metric",
+			value: 42,
+			unit: "count",
+		});
 	});
 
 	it("async hook is awaited", async () => {
@@ -71,7 +76,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toEqual([7]);
 	});
@@ -86,7 +93,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toHaveLength(0);
 	});
@@ -101,7 +110,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toEqual([5]);
 	});
@@ -115,7 +126,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toHaveLength(0);
 	});
@@ -129,7 +142,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toHaveLength(0);
 	});
@@ -143,7 +158,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.after", makeAfterCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.after", makeAfterCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toEqual([3]);
 	});
@@ -158,7 +175,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		reg.unregisterHook("removable", "tool.before");
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 
 		expect(collected).toHaveLength(0);
 	});
@@ -176,7 +195,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 		expect(collected).toHaveLength(0);
 	});
 
@@ -193,7 +214,9 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 		});
 
 		const collected: number[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) => collected.push(v));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (_, v) =>
+			collected.push(v),
+		);
 		expect(collected).toEqual([5]);
 	});
 
@@ -243,11 +266,21 @@ describe("AgentMetricHookRegistry.runPhase", () => {
 
 	it("multiple hooks in same phase all fire", async () => {
 		const reg = new AgentMetricHookRegistry();
-		reg.registerHook({ key: "m1", phase: "tool.before", run: () => ({ value: 1 }) });
-		reg.registerHook({ key: "m2", phase: "tool.before", run: () => ({ value: 2 }) });
+		reg.registerHook({
+			key: "m1",
+			phase: "tool.before",
+			run: () => ({ value: 1 }),
+		});
+		reg.registerHook({
+			key: "m2",
+			phase: "tool.before",
+			run: () => ({ value: 2 }),
+		});
 
 		const collected: string[] = [];
-		await reg.runPhase("tool.before", makeBeforeCtx(), (k) => collected.push(k));
+		await reg.runPhase("tool.before", makeBeforeCtx(), (k) =>
+			collected.push(k),
+		);
 
 		expect(collected).toContain("m1");
 		expect(collected).toContain("m2");
