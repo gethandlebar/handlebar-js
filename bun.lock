@@ -29,7 +29,7 @@
     },
     "packages/ai-sdk-v5": {
       "name": "@handlebar/ai-sdk-v5",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@handlebar/core": "0.1.0",
         "@handlebar/governance-schema": "0.1.0",
@@ -42,9 +42,9 @@
     },
     "packages/core": {
       "name": "@handlebar/core",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
-        "@handlebar/governance-schema": "0.1.0",
+        "@handlebar/governance-schema": "^0.2.0",
         "tiktoken": "^1.0.22",
         "uuidv7": "^1.1.0",
         "zod": "^4.1.12",
@@ -52,7 +52,7 @@
     },
     "packages/governance-schema": {
       "name": "@handlebar/governance-schema",
-      "version": "0.1.1-beta.1",
+      "version": "0.2.0",
       "dependencies": {
         "zod": "^4.1.12",
       },
