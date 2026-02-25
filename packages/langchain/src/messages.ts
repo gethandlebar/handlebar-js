@@ -86,9 +86,9 @@ function extractTokenUsage(
 	if (!llmOutput) {
 		return undefined;
 	}
-	// biome-ignore lint/suspicious/noExplicitAny: token usage shape varies by provider
 	const u = (llmOutput.tokenUsage ??
 		llmOutput.usage ??
+		// biome-ignore lint/suspicious/noExplicitAny: token usage shape varies by provider
 		llmOutput.token_usage) as any;
 	if (!u || typeof u !== "object") return undefined;
 	return {

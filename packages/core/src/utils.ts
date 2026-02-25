@@ -17,6 +17,7 @@ export function now(): ISO8601 {
 export function stableJson(v: unknown): string {
 	const seen = new WeakSet<object>();
 
+	// biome-ignore lint/suspicious/noExplicitAny: not sure what's coming in
 	const norm = (x: any): any => {
 		if (x && typeof x === "object") {
 			if (seen.has(x)) {
@@ -29,6 +30,7 @@ export function stableJson(v: unknown): string {
 				return x.map(norm);
 			}
 			const keys = Object.keys(x).sort();
+			// biome-ignore lint/suspicious/noExplicitAny: not sure what's coming in
 			const out: any = {};
 
 			for (const k of keys) {

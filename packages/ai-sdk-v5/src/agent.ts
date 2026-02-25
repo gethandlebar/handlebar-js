@@ -10,6 +10,7 @@ import {
 } from "@handlebar/core";
 import {
 	Experimental_Agent as Agent,
+	type ContentPart,
 	type StopCondition,
 	type Tool,
 	type ToolCallOptions,
@@ -31,7 +32,7 @@ function mapTools<ToolSet extends ToolSetBase>(
 	// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	const out: Record<string, Tool<any, any>> = {};
 	for (const name in tools) {
-		out[name] = wrap(name as any, tools[name]);
+		out[name] = wrap(name, tools[name]);
 	}
 	return out as ToolSet;
 }
@@ -330,9 +331,8 @@ export class HandlebarAgent<
 
 // Maps AI SDK StepResult content parts to Handlebar LLMResponsePart[].
 // step.content can contain text, tool-call, and reasoning parts.
-// biome-ignore lint/suspicious/noExplicitAny: StepResult content parts are not fully typed
 function mapStepContent(
-	parts: any[],
+	parts: ContentPart<NoInfer<ToolSet>>[],
 ): Array<
 	| { type: "text"; text: string }
 	| { type: "tool_call"; toolCallId: string; toolName: string; args: unknown }
@@ -347,7 +347,7 @@ function mapStepContent(
 				toolCallId: part.toolCallId as string,
 				toolName: part.toolName as string,
 				// StepResult tool-call parts use `args`; Prompt message format uses `input`.
-				args: (part.args ?? part.input) as unknown,
+				args: part.input as unknown,
 			});
 		}
 	}

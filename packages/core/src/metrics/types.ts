@@ -36,7 +36,7 @@ export type AgentMetricHook<
 
 	when?: (ctx: AgentMetricHookContext<P>) => boolean;
 
-	run: (ctx: AgentMetricHookContext<P>) => Awaitable<MetricInfo | void>;
+	run: (ctx: AgentMetricHookContext<P>) => Awaitable<MetricInfo | undefined>;
 
 	timeoutMs?: number;
 	blocking?: boolean;

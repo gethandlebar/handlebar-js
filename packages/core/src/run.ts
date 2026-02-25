@@ -297,7 +297,7 @@ export class Run {
 	// Returns (possibly modified) messages — surface for future PII redaction.
 	async beforeLlm(
 		messages: LLMMessage[],
-		meta?: { model?: ModelInfo },
+		_meta?: { model?: ModelInfo },
 	): Promise<LLMMessage[]> {
 		if (this.state !== "active") {
 			return messages;
