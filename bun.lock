@@ -52,7 +52,7 @@
     },
     "packages/governance-schema": {
       "name": "@handlebar/governance-schema",
-      "version": "0.1.1-beta.0",
+      "version": "0.1.1-beta.1",
       "dependencies": {
         "zod": "^4.1.12",
       },

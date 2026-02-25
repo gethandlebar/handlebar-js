@@ -17,7 +17,9 @@ export class SinkBus {
 
 	// Emit a single event to all sinks.
 	emit(agentId: string, event: AuditEvent): void {
-		if (this.closed) return;
+		if (this.closed) {
+			return;
+		}
 		for (const sink of this.sinks) {
 			try {
 				void sink.writeBatch(agentId, [event]);

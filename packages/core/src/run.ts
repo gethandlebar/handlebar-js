@@ -17,6 +17,7 @@ import type {
 	ModelInfo,
 	RunConfig,
 	RunEndStatus,
+	Tool,
 	ToolResult,
 } from "./types";
 import { deriveOutputText, FAILOPEN_DECISION } from "./types";
@@ -26,6 +27,7 @@ export type RunState = "active" | "ended";
 export type RunInternalConfig = {
 	runConfig: RunConfig;
 	agentId: string | null;
+	tools: Tool[] | null;
 	enforceMode: "enforce" | "shadow" | "off";
 	failClosed: boolean;
 	api: ApiManager;
@@ -47,6 +49,7 @@ export class Run {
 	private pendingLlmTokensOut = 0;
 
 	private readonly agentId: string | null;
+	private readonly tools: Tool[] | null;
 	private readonly enforceMode: "enforce" | "shadow" | "off";
 	private readonly api: ApiManager;
 	private readonly bus: SinkBus;
@@ -60,6 +63,7 @@ export class Run {
 		this.actor = config.runConfig.actor;
 		this.tags = config.runConfig.tags ?? {};
 		this.agentId = config.agentId;
+		this.tools = config.tools;
 		this.enforceMode = config.enforceMode;
 		this.api = config.api;
 		this.bus = config.bus;
@@ -110,13 +114,13 @@ export class Run {
 		}
 		// Flush LLM token deltas accumulated since the last evaluate.
 		if (this.pendingLlmTokensIn > 0) {
-      beforeMetrics.llm_tokens_in = this.pendingLlmTokensIn;
+			beforeMetrics.llm_tokens_in = this.pendingLlmTokensIn;
 			this.pendingLlmTokensIn = 0;
 		}
 		if (this.pendingLlmTokensOut > 0) {
 			beforeMetrics.llm_tokens_out = this.pendingLlmTokensOut;
 			this.pendingLlmTokensOut = 0;
-    }
+		}
 		if (this.metricRegistry) {
 			await this.metricRegistry.runPhase(
 				"tool.before",
@@ -154,6 +158,9 @@ export class Run {
 		};
 
 		const decision = await this.api.evaluate(this.runId, req);
+		const registeredToolCategories = this.tools?.find(
+			(t) => t.name === toolName,
+		)?.tags;
 
 		// Emit tool.decision event.
 		this.emit({
@@ -165,23 +172,16 @@ export class Run {
 			stepIndex: this.stepIndex,
 			kind: "tool.decision",
 			data: {
-				// New core fields.
 				verdict: decision.verdict,
 				control: decision.control,
 				cause: decision.cause,
+				message: decision.message,
 				evaluatedRules: decision.evaluatedRules,
 				finalRuleId: decision.finalRuleId,
-				// Required legacy fields (satisfy schema — new core leaves them empty).
-				effect: decision.verdict === "ALLOW" ? "allow" : "block",
-				// biome-ignore lint/suspicious/noExplicitAny: legacy schema compat
-				code: (decision.verdict === "ALLOW"
-					? "ALLOWED"
-					: "BLOCKED_RULE") as any,
-				matchedRuleIds: decision.evaluatedRules
-					.filter((r) => r.matched)
-					.map((r) => r.ruleId),
-				appliedActions: [],
-				tool: { name: toolName, categories: toolTags },
+				tool: {
+					name: toolName,
+					categories: toolTags ?? registeredToolCategories,
+				},
 			},
 		});
 
@@ -264,6 +264,10 @@ export class Run {
 
 		// Emit tool.result event.
 		const errorAsError = error instanceof Error ? error : null;
+		const registeredToolCategories = this.tools?.find(
+			(t) => t.name === toolName,
+		)?.tags;
+
 		this.emit({
 			schema: "handlebar.audit.v1",
 			ts: new Date(),
@@ -273,7 +277,10 @@ export class Run {
 			stepIndex: this.stepIndex,
 			kind: "tool.result",
 			data: {
-				tool: { name: toolName, categories: toolTags },
+				tool: {
+					name: toolName,
+					categories: toolTags ?? registeredToolCategories,
+				},
 				outcome: error ? "error" : "success",
 				durationMs,
 				error: errorAsError
@@ -290,7 +297,7 @@ export class Run {
 	// Returns (possibly modified) messages — surface for future PII redaction.
 	async beforeLlm(
 		messages: LLMMessage[],
-		meta?: { model?: ModelInfo },
+		_meta?: { model?: ModelInfo },
 	): Promise<LLMMessage[]> {
 		if (this.state !== "active") {
 			return messages;
@@ -325,7 +332,7 @@ export class Run {
 
 	// Call after the LLM responds.
 	// Returns (possibly modified) response — surface for future response rewriting.
-  async afterLlm(response: LLMResponse): Promise<LLMResponse> {
+	async afterLlm(response: LLMResponse): Promise<LLMResponse> {
 		if (this.state !== "active") {
 			return response;
 		}

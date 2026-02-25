@@ -1,13 +1,6 @@
 import z from "zod";
 import { AuditEnvelopeSchema } from "./events.base";
-import {
-	DecisionCauseSchema,
-	GovernanceDecisionSchema,
-	RuleEvalSchema,
-	RunControlSchema,
-	SignalSchema,
-	VerdictSchema,
-} from "./governance-actions";
+import { DecisionSchema } from "./governance-actions";
 import { AgentMetrics } from "./run-metrics";
 
 const CountersSchema = z.record(z.string(), z.union([z.string(), z.number()]));
@@ -41,24 +34,16 @@ export const HitlMetaSchema = z.object({
 
 export const ToolDecisionEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("tool.decision"),
-	data: GovernanceDecisionSchema.extend({
+	data: DecisionSchema.extend({
 		tool: ToolIdentitySchema,
 		args: ToolArgsSchema.optional(),
 		argsMeta: ToolMetaSchema.optional(),
 		hitl: HitlMetaSchema.optional(),
 
 		subjects: z.array(SubjectSchema).max(100).optional(),
-		signals: z.array(SignalSchema).max(100).optional(),
+		// signals: z.array(SignalSchema).max(100).optional(),
 
-		counters: CountersSchema.optional(),
 		latencyMs: z.number().min(0).optional(), // Time in governance
-
-		// New core fields (new_core). Old core events will not have these.
-		verdict: VerdictSchema.optional(),
-		control: RunControlSchema.optional(),
-		cause: DecisionCauseSchema.optional(),
-		evaluatedRules: z.array(RuleEvalSchema).optional(),
-		finalRuleId: z.string().optional(),
 	}),
 });
 

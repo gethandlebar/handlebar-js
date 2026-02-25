@@ -21,8 +21,6 @@ export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 			id: z.string().optional(),
 			name: z.string().optional(),
 		}),
-		// actor supersedes enduser — kept for backward compat with old core.
-		enduser: ActorSchema.optional(),
 		actor: ActorSchema.optional(),
 		model: z
 			.object({
@@ -53,17 +51,8 @@ export const RunStartedEventSchema = AuditEnvelopeSchema.extend({
 export const RunEndedEventSchema = AuditEnvelopeSchema.extend({
 	kind: z.literal("run.ended"),
 	data: z.object({
-		// "ok"/"blocked" are legacy values from old core. New core uses "success"/"interrupted".
-		status: z.enum([
-			"ok",
-			"error",
-			"blocked",
-			"success",
-			"timeout",
-			"interrupted",
-		]),
+		status: z.enum(["error", "success", "timeout", "interrupted"]),
 		totalSteps: z.number().min(0),
-		firstErrorDecisionId: z.string().optional(), // DEPRECATED.
 		summary: z.string().optional(),
 	}),
 });

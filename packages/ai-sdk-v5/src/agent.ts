@@ -2,6 +2,7 @@ import {
 	type Actor,
 	getCurrentRun,
 	type HandlebarClient,
+	type Tool as HandlebarTool,
 	type LLMMessage,
 	type ModelInfo,
 	type RunConfig,
@@ -9,6 +10,7 @@ import {
 } from "@handlebar/core";
 import {
 	Experimental_Agent as Agent,
+	type ContentPart,
 	type StopCondition,
 	type Tool,
 	type ToolCallOptions,
@@ -30,7 +32,7 @@ function mapTools<ToolSet extends ToolSetBase>(
 	// biome-ignore lint/suspicious/noExplicitAny: types need to be improved
 	const out: Record<string, Tool<any, any>> = {};
 	for (const name in tools) {
-		out[name] = wrap(name as any, tools[name]);
+		out[name] = wrap(name, tools[name]);
 	}
 	return out as ToolSet;
 }
@@ -75,6 +77,8 @@ export class HandlebarAgent<
 > {
 	private readonly inner: Agent<ToolSet, Ctx, Memory>;
 	private readonly hb: HandlebarClient;
+	private readonly tools: HandlebarTool[];
+	private readonly hasRegisteredTools: boolean;
 	private readonly model: ModelInfo;
 	private readonly runDefaults:
 		| Omit<RunConfig, "runId" | "model" | "actor" | "sessionId" | "tags">
@@ -90,6 +94,22 @@ export class HandlebarAgent<
 		} = opts;
 
 		this.hb = hb;
+
+		const toolMeta: HandlebarTool[] = [];
+		for (const name in tools) {
+			const t = tools[name];
+			if (t === undefined) {
+				continue;
+			}
+			toolMeta.push({
+				name: name as string,
+				description: t.description,
+				tags: toolTags[name],
+			});
+		}
+		this.tools = toolMeta;
+		this.hasRegisteredTools = false;
+
 		this.model = resolveModel(rest.model);
 		this.runDefaults = runDefaults;
 
@@ -105,7 +125,9 @@ export class HandlebarAgent<
 		// Detect EXIT_RUN_CODE in any tool output to stop the agent loop.
 		stopWhen.push(({ steps }) => {
 			const lastStep = steps[steps.length - 1];
-			if (!lastStep) return false;
+			if (!lastStep) {
+				return false;
+			}
 			for (const toolResult of lastStep.toolResults) {
 				try {
 					if (JSON.stringify(toolResult.output).includes(EXIT_RUN_CODE))
@@ -120,7 +142,9 @@ export class HandlebarAgent<
 		const msgCountByRun = new Map<string, number>();
 
 		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) return t;
+			if (!t.execute) {
+				return t;
+			}
 			const exec = t.execute.bind(t);
 			const tags = toolTags[name as string] ?? [];
 
@@ -209,7 +233,7 @@ export class HandlebarAgent<
 					run &&
 					(step.usage.inputTokens !== undefined ||
 						step.usage.outputTokens !== undefined)
-        ) {
+				) {
 					await run.afterLlm({
 						// Map full step content — includes text parts AND tool calls.
 						content: mapStepContent(step.content),
@@ -229,6 +253,12 @@ export class HandlebarAgent<
 		});
 	}
 
+	private async registerTools() {
+		if (!this.hasRegisteredTools && this.tools.length > 0) {
+			await this.hb.registerTools(this.tools);
+		}
+	}
+
 	private startRun(callOpts: RunCallOpts) {
 		return this.hb.startRun({
 			runId: uuidv7(),
@@ -244,6 +274,7 @@ export class HandlebarAgent<
 		runOpts: RunCallOpts,
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["generate"]>
 	) {
+		await this.registerTools();
 		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
@@ -261,6 +292,7 @@ export class HandlebarAgent<
 		runOpts: RunCallOpts,
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["stream"]>
 	) {
+		await this.registerTools();
 		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
@@ -278,6 +310,7 @@ export class HandlebarAgent<
 		runOpts: RunCallOpts,
 		...params: Parameters<Agent<ToolSet, Ctx, Memory>["respond"]>
 	) {
+		await this.registerTools();
 		const run = await this.startRun(runOpts);
 		return withRun(run, async () => {
 			try {
@@ -298,9 +331,8 @@ export class HandlebarAgent<
 
 // Maps AI SDK StepResult content parts to Handlebar LLMResponsePart[].
 // step.content can contain text, tool-call, and reasoning parts.
-// biome-ignore lint/suspicious/noExplicitAny: StepResult content parts are not fully typed
 function mapStepContent(
-	parts: any[],
+	parts: ContentPart<NoInfer<ToolSet>>[],
 ): Array<
 	| { type: "text"; text: string }
 	| { type: "tool_call"; toolCallId: string; toolName: string; args: unknown }
@@ -315,7 +347,7 @@ function mapStepContent(
 				toolCallId: part.toolCallId as string,
 				toolName: part.toolName as string,
 				// StepResult tool-call parts use `args`; Prompt message format uses `input`.
-				args: (part.args ?? part.input) as unknown,
+				args: part.input as unknown,
 			});
 		}
 	}

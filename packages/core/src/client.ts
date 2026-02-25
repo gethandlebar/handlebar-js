@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { ApiManager } from "./api/manager";
+import { ApiManager, DEFAULT_ENDPOINT } from "./api/manager";
 import { AgentMetricHookRegistry } from "./metrics/hooks";
 import type { AgentMetricHook } from "./metrics/types";
 import { Run } from "./run";
@@ -40,6 +40,7 @@ export class HandlebarClient {
 	private readonly metricRegistry: AgentMetricHookRegistry | undefined;
 	private readonly subjectRegistry: SubjectRegistry | undefined;
 	private agentId: string | null = null;
+	private tools: Tool[] | null = null;
 	// Tracks active runs by runId for idempotent startRun.
 	private readonly activeRuns = new Map<string, Run>();
 	// Resolves once init() completes (agent upsert + tool registration).
@@ -89,6 +90,7 @@ export class HandlebarClient {
 
 	async registerTools(tools: Tool[]): Promise<void> {
 		await this.initPromise; // wait for agent upsert to complete
+		this.tools = tools;
 		if (this.agentId) {
 			await this.api.registerTools(this.agentId, tools);
 		}
@@ -127,6 +129,7 @@ export class HandlebarClient {
 		const run = new Run({
 			runConfig: config,
 			agentId: this.agentId,
+			tools: this.tools,
 			enforceMode: this.config.enforceMode ?? "enforce",
 			failClosed: this.config.failClosed ?? false,
 			api: this.api,
@@ -151,8 +154,7 @@ export class HandlebarClient {
 	private async initSinks(sinks?: SinkConfig[]): Promise<void> {
 		if (!sinks || sinks.length === 0) {
 			// Default: HTTP sink to Handlebar API.
-			const endpoint =
-				this.config.apiEndpoint ?? "https://api.gethandlebar.com";
+			const endpoint = this.config.apiEndpoint ?? DEFAULT_ENDPOINT;
 			this.bus.add(
 				createHttpSink(
 					endpoint,
@@ -165,9 +167,7 @@ export class HandlebarClient {
 					this.bus.add(createConsoleSink({ format: sinkConfig.format }));
 				} else if (sinkConfig.type === "http") {
 					const endpoint =
-						sinkConfig.endpoint ??
-						this.config.apiEndpoint ??
-						"https://api.gethandlebar.com";
+						sinkConfig.endpoint ?? this.config.apiEndpoint ?? DEFAULT_ENDPOINT;
 					const apiKey =
 						sinkConfig.apiKey ??
 						this.config.apiKey ??

@@ -115,7 +115,7 @@ function formatToolContent(
 	const partContent: string[] = [];
 	for (const part of content) {
 		if (Array.isArray(part.output.value)) {
-			for (const subpart of part.output.value) {
+			for (const _subpart of part.output.value) {
 				// TODO: finish this!!!
 			}
 		}

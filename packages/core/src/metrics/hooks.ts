@@ -43,18 +43,20 @@ export class AgentMetricHookRegistry {
 				continue;
 			}
 
-			let runPromise: Promise<MetricInfo | void> = Promise.resolve(
+			let runPromise: Promise<MetricInfo | undefined> = Promise.resolve(
 				hook.run(ctx),
 			);
 
 			if (hook.timeoutMs !== undefined) {
 				runPromise = Promise.race([
 					runPromise,
-					new Promise<void>((resolve) => setTimeout(resolve, hook.timeoutMs)),
+					new Promise<undefined>((resolve) =>
+						setTimeout(resolve, hook.timeoutMs),
+					),
 				]);
 			}
 
-			const emit = (res: MetricInfo | void) => {
+			const emit = (res: MetricInfo | undefined) => {
 				if (res) {
 					onMetric(hookKey, res.value, res.unit);
 				}
