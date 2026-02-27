@@ -37,11 +37,11 @@ export type HandlebarConfig = RunnableConfig & {
 
 export type HandlebarAgentExecutorOpts = {
 	/** Pre-initialised HandlebarClient. Use Handlebar.init(config) to create one. */
-  hb: HandlebarClient;
-  /**
-  * The LangChain AgentExecutor (or any compatible Runnable or ReactAgent) to wrap.
-  * Tools should be pre-wrapped with wrapTools() before being added to the executor.
-  */
+	hb: HandlebarClient;
+	/**
+	 * The LangChain AgentExecutor (or any compatible Runnable or ReactAgent) to wrap.
+	 * Tools should be pre-wrapped with wrapTools() before being added to the executor.
+	 */
 	agent: AnyAgent;
 	/** Model info attached to run.started and llm.result events. Optional — LLM result events are skipped if omitted. */
 	model?: ModelInfo;
@@ -95,7 +95,7 @@ export class HandlebarAgentExecutor extends Runnable<
 		| undefined;
 
 	constructor(opts: HandlebarAgentExecutorOpts) {
-    super();
+		super();
 		this.hb = opts.hb;
 		this.executor = opts.agent;
 		this.model = opts.model;
@@ -106,7 +106,7 @@ export class HandlebarAgentExecutor extends Runnable<
 		input: Record<string, unknown>,
 		config?: HandlebarConfig,
 	): Promise<Record<string, unknown>> {
-    const callOpts = config?.configurable;
+		const callOpts = config?.configurable;
 		const run = await this.hb.startRun({
 			runId: uuidv7(),
 			model: this.model,

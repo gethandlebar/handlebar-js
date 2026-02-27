@@ -14,7 +14,7 @@ import { toolToInsertableTool } from "../utils";
 export const DEFAULT_ENDPOINT = "https://api.gethandlebar.com";
 
 export function resolveEndpoint(endpoint: string | undefined): string {
-  return endpoint ?? process.env.HANDLEBAR_API_ENDPOINT ?? DEFAULT_ENDPOINT;
+	return endpoint ?? process.env.HANDLEBAR_API_ENDPOINT ?? DEFAULT_ENDPOINT;
 }
 
 const RETRY_DEFAULTS = {
@@ -76,8 +76,8 @@ export class ApiManager {
 			_retryBaseMs?: number;
 		},
 	) {
-    this.endpoint = resolveEndpoint(config.apiEndpoint);
-    this.apiKey = config.apiKey ?? process.env.HANDLEBAR_API_KEY;
+		this.endpoint = resolveEndpoint(config.apiEndpoint);
+		this.apiKey = config.apiKey ?? process.env.HANDLEBAR_API_KEY;
 		this.failClosed = config.failClosed ?? false;
 		this.retryBaseMs = config._retryBaseMs ?? RETRY_DEFAULTS.baseMs;
 		this.active = Boolean(this.apiKey);
