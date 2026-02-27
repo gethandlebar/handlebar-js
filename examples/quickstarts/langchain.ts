@@ -53,7 +53,6 @@ const agent = createAgent({
 const hbExecutor = new HandlebarAgentExecutor({
   hb,
   agent,
-  model: { name: "gpt-5-nano", provider: "openai" },
 });
 
 // Important: invoke the handlebar-wrapped executor, not the initial langchain agent.

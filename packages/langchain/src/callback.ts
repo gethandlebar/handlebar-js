@@ -60,7 +60,9 @@ export class HandlebarCallbackHandler extends BaseCallbackHandler {
 	 * Skipped if no model info was provided at construction time.
 	 */
 	override async handleLLMEnd(output: LLMResult): Promise<void> {
-		if (!this.model) return;
+		if (!this.model) {
+			return;
+		}
 		const response = llmResultToLlmResponse(output, this.model);
 		await this.run.afterLlm(response);
 	}

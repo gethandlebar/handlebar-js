@@ -21,6 +21,78 @@ export type AnyAgent = {
 	invoke(input: any, config?: any): Promise<any>;
 };
 
+/**
+ * Best-effort extraction of ModelInfo from an agent instance.
+ *
+ * Covers:
+ * - ReactAgent (langchain): exposes constructor args on `.options.model`
+ * - AgentExecutor and similar: may expose their LLM on `.llm` or `.chatModel`
+ *
+ * The model arg itself can be:
+ * - A string in "provider/name" format (e.g. "openai/gpt-5-nano")
+ * - A plain model name string (e.g. "gpt-4o")
+ * - A chat model instance (e.g. ChatOpenAI) with a `.model` property
+ */
+function extractModelInfo(agent: AnyAgent): ModelInfo | undefined {
+	// biome-ignore lint/suspicious/noExplicitAny: probing unknown agent shape
+	const a = agent as any;
+	// ReactAgent stores original constructor options on `.options`; other agent
+	// types may store their LLM directly on `.model`, `.llm`, or `.chatModel`.
+	const raw = a.options?.model ?? a.model ?? a.llm ?? a.chatModel;
+	if (!raw) {
+		return undefined;
+	}
+
+	if (typeof raw === "string") {
+		// Langchain uses ":" separation.
+		// "provider:model-name" (e.g. "openai:gpt-5-nano")
+		const colon = raw.indexOf(":");
+		if (colon !== -1) {
+			const a = { provider: raw.slice(0, colon), name: raw.slice(colon + 1) };
+			return a;
+		}
+		return { name: raw };
+	}
+
+	if (raw && typeof raw === "object") {
+		// biome-ignore lint/suspicious/noExplicitAny: chat model shape varies by provider
+		const m = raw as any;
+		const name: string | undefined = m.model ?? m.modelName;
+
+		if (!name) {
+			return undefined;
+		}
+
+		// Infer provider from class name (ChatOpenAI → openai, ChatAnthropic → anthropic, …)
+		const cls: string = m.constructor?.name ?? "";
+		const lower = cls.toLowerCase();
+		let provider: string | undefined;
+
+		if (lower.includes("openai")) {
+			provider = "openai";
+		} else if (lower.includes("anthropic")) {
+			provider = "anthropic";
+		} else if (
+			lower.includes("google") ||
+			lower.includes("gemini") ||
+			lower.includes("vertexai")
+		) {
+			provider = "google";
+		} else if (lower.includes("mistral")) {
+			provider = "mistral";
+		} else if (lower.includes("groq")) {
+			provider = "groq";
+		} else if (lower.includes("cohere")) {
+			provider = "cohere";
+		} else if (lower.includes("bedrock")) {
+			provider = "bedrock";
+		}
+		return { name, provider };
+	}
+
+	return undefined;
+}
+
 // Handlebar-specific per-call options - passed via RunnableConfig.configurable.
 export type RunCallOpts = {
 	/** The user or system this request is acting on behalf of. */
@@ -100,6 +172,12 @@ export class HandlebarAgentExecutor extends Runnable<
 		this.executor = opts.agent;
 		this.model = opts.model;
 		this.runDefaults = opts.runDefaults;
+
+		if (!this.model) {
+			try {
+				this.model = extractModelInfo(opts.agent);
+			} catch {}
+		}
 	}
 
 	async invoke(
