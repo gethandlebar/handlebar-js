@@ -27,7 +27,7 @@ function langchainRoleToLlmRole(type: string): LLMMessage["role"] | undefined {
 export function langchainMessageToLlmMessage(
 	msg: BaseMessage,
 ): LLMMessage | undefined {
-	const role = langchainRoleToLlmRole(msg._getType());
+	const role = langchainRoleToLlmRole(msg.type);
 	if (!role) {
 		return undefined;
 	}
@@ -36,7 +36,7 @@ export function langchainMessageToLlmMessage(
 		return { role, content: msg.content };
 	}
 
-	// Complex content blocks — serialise to string.
+	// Complex content blocks - serialise to string.
 	return { role, content: JSON.stringify(msg.content) };
 }
 

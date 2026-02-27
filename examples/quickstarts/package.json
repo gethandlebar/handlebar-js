@@ -1,0 +1,19 @@
+{
+	"name": "@handlebar/examples-quickstart",
+	"version": "0.0.1",
+	"type": "module",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"scripts": {},
+	"dependencies": {
+		"@handlebar/langchain": "workspace:*",
+		"@langchain/core": "^1.1.29",
+		"@langchain/openai": "^1.2.11",
+		"langchain": "^1.2.28",
+		"zod": "^4.1.12"
+	}
+}

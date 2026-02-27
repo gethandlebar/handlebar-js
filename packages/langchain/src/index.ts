@@ -1,4 +1,8 @@
+// Re-export core Handlebar so user's don't have to install it separately
+export { Handlebar } from "@handlebar/core";
+
 export type {
+	AnyAgent,
 	HandlebarAgentExecutorOpts,
 	HandlebarConfig,
 	RunCallOpts,
