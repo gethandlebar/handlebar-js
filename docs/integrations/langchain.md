@@ -64,7 +64,12 @@ const hbExecutor = new HandlebarAgentExecutor({
 // 6. Invoke per request. Handlebar options go in `configurable`.
 const result = await hbExecutor.invoke(
   { input: "What is the capital of France?" },
-  { configurable: { actor: { externalId: "user-123" }, sessionId: "session-abc" } },
+
+  // Optional invocation-time configuration
+  { configurable: {
+    actor: { externalId: "user-123" }, // actor/enduser allows you to enforce per-user rules
+    sessionId: "session-abc" } // Link separate runs to the same session to get full session analytics
+  },
 );
 console.log(result.output);
 ```
@@ -192,6 +197,32 @@ try {
 } catch (err) {
   await run.end(err instanceof HandlebarTerminationError ? "interrupted" : "error");
   throw err;
+}
+```
+
+### Actor schema
+
+You can optionally tell Handlebar which enduser the agent is acting on behalf of.
+This allows you to enforce user-level rules (e.g. a user cost cap) and run analytics on endusers.
+
+In addition to providing the "externalId" (your ID for the enduser), you can define a group the enduser belongs to and attach metadata.\
+Enduser metadata allows you to enforce rules on groups of users. For example, you might want to enforce stricter data controls on users tagged "eu".
+
+The Handlebar platform will register the enduser metadata once it's provided,
+so it is not necessary to provide it on every single run.
+Alternatively, you can configure enduser metadata on the platform itself.
+
+The full actor schema is:
+```js
+actor?: {
+  externalId: string,
+  name?: string,
+  metadata?: Record<string, string>,
+  group?: {
+    externalId: string,
+    name?: string,
+    metadata?: Record<string, string>
+  }
 }
 ```
 

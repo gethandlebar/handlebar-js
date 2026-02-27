@@ -57,11 +57,25 @@ const hbExecutor = new HandlebarAgentExecutor({
 });
 
 // Important: invoke the handlebar-wrapped executor, not the initial langchain agent.
-console.log(
-  await hbExecutor.invoke({
-    messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
-  })
-);
+
+const out = await hbExecutor.invoke({
+  messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+
+  // Optionally provide additional context to Handlebar when invoking.
+
+}, {
+  configurable: {
+    // Providing an actor/enduser you to configure and enforce per-user rules.
+    actor: {
+      // If you provide an actor, the externalId (your id for the enduser) is the only required data.
+      externalId: "id-for-your-enduser",
+
+      // optional
+      metadata: { "tier": "free", "region": "eu"}, // actor metadata allow you to apply rules to groups of users
+    },
+  }
+});
+console.log(out);
 
 
 // Head over to the Handlebar platform (https://app.gethandlebar.com)
