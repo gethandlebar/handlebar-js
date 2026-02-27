@@ -19,13 +19,13 @@ export class HandlebarCallbackHandler extends BaseCallbackHandler {
 	readonly name = "handlebar";
 
 	private readonly run: Run;
-	private readonly model: ModelInfo;
+	private readonly model: ModelInfo | undefined;
 
 	// High-water mark: messages forwarded to beforeLlm so far.
 	// Prevents re-emitting the accumulated history on each subsequent agent step.
 	private msgCount = 0;
 
-	constructor(run: Run, model: ModelInfo) {
+	constructor(run: Run, model?: ModelInfo) {
 		super();
 		this.run = run;
 		this.model = model;
@@ -57,8 +57,12 @@ export class HandlebarCallbackHandler extends BaseCallbackHandler {
 	/**
 	 * Fires after each LLM step with generated output and token usage.
 	 * Emits llm.result and message.raw.created (assistant response) events.
+	 * Skipped if no model info was provided at construction time.
 	 */
 	override async handleLLMEnd(output: LLMResult): Promise<void> {
+		if (!this.model) {
+			return;
+		}
 		const response = llmResultToLlmResponse(output, this.model);
 		await this.run.afterLlm(response);
 	}

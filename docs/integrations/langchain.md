@@ -1,6 +1,6 @@
 # Handlebar + LangChain JS
 
-The `@handlebar/langchain` adapter wraps any LangChain `Runnable` with full Handlebar governance — run lifecycle, LLM event logging, and tool-call enforcement.
+The `@handlebar/langchain` adapter wraps any LangChain `Runnable` with full Handlebar governance - run lifecycle, LLM event logging, and tool-call enforcement.
 
 `HandlebarAgentExecutor` extends LangChain's `Runnable`, so it can be composed in chains via `.pipe()` and passed anywhere a `Runnable` is expected.
 
@@ -9,7 +9,7 @@ The `@handlebar/langchain` adapter wraps any LangChain `Runnable` with full Hand
 ## Installation
 
 ```bash
-npm install @handlebar/langchain @handlebar/core @langchain/core
+npm install @handlebar/langchain @langchain/core
 ```
 
 ---
@@ -17,8 +17,7 @@ npm install @handlebar/langchain @handlebar/core @langchain/core
 ## Quick start
 
 ```ts
-import { Handlebar } from "@handlebar/core";
-import { HandlebarAgentExecutor, wrapTools } from "@handlebar/langchain";
+import { Handlebar, HandlebarAgentExecutor, wrapTools } from "@handlebar/langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { AgentExecutor, createOpenAIToolsAgent } from "langchain/agents";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
@@ -58,14 +57,19 @@ const executor = AgentExecutor.fromAgentAndTools({ agent, tools });
 // 5. Wrap the executor with HandlebarAgentExecutor.
 const hbExecutor = new HandlebarAgentExecutor({
   hb,
-  executor,
+  agent: executor,
   model: { name: "gpt-4o", provider: "openai" },
 });
 
 // 6. Invoke per request. Handlebar options go in `configurable`.
 const result = await hbExecutor.invoke(
   { input: "What is the capital of France?" },
-  { configurable: { actor: { externalId: "user-123" }, sessionId: "session-abc" } },
+
+  // Optional invocation-time configuration
+  { configurable: {
+    actor: { externalId: "user-123" }, // actor/enduser allows you to enforce per-user rules
+    sessionId: "session-abc" } // Link separate runs to the same session to get full session analytics
+  },
 );
 console.log(result.output);
 ```
@@ -78,15 +82,15 @@ console.log(result.output);
 
 `HandlebarAgentExecutor.invoke()` creates a new `Run` for each call:
 
-1. `run.started` — emitted immediately on `startRun()`.
+1. `run.started` - emitted immediately on `startRun()`.
 2. LLM and tool hooks fire during the agent loop (see below).
-3. `run.ended` — emitted on completion, error, or governance termination; the event bus is flushed before returning.
+3. `run.ended` - emitted on completion, error, or governance termination; the event bus is flushed before returning.
 
 ### Tool governance (`wrapTools`)
 
 `wrapTools()` intercepts each tool's `invoke()` method in place. On each tool call:
 
-- `run.beforeTool(name, args, tags)` is called first — evaluates governance rules.
+- `run.beforeTool(name, args, tags)` is called first - evaluates governance rules.
 - **ALLOW** → proceeds with normal execution; `run.afterTool(...)` is called after.
 - **BLOCK + CONTINUE** → skips execution; returns a JSON-encoded blocked message so the LLM can respond gracefully.
 - **BLOCK + TERMINATE** → throws `HandlebarTerminationError`; `HandlebarAgentExecutor` catches it and ends the run with status `"interrupted"`.
@@ -97,7 +101,7 @@ console.log(result.output);
 
 | LangChain callback        | Handlebar hook        | Notes                                                              |
 |---------------------------|-----------------------|--------------------------------------------------------------------|
-| `handleChatModelStart`    | `run.beforeLlm`       | Delta-tracked — only new messages emitted per step                 |
+| `handleChatModelStart`    | `run.beforeLlm`       | Delta-tracked - only new messages emitted per step                 |
 | `handleLLMEnd`            | `run.afterLlm`        | Extracts text, tool calls, and token usage from `LLMResult`        |
 
 Delta tracking ensures that on multi-step agent loops (where LangChain accumulates the full message history), only messages new since the last LLM call are forwarded to `run.beforeLlm`. This prevents duplicate `message.raw.created` events.
@@ -125,7 +129,7 @@ Wraps a single tool. Use when you need to wrap tools individually.
 
 ### `HandlebarAgentExecutor`
 
-Extends LangChain's `Runnable` — composable in chains and usable anywhere a `Runnable` is expected.
+Extends LangChain's `Runnable` - composable in chains and usable anywhere a `Runnable` is expected.
 
 Handlebar-specific options are passed via `RunnableConfig.configurable`, which LangChain propagates automatically through `.pipe()` chains.
 
@@ -149,14 +153,14 @@ const result = await hbExecutor.invoke(
   },
 );
 
-// In a .pipe() chain — configurable propagates automatically
+// In a .pipe() chain - configurable propagates automatically
 const chain = preprocess.pipe(hbExecutor).pipe(postprocess);
 const result = await chain.invoke(
   { input: "..." },
   { configurable: { actor: { externalId: "user-123" } } },
 );
 
-// Or wrap it with your own Runnable — it satisfies the interface
+// Or wrap it with your own Runnable - it satisfies the interface
 class MyMonitoringWrapper extends Runnable<...> {
   constructor(private inner: Runnable<...>) { super(); }
   async invoke(input, config) { return this.inner.invoke(input, config); }
@@ -196,10 +200,36 @@ try {
 }
 ```
 
+### Actor schema
+
+You can optionally tell Handlebar which enduser the agent is acting on behalf of.
+This allows you to enforce user-level rules (e.g. a user cost cap) and run analytics on endusers.
+
+In addition to providing the "externalId" (your ID for the enduser), you can define a group the enduser belongs to and attach metadata.\
+Enduser metadata allows you to enforce rules on groups of users. For example, you might want to enforce stricter data controls on users tagged "eu".
+
+The Handlebar platform will register the enduser metadata once it's provided,
+so it is not necessary to provide it on every single run.
+Alternatively, you can configure enduser metadata on the platform itself.
+
+The full actor schema is:
+```js
+actor?: {
+  externalId: string,
+  name?: string,
+  metadata?: Record<string, string>,
+  group?: {
+    externalId: string,
+    name?: string,
+    metadata?: Record<string, string>
+  }
+}
+```
+
 ---
 
 ## Limitations
 
-- **`handleToolStart` cannot block**: LangChain's callback system is observational — callbacks fire around tool execution but cannot intercept it. Tool wrapping via `wrapTools()` / `wrapTool()` is required to enforce `BLOCK` decisions.
+- **`handleToolStart` cannot block**: LangChain's callback system is observational - callbacks fire around tool execution but cannot intercept it. Tool wrapping via `wrapTools()` / `wrapTool()` is required to enforce `BLOCK` decisions.
 - **Chat models only**: `HandlebarCallbackHandler` uses `handleChatModelStart`, which fires for chat models (`ChatOpenAI`, etc.). Plain completion LLMs use `handleLLMStart` (prompts as strings); these are not currently converted to `message.raw.created` events.
 - **Single batch assumed**: For batched LLM calls (`messages: BaseMessage[][]`), only the first batch (`messages[0]`) is forwarded to `run.beforeLlm`. Batched inference is uncommon in agent loops.
