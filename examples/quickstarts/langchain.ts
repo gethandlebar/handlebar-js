@@ -47,35 +47,31 @@ const agent = createAgent({
   tools: wrappedTools,
 });
 
-// Patch the agent with Handlebar governance.
-// After this, calling agent.invoke() will automatically start/end a Handlebar run
-// and enforce your policies on every tool call.
+// Wrap the agent with Handlebar governance.
+// Calling the HandlebarExecutor invokes your underlying agent,
+// but enforces your Handlebar policies on every tool call.
 const hbExecutor = new HandlebarAgentExecutor({
   hb,
   agent,
 });
 
 // Important: invoke the handlebar-wrapped executor, not the initial langchain agent.
-
 const out = await hbExecutor.invoke({
   messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
-
-  // Optionally provide additional context to Handlebar when invoking.
-
 }, {
+  // Optionally provide additional context to Handlebar when invoking.
   configurable: {
     // Providing an actor/enduser you to configure and enforce per-user rules.
     actor: {
       // If you provide an actor, the externalId (your id for the enduser) is the only required data.
       externalId: "id-for-your-enduser",
-
       // optional
       metadata: { "tier": "free", "region": "eu"}, // actor metadata allow you to apply rules to groups of users
     },
   }
 });
-console.log(out);
 
+console.log(out);
 
 // Head over to the Handlebar platform (https://app.gethandlebar.com)
 // to see your agent logs.
