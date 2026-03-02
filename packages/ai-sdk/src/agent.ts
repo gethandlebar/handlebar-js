@@ -142,7 +142,9 @@ export class HandlebarAgent<
 
 		stopWhen.push(({ steps }) => {
 			const lastStep = steps[steps.length - 1];
-			if (!lastStep) return false;
+      if (!lastStep) {
+        return false;
+      }
 			for (const toolResult of lastStep.toolResults) {
 				try {
 					if (JSON.stringify(toolResult.output).includes(EXIT_RUN_CODE))
