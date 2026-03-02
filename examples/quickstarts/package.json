@@ -10,7 +10,9 @@
 	],
 	"scripts": {},
 	"dependencies": {
+	  "@handlebar/ai-sdk": "workspace:*",
 		"@handlebar/langchain": "workspace:*",
+		"ai": "^6.0.0",
 		"@langchain/core": "^1.1.29",
 		"@langchain/openai": "^1.2.11",
 		"langchain": "^1.2.28",
