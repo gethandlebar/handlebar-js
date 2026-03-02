@@ -22,13 +22,16 @@ import { uuidv7 } from "uuidv7";
 import { modelMessageToLlmMessage } from "./messages";
 import { HANDLEBAR_TAGS } from "./tool";
 
-// biome-ignore lint/suspicious/noExplicitAny: intentional loose base
 function resolveToolTags(
 	t: Tool<any, any>,
 	fallback: string[] | undefined,
 ): string[] {
 	const attached = (t as Record<symbol, unknown>)[HANDLEBAR_TAGS];
-	if (Array.isArray(attached)) return attached;
+
+	if (Array.isArray(attached)) {
+		return attached;
+	}
+
 	return fallback ?? [];
 }
 
@@ -116,7 +119,10 @@ export class HandlebarAgent<
 		this.toolMeta = [];
 		for (const name in tools) {
 			const t = tools[name];
-			if (t === undefined) continue;
+			if (t === undefined) {
+				continue;
+			}
+
 			this.toolMeta.push({
 				name,
 				description: t.description,
@@ -151,7 +157,10 @@ export class HandlebarAgent<
 		const msgCountByRun = new Map<string, number>();
 
 		const wrapped = mapTools(tools, (name, t) => {
-			if (!t.execute) return t;
+			if (!t.execute) {
+				return t;
+			}
+
 			const exec = t.execute.bind(t);
 			const tags = resolveToolTags(t, toolTags[name as string]);
 
@@ -217,19 +226,24 @@ export class HandlebarAgent<
 				if (run) {
 					const prev = msgCountByRun.get(run.runId) ?? 0;
 					const newMsgs = stepOpts.messages.slice(prev);
+
 					if (newMsgs.length > 0) {
 						const llmMessages = newMsgs
 							.map((msg) => modelMessageToLlmMessage(msg))
 							.filter((msg): msg is LLMMessage => msg !== undefined);
+
 						if (llmMessages.length > 0) {
 							await run.beforeLlm(llmMessages);
 						}
+
 						msgCountByRun.set(run.runId, stepOpts.messages.length);
 					}
 				}
+
 				if (rest.prepareStep) {
 					return rest.prepareStep(stepOpts);
 				}
+
 				return undefined;
 			},
 			onStepFinish: async (step) => {
@@ -248,6 +262,7 @@ export class HandlebarAgent<
 						},
 					});
 				}
+
 				if (rest.onStepFinish) {
 					await rest.onStepFinish(step);
 				}
@@ -282,6 +297,7 @@ export class HandlebarAgent<
 	}: AgentCallParameters<CALL_OPTIONS, TOOLS> & RunCallOpts) {
 		await this.registerTools();
 		const run = await this.startRun({ actor, sessionId, tags });
+
 		return withRun(run, async () => {
 			try {
 				const result = await this.inner.generate(params);
@@ -302,6 +318,7 @@ export class HandlebarAgent<
 	}: AgentStreamParameters<CALL_OPTIONS, TOOLS> & RunCallOpts) {
 		await this.registerTools();
 		const run = await this.startRun({ actor, sessionId, tags });
+
 		return withRun(run, async () => {
 			try {
 				const result = await this.inner.stream(params);
