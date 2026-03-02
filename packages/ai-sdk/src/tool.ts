@@ -21,5 +21,7 @@ export function tool<PARAMETERS, RESULT>(
 	if (tags !== undefined) {
 		(t as Record<symbol, unknown>)[HANDLEBAR_TAGS] = tags;
 	}
-	return t as AiToolResult<PARAMETERS, RESULT> & { [HANDLEBAR_TAGS]?: string[] };
+	return t as AiToolResult<PARAMETERS, RESULT> & {
+		[HANDLEBAR_TAGS]?: string[];
+	};
 }

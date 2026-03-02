@@ -1,8 +1,5 @@
 import type { LLMMessage, LLMMessagePart } from "@handlebar/core";
-import {
-	type ModelMessage,
-	modelMessageSchema,
-} from "ai";
+import { type ModelMessage, modelMessageSchema } from "ai";
 
 export function modelMessageToLlmMessage(
 	message: ModelMessage,

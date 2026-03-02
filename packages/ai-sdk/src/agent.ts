@@ -23,7 +23,10 @@ import { modelMessageToLlmMessage } from "./messages";
 import { HANDLEBAR_TAGS } from "./tool";
 
 // biome-ignore lint/suspicious/noExplicitAny: intentional loose base
-function resolveToolTags(t: Tool<any, any>, fallback: string[] | undefined): string[] {
+function resolveToolTags(
+	t: Tool<any, any>,
+	fallback: string[] | undefined,
+): string[] {
 	const attached = (t as Record<symbol, unknown>)[HANDLEBAR_TAGS];
 	if (Array.isArray(attached)) return attached;
 	return fallback ?? [];
