@@ -1,12 +1,12 @@
-# Handlebar, Agent Control Layer 
+# Handlebar, Agent Control Layer (for Vercel ai agents) 
 
 [Handlebar] is a runtime control layer for your AI agents.
 
 Enforce deterministic rules on your agents as they act,
-so you can guarantee they don't violate your team's policies.
+so you can guarantee they don't violate your team's policies.\
+This package provides a Handlebar wrapper for Vercel ai agents.
 
-**N.b.** This package provides a Handlebar wrapper for Vercel AI agents **version 5**.\
-If you are on version 6 or above, please use the [`@handlebar/ai-sdk`](../ai-sdk/README.md) package instead.
+_N.b. if you're using Vercel `ai <= 5.0.0`, use Handlebar's `@handlebar/ai-sdk-v5` package instead._
 
 | Without Handlebar | With Handlebar |
 |:------|:------|
@@ -50,10 +50,10 @@ with more on the way soon. If your agent is not directly supported, you can stil
 
 | Framework | Install command | Where to read more |
 |:---:|:---:|:---:|
+| Vercel ai **Version >=6** | `bun i @handlebar/ai-sdk` | [Vercel AI integration guide](../docs/integrations/vercel-ai-sdk.md) |
 | Vercel ai **Version 5** | `bun i @handlebar/ai-sdk-v5` | [Vercel AI integration guide](../docs/integrations/vercel-ai-sdk.md) |
-| Vercel ai **Version >=6** | `bun i @handlebar/ai-sdk`  | [Vercel AI integration guide](../docs/integrations/vercel-ai-sdk.md) |
 | Langchain | `bun i @handlebar/langchain` | See the [langchain integration guide](../docs/integrations/langchain.md) |
-| Openai agents | `bun i @handlebar/core` | See the [OpenAI integration guide](../docs/integrations/openai-agents.md)
+| Openai agents | `bun i @handlebar/core` | See the [OpenAI integration guide](../docs/integrations/openai-agents.md) |
 | Other JS/TS, and custom agents | `bun i @handlebar/core` | [`packages/core`](../packages/core) |
 | Python agents | Soon... | |
 

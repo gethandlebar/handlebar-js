@@ -22,6 +22,7 @@
   },
   "overrides": {
     "@handlebar/langchain": "workspace:*",
+    "@handlebar/ai-sdk": "workspace:*",
     "@handlebar/ai-sdk-v5": "workspace:*",
     "@handlebar/core": "workspace:*",
     "@handlebar/governance-schema": "workspace:*"

@@ -50,7 +50,7 @@ with more on the way soon. If your agent is not directly supported, you can stil
 |:---:|:---:|:---:|
 | Langchain | `bun i @handlebar/langchain` | See the [langchain integration guide](../docs/integrations/langchain.md) |
 | Vercel ai **Version 5** | `bun i @handlebar/ai-sdk-v5` | [Vercel AI integration guide](../docs/integrations/vercel-ai-sdk.md) |
-| Vercel ai **Version >=6** | Soon... | |
+| Vercel ai **Version >=6** | `bun i @handlebar/ai-sdk` | [Vercel AI integration guide](../docs/integrations/vercel-ai-sdk.md) |
 | Openai agents | `bun i @handlebar/core` | See the [OpenAI integration guide](../docs/integrations/openai-agents.md) |
 | Other JS/TS, and custom agents | `bun i @handlebar/core` | [`packages/core`](../packages/core) |
 | Python agents | Soon... | |
