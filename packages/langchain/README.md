@@ -49,11 +49,12 @@ with more on the way soon. If your agent is not directly supported, you can stil
 | Framework | Install command | Where to read more |
 |:---:|:---:|:---:|
 | Langchain | `bun i @handlebar/langchain` | See the [langchain integration guide](../docs/integrations/langchain.md) |
+| Langchain Python | `pip install handlebar-langchain` | Refer to python documentation at https://github.com/gethandlebar/handlebar-python |
 | Vercel ai **Version 5** | `bun i @handlebar/ai-sdk-v5` | [Vercel AI integration guide](../docs/integrations/vercel-ai-sdk.md) |
 | Vercel ai **Version >=6** | Soon... | |
 | Openai agents | `bun i @handlebar/core` | See the [OpenAI integration guide](../docs/integrations/openai-agents.md) |
-| Other JS/TS, and custom agents | `bun i @handlebar/core` | [`packages/core`](../packages/core) |
-| Python agents | Soon... | |
+| Other JS/TS, and custom agents | `bun i @handlebar/core` | See the [custom integration guide](../docs/integrations/custom.md) |
+| Python agents | - | See https://github.com/gethandlebar/handlebar-python |
 
 ### Connect your agent to the Handlebar platform
 
