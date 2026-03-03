@@ -19,9 +19,7 @@ export const MetricWindowConditionSchema = z
 		 *
 		 * "run"        — aggregate from the start of the current agent run.
 		 *                windowSeconds is ignored; the run's startedAt is used as
-		 *                the window floor. Note: concurrent runs share the same
-		 *                metric buckets, so counts may be slightly over-reported.
-		 *                True per-run isolation is deferred to Phase 2.
+		 *                the window floor.
 		 *
 		 * "agent"      — aggregate over windowSeconds, all end-users.
 		 *

@@ -54,7 +54,7 @@
     },
     "packages/ai-sdk-v5": {
       "name": "@handlebar/ai-sdk-v5",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@handlebar/core": "^0.2.0",
         "@handlebar/governance-schema": "^0.2.0",
@@ -77,7 +77,7 @@
     },
     "packages/governance-schema": {
       "name": "@handlebar/governance-schema",
-      "version": "0.2.0",
+      "version": "0.3.0-dev.0",
       "dependencies": {
         "zod": "^4.1.12",
       },
