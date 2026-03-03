@@ -14,13 +14,38 @@ export type MetricRef = z.infer<typeof MetricRefSchema>;
 export const MetricWindowConditionSchema = z
 	.object({
 		kind: z.literal("metricWindow"),
-		scope: z.enum(["agent", "agent_user"]),
+		/**
+		 * Scope of the metric aggregation:
+		 *
+		 * "run"        — aggregate from the start of the current agent run.
+		 *                windowSeconds is ignored; the run's startedAt is used as
+		 *                the window floor. Note: concurrent runs share the same
+		 *                metric buckets, so counts may be slightly over-reported.
+		 *                True per-run isolation is deferred to Phase 2.
+		 *
+		 * "agent"      — aggregate over windowSeconds, all end-users.
+		 *
+		 * "agent_user" — aggregate over windowSeconds, current end-user only.
+		 */
+		scope: z.enum(["run", "agent", "agent_user"]),
 		metric: MetricRefSchema,
 		aggregate: z.enum(["sum", "avg", "max", "min", "count"]),
-		windowSeconds: z.number().int().positive(),
+		/**
+		 * Duration of the look-back window in seconds.
+		 * Required when scope is "agent" or "agent_user".
+		 * When scope is "run" the run start time is used instead; this field is
+		 * optional and ignored.
+		 */
+		windowSeconds: z.number().int().positive().optional(),
 		filter: z
 			.object({
+				/**
+				 * @deprecated Kept for schema compatibility; treated as a no-op by the evaluator.
+				 */
 				toolName: z.union([GlobSchema, z.array(GlobSchema).min(1)]).optional(),
+				/**
+				 * @deprecated Kept for schema compatibility; treated as a no-op by the evaluator.
+				 */
 				toolTag: z
 					.union([z.string().min(1), z.array(z.string().min(1)).min(1)])
 					.optional(),
