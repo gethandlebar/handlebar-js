@@ -11,16 +11,38 @@ const TimeHHMMSchema = z
 		'Expected time in "HH:MM" 24-hour format',
 	);
 
+/**
+ * Timezone source for TimeGate evaluation.
+ *
+ * "enduserTag" - read the timezone from an end-user tag at runtime; falls back
+ *               to the organisation timezone when the tag is absent and
+ *               fallback: "org" is set.
+ *
+ * "static"     - use a fixed IANA timezone string for all evaluations,
+ *               regardless of end-user context.
+ */
+const TimezoneSchema = z.discriminatedUnion("source", [
+	z
+		.object({
+			source: z.literal("enduserTag"),
+			tag: z.string().min(1),
+			/** Fall back to the organisation's configured timezone when the tag is absent. */
+			fallback: z.literal("org").optional(),
+		})
+		.strict(),
+	z
+		.object({
+			source: z.literal("static"),
+			/** IANA timezone identifier, e.g. "UTC" or "Europe/London". */
+			tz: z.string().min(1),
+		})
+		.strict(),
+]);
+
 export const TimeGateConditionSchema = z
 	.object({
 		kind: z.literal("timeGate"),
-		timezone: z
-			.object({
-				source: z.literal("enduserTag"),
-				tag: z.string().min(1),
-				fallback: z.literal("org").optional(),
-			})
-			.strict(),
+		timezone: TimezoneSchema,
 		windows: z
 			.array(
 				z
